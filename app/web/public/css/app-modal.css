@@ -1,0 +1,11 @@
+/* app/web/public/css/app-modal.css */
+.modal-header.bg-success .close,
+.modal-header.bg-danger .close {
+    color: #fff;
+    opacity: .9;
+}
+
+.modal-header.bg-success .close:hover,
+.modal-header.bg-danger .close:hover {
+    opacity: 1;
+}

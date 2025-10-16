@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#247D57',  // green
+            secondary: '#82103C' // maroon
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Optional overrides / local CSS (prevents /style.css 404) -->
+  <link rel="stylesheet" href="/public/style.css">
+  <title>Portal</title>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <div class="flex">
+    <% /* SAFETY: only include sidebar if user is defined */ %>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <%- include('../partials/sidebar') %>
+    <% } %>
+
+    <main class="flex-1">
+      <%- body %>
+    </main>
+  </div>
+</body>
+</html>

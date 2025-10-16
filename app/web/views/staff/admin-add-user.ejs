@@ -1,0 +1,100 @@
+<div class="row">
+  <div class="col-md-8">
+    <div class="card card-success">
+      <div class="card-header"><h3 class="card-title">Add User / Role</h3></div>
+      <form action="/staff/users/add" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Full Name</label>
+              <input type="text" class="form-control" name="name" required>
+            </div>
+            <div class="form-group col-md-6">
+              <label>Username</label>
+              <input type="text" class="form-control" name="username" placeholder="optional">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Email</label>
+              <input type="email" class="form-control" name="email">
+            </div>
+            <div class="form-group col-md-3">
+              <label>Phone</label>
+              <input type="text" class="form-control" name="phone">
+            </div>
+            <div class="form-group col-md-3">
+              <label>Level</label>
+              <input type="text" class="form-control" name="level">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label>Staff Number</label>
+              <input type="text" class="form-control" name="staffNumber">
+            </div>
+            <div class="form-group col-md-4">
+              <label>Role</label>
+              <select name="role" class="form-control" required>
+                <option value="">-- choose --</option>
+                <option>admin</option>
+                <option>hod</option>
+                <option>lecturer</option>
+                <option>applicant</option>
+                <option>student</option>
+                <option>dean</option>
+                <option>ict</option>
+                <option>student union</option>
+                <option>bursary</option>
+                <option>registry</option>
+                <option>admission officer</option>
+                <option>auditor</option>
+                <option>health center</option>
+                <option>works</option>
+                <option>library</option>
+                <option>provost</option>
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <label>Highest Qualification</label>
+              <input type="text" class="form-control" name="highestQualification">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>School</label>
+              <input type="text" class="form-control" name="school" placeholder="select or type new">
+            </div>
+            <div class="form-group col-md-6">
+              <label>Department</label>
+              <input type="text" class="form-control" name="department" placeholder="select or type new">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Password</label>
+              <input type="text" class="form-control" name="password" value="College1">
+              <small class="text-muted">Default is College1</small>
+            </div>
+          </div>
+
+        </div>
+        <div class="card-footer text-right">
+          <button class="btn btn-success">Add User</button>
+        </div>
+      </form>
+
+      <% if (messages && messages.error) { %>
+        <div class="alert alert-danger m-3"><%= messages.error %></div>
+      <% } %>
+      <% if (messages && messages.success) { %>
+        <div class="alert alert-success m-3"><%= messages.success %></div>
+      <% } %>
+    </div>
+  </div>
+</div>

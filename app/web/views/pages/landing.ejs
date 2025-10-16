@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Home | University Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Icons / Fonts -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com/" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-qo1..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Site CSS -->
+  <link rel="stylesheet" href="/public/css/portal.css" />
+  <link rel="icon" href="/public/favicon.ico">
+
+  <!-- Mobile enhancements (non-destructive) -->
+  <style>
+    /* General helpers */
+    img { max-width: 100%; height: auto; }
+
+    /* Stack grid on small */
+    @media (max-width: 992px){
+      .grid-4{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--gap,1rem); }
+      .hide-sm{ display:none !important; }
+    }
+    @media (max-width: 600px){
+      .grid-4{ grid-template-columns:1fr; }
+    }
+
+    /* Responsive nav */
+    .header-nav .nav{
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem; position:relative;
+    }
+    .menu-toggle{
+      display:none; border:0; background:transparent; font-size:1.25rem; line-height:1; padding:.5rem; cursor:pointer;
+    }
+    .menu-toggle:focus{ outline:2px solid rgba(0,0,0,.25); outline-offset:2px; }
+    .nav .menu{ display:flex; align-items:center; gap:1rem; }
+    .nav .menu li{ position:relative; }
+    .submenu-toggle{ display:none; border:0; background:transparent; padding:.25rem .5rem; font-size:.95rem; cursor:pointer; }
+    .submenu-toggle i{ transition:transform .2s ease; }
+
+    @media (max-width: 992px){
+      .menu-toggle{ display:inline-flex; align-items:center; justify-content:center; }
+      .nav{ flex-wrap:wrap; }
+      .nav .menu{
+        width:100%; display:none; flex-direction:column; gap:.25rem; margin-top:.5rem;
+      }
+      .nav.is-open .menu{ display:flex; }
+      .nav .menu > li{ width:100%; }
+      .nav .menu > li > a{ display:flex; align-items:center; justify-content:space-between; width:100%; padding:.4rem 0; }
+      .submenu-toggle{ display:inline-flex; align-items:center; }
+      .nav .dd{ display:none; padding:.25rem 0 .5rem .75rem; }
+      .nav .has-dd.open > .dd{ display:block; }
+      .nav .has-dd.open .submenu-toggle i{ transform:rotate(180deg); }
+    }
+
+    /* ──────────────────────────────────────────────
+       MOBILE-ONLY tweaks requested
+       - Bigger tiles (login group) + push text down
+       - Bigger info cards
+       - Show college name next to logo
+       ────────────────────────────────────────────── */
+    .brand-name{ display:none; } /* default hidden (tablet/desktop) */
+
+    @media (max-width: 600px){
+      /* Show name beside the logo on mobile to fill space */
+      .brand{ display:flex; align-items:center; gap:.5rem; }
+      .brand-name{
+        display:inline-block;
+        font-weight:700;
+        font-size:.78rem;
+        line-height:1.2;
+        max-width: calc(100% - 80px); /* keep from wrapping under logo */
+      }
+
+      /* LOGIN TILES: taller + push text down so it doesn't overlap chip */
+      .tiles .tile{
+        min-height: 170px;              /* increased more than before */
+        padding: 1.25rem 1.25rem 1rem;
+        position: relative;
+      }
+      .tiles .tile .tile-title{
+        display:block;
+        margin-top: 1.35rem;            /* nudge down below the chip */
+      }
+      /* If your chip is absolutely positioned at the top, this ensures room */
+      .tiles .tile .chip{ margin-top: .15rem; }
+
+      /* INFO CARDS: a bit taller for comfortable tap targets */
+      #courses .info-card{
+        min-height: 140px;
+        padding: 1rem 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="wrapper" class="clearfix">
+
+    <!-- Header Top -->
+    <div class="header-top text-white">
+      <div class="container flex between">
+        <div class="hide-sm">
+          <i class="fa-solid fa-phone"></i> Call us for more details: <b>+234 803 2524 034 - Bursary</b>
+        </div>
+        <div class="hide-sm">
+          <i class="fa-solid fa-envelope"></i> admissions@ekscotech.edu.ng • cohmatech@gmail.com
+        </div>
+      </div>
+    </div>
+
+    <!-- Header Middle -->
+    <div class="header-middle">
+      <div class="container flex between middle">
+        <a class="brand" href="/">
+          <img src="/public/img/logo.png" alt="logo" style="height:70px!important;width:auto!important;object-fit:contain;vertical-align:middle;">
+          <span class="brand-name">Ekiti State College of Health Sciences &amp; Technology, Ijero.</span>
+        </a>
+
+        <div class="hide-sm flex gap-lg">
+          <div class="mini media">
+            <i class="fa-solid fa-envelope media-icon"></i>
+            <div>
+              <div class="mini-kicker">Mail us: admin@ekscotech.edu.ng</div>
+              <div class="mini-text">Contact the Registrar's<br/>Office</div>
+            </div>
+          </div>
+          <div class="mini media">
+            <i class="fa-solid fa-phone-square media-icon"></i>
+            <div>
+              <div class="mini-kicker">Call us: College ICT - +234-(80) 435685427</div>
+              <div class="mini-text">+234 814 470 0814 - Bursary</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navbar -->
+    <div class="header-nav">
+      <div class="container">
+        <nav class="nav">
+          <!-- Collapsible menu button (mobile) -->
+          <button class="menu-toggle" aria-label="Open menu" aria-controls="primary-menu" aria-expanded="false">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+
+          <ul id="primary-menu" class="menu">
+            <li class="active"><a href="#home">Home</a></li>
+            <li><a href="/login">Fees Payment</a></li>
+            <li class="has-dd">
+              <a href="/login">Students</a>
+              <ul class="dd">
+                <li><a href="/login">Student Login</a></li>
+              </ul>
+            </li>
+            <li class="has-dd">
+              <a href="/login">Staff</a>
+              <ul class="dd">
+                <li><a href="/login">Staff Login</a></li>
+              </ul>
+            </li>
+            <li class="has-dd">
+              <a href="/login">Admission</a>
+              <ul class="dd">
+                <li><a href="/login">Apply for Admission</a></li>
+                <li><a href="/login">Check Admission Status</a></li>
+                <li><a href="login">Admission Requirements</a></li>
+              </ul>
+            </li>
+            <li><a href="#">FAQ</a></li>
+            <li><a href="#">Contact Us</a></li>
+          </ul>
+
+          <button class="search-btn" aria-label="Search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <section id="home" class="hero">
+      <div class="hero-bg" style="background-image:url('/public/img/login-bg.jpg')"></div>
+      <div class="hero-overlay"></div>
+
+      <div class="container">
+        <h1 class="hero-title">WELCOME TO THE <span class="accent">COLLEGE OFFICIAL PORTAL</span></h1>
+        <p class="hero-sub">Click the link below to apply</p>
+        <div class="hero-cta">
+          <a class="btn btn-accent" href="/login">COLLEGE ADMISSION</a>
+          <a class="btn btn-secondary" href="/login">CONTINUE APPLICATION</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Four big tiles -->
+    <section class="tiles">
+      <div class="container grid-4 gap-lg">
+        <a class="tile" href="/login">
+          <div class="chip"><i class="fa-solid fa-people-group"></i></div>
+          <div class="tile-title">Students Login</div>
+        </a>
+        <a class="tile" href="/login">
+          <div class="chip"><i class="fa-solid fa-user"></i></div>
+          <div class="tile-title">Staff Login</div>
+        </a>
+        <a class="tile" href="/app_signin">
+          <div class="chip"><i class="fa-solid fa-book"></i></div>
+          <div class="tile-title">Admission / Application </div>
+        </a>
+        <a class="tile" href="/login">
+          <div class="chip"><i class="fa-solid fa-graduation-cap"></i></div>
+          <div class="tile-title">Login to College Management System</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Transcript / Virtual / E-Learning / Payment -->
+    <section id="courses" class="light-band">
+      <div class="container">
+        <div class="grid-4 gap-lg">
+          <a class="info-card" href="/c_signin">
+            <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
+            <div>
+              <h4 class="info-title">Transcript/ Certificate</h4>
+              <p class="info-sub">Apply for Transcript/Certificate</p>
+            </div>
+          </a>
+
+          <a class="info-card" href="/students/index#virtual/manage_virtual">
+            <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
+            <div>
+              <h4 class="info-title">Staff / Students Attendance</h4>
+              <p class="info-sub">Login to Mark Daily Attendance</p>
+            </div>
+          </a>
+
+          <a class="info-card" href="/students/index#/ebooks/ebooks">
+            <div class="info-icon"><i class="fa-solid fa-book"></i></div>
+            <div>
+              <h4 class="info-title">E-Learning</h4>
+              <p class="info-sub">Virtual Learning / Download lecture materials</p>
+            </div>
+          </a>
+
+          <a class="info-card" href="/payment">
+            <div class="info-icon"><i class="fa-regular fa-id-card"></i></div>
+            <div>
+              <h4 class="info-title">Online Payment</h4>
+              <p class="info-sub">Generate IRR / Pay Fees Online</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Help Desk -->
+    <section class="helpdesk">
+      <div class="container">
+        <h2 class="section-heading">HELP <span class="accent">DESK</span></h2>
+
+        <div class="grid-4 gap-lg">
+          <div class="help-card primary">
+            <i class="fa-solid fa-user"></i>
+            <h4>STUDENTS COMPLAINTS</h4>
+            <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
+            <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
+          </div>
+
+          <div class="help-card secondary">
+            <i class="fa-regular fa-comments"></i>
+            <h4>STAFF COMPLAINTS</h4>
+            <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
+          </div>
+
+          <div class="help-card primary">
+            <i class="fa-solid fa-money-bill-wave"></i>
+            <h4>BURSARY COMPLAINTS</h4>
+             <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
+          </div>
+
+          <div class="help-card secondary">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <h4>ADMISSION</h4>
+             <p><i class="fa-solid fa-phone"></i> Visit the Registrar's Office</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container grid-4 gap-lg">
+        <div>
+          <a class="brand" href="/"><img src="/public/img/logo.png" alt="logo" style="height:70px!important;width:auto!important;object-fit:contain;vertical-align:middle;"></a>
+          <p>Address: P.M.B 316, Epe Ara Road, Ijero Ekiti, Ekiti State​, Nigeria</p>
+          <ul class="contact-mini">
+            <li><i class="fa-solid fa-phone"></i> +234-(80) 435685427</li>
+            <li><i class="fa-regular fa-envelope"></i> admin@ekscotech.edu.ng</li>
+            <li><i class="fa-solid fa-globe"></i> cohmatech@gmail.com</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="foot-title">Useful Links</h4>
+          <ul class="foot-links">
+            <li><a href="/">Home Page</a></li>
+            <li><a href="/login">Students Login</a></li>
+            <li><a href="/login">Staff Login</a></li>
+            <li><a href="/login">Admission</a></li>
+            <li><a href="/login">Check Admission Status</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="foot-title">Other Links</h4>
+          <ul class="foot-links">
+            <li><a href="https://ekscotech.edu.ng/">COLLEGE Website</a></li>
+            <li><a href="#">Admission Requirements</a></li>
+            <li><a href="https://ekscotech.edu.ng/">FAQ</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="foot-title">Opening Hours</h4>
+          <ul class="foot-links">
+            <li>Mon – Sun <span class="dim">12:00am – 11:59pm</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div class="container flex between wrap">
+          <p class="small">Powered by College ICT</p>
+          <ul class="foot-inline">
+            <li><a href="#">FAQ</a></li>
+            <li>|</li>
+            <li><a href="#">Help Desk</a></li>
+            <li>|</li>
+            <li><a href="#">Support</a></li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Tiny script for mobile menu + submenus -->
+  <script>
+    (function () {
+      var nav = document.querySelector('.nav');
+      if (!nav) return;
+      var toggle = nav.querySelector('.menu-toggle');
+      var menu   = document.getElementById('primary-menu');
+
+      if (toggle && menu) {
+        toggle.addEventListener('click', function () {
+          var open = nav.classList.toggle('is-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      }
+
+      // Create submenu toggles for mobile
+      var withDD = nav.querySelectorAll('li.has-dd');
+      withDD.forEach(function (li) {
+        var a = li.querySelector('a');
+        var btn = document.createElement('button');
+        btn.className = 'submenu-toggle';
+        btn.setAttribute('aria-label', 'Expand submenu');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+        a && a.insertAdjacentElement('afterend', btn);
+
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var isOpen = li.classList.toggle('open');
+          btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+      });
+
+      // Close when clicking outside (mobile)
+      document.addEventListener('click', function (e) {
+        if (window.innerWidth > 992) return;
+        if (!nav.contains(e.target)) {
+          nav.classList.remove('is-open');
+          if (toggle) toggle.setAttribute('aria-expanded', 'false');
+          nav.querySelectorAll('.has-dd.open').forEach(function (li) { li.classList.remove('open'); });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

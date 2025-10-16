@@ -1,0 +1,62 @@
+<!-- app/web/views/staff/manage-session.ejs -->
+<div class="content-header">
+  <div class="container-fluid">
+    <h2 class="mb-2"><%= pageTitle %></h2>
+  </div>
+</div>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-header bg-success text-white"><strong>Manage Session</strong></div>
+      <div class="card-body">
+        <form id="sessionForm" method="post" action="/staff/session/current"
+              onsubmit="return confirmChange('Are you sure you want to set this as the current session?')">
+          <% if (csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+
+          <div class="form-group" style="max-width:380px;">
+            <label for="sessionName">Session</label>
+            <select name="sessionName" id="sessionName" class="form-control">
+              <% (data?.list || []).forEach(function(s){ %>
+                <option value="<%= s %>" <%= (s === data?.current ? 'selected' : '') %>><%= s %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save</button>
+
+          <% if (data?.previous) { %>
+            <button type="button" class="btn btn-warning ml-2" onclick="doSwitchBack()">Switch Back</button>
+          <% } %>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function confirmChange(msg){
+    if (window.showAppConfirm) {
+      let ok = false;
+      showAppConfirm(msg, () => { ok = true; document.getElementById('sessionForm').submit(); });
+      return false;
+    }
+    return confirm(msg);
+  }
+  function doSwitchBack(){
+    const submit = () => {
+      const f = document.createElement('form');
+      f.method = 'POST';
+      f.action = '/staff/session/switch-back';
+      <% if (csrfToken) { %>
+        const c = document.createElement('input');
+        c.type = 'hidden'; c.name = '_csrf'; c.value = '<%= csrfToken %>';
+        f.appendChild(c);
+      <% } %>
+      document.body.appendChild(f);
+      f.submit();
+    };
+    if (window.showAppConfirm) return showAppConfirm('Are you sure you want to switch back to the previous session?', submit);
+    if (confirm('Are you sure you want to switch back to the previous session?')) submit();
+  }
+</script>

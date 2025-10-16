@@ -1,0 +1,309 @@
+<%
+const role = (user && user.role ? String(user.role) : '').toLowerCase();
+
+const staffRoles = new Set([
+  'admin', 'administrator', 'superadmin',
+  'staff',
+  'lecturer',
+  'h.o.d', 'hod', 'head of department',
+  'dean',
+  'registrary', 'registry', 'registrar',
+  'bursary', 'bursar',
+  'ict staff', 'ict',
+  'college health centre', 'health', 'health centre',
+  'auditor',
+  'admission officer', 'admissions officer', 'admission',
+  'school/dept. officer', 'school officer', 'department officer', 'dept officer',
+  'student union'
+]);
+
+const isStaffLike = staffRoles.has(role);
+
+// allowedModules is provided by enforceStatusGlobally (Set or null)
+function can(moduleKey) {
+  if (!allowedModules) return true; // null => no restrictions
+  return allowedModules.has(moduleKey);
+}
+%>
+
+<style>
+  .main-sidebar,
+  .main-sidebar .brand-link,
+  .main-sidebar .sidebar { background-color: #247D57 !important; }
+  .main-sidebar .brand-text,
+  .main-sidebar .user-panel .info a,
+  .main-sidebar .nav-link,
+  .main-sidebar .nav-header { color:#fff !important; font-weight:600; }
+  .main-sidebar .nav-link .nav-icon,
+  .main-sidebar .nav-treeview .nav-link { color:#fff !important; font-weight:600; }
+  .main-sidebar .nav-sidebar>.nav-item>.nav-link.active,
+  .main-sidebar .nav-sidebar>.nav-item.menu-open>.nav-link { background-color:#82103C !important; color:#fff !important; }
+  .main-sidebar .nav-treeview>.nav-item>.nav-link.active { background-color:#82103C !important; color:#fff !important; }
+  .main-sidebar .nav-link:hover { background-color: rgba(0,0,0,.08) !important; }
+  .main-sidebar .nav-header { opacity:.9; }
+
+  /* Disabled links (policy-restricted, e.g., GRADUATED student) */
+  .nav-link.disabled { pointer-events:none; opacity:.5; }
+</style>
+
+<nav class="mt-2">
+  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+    <% if (isStaffLike) { %>
+      <!-- Existing Staff Modules -->
+      <li class="nav-item" style="background-color: #82103C;">
+        <a href="/staff/dashboard" class="nav-link">
+          <i class="nav-icon fas fa-tachometer-alt"></i><p><strong>Dashboard</strong></p>
+        </a>
+      </li>
+
+      <!-- Manage Session -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-calendar-alt"></i>
+          <p><strong>Manage Session</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/session/current"  class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Set Current Session</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/session/semester" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Switch Semester</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Action Staff (NEW GROUP: Add User/Role + Password Reset) -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-user-cog"></i>
+          <p><strong>Action Staff</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item">
+            <a href="/staff/users/add" class="nav-link">
+              <i class="far fa-circle nav-icon"></i><p><strong>Add User/Role</strong></p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/staff/password-reset" class="nav-link">
+              <i class="far fa-circle nav-icon"></i><p><strong>Password Reset</strong></p>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Manage Staff -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-users-cog"></i>
+          <p><strong>Manage Staff</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/manage/assign-role" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Assign Role to Staff</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/manage/modify"      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Modify Staff</strong></p></a></li>
+        </ul>
+      </li>
+            <!-- Manage Attendance -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-users-cog"></i>
+          <p><strong>Attendance Mgt</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/attendance/office-location" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Set Office Long/Lat.</strong></p></a></li>
+          <li class="nav-item"><a href="" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Mark Attendance</strong></p></a></li>
+          <li class="nav-item"><a href=""      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>View Export Report</strong></p></a></li>
+          <li class="nav-item"><a href=""      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Real Live Overview</strong></p></a></li>
+          <li class="nav-item"><a href=""      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Watch-List Staff</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Manage Courses -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-book"></i>
+          <p><strong>Manage Courses</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/courses/assign"   class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Assign Course</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/courses/add"      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Add New Course</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/school/manage"    class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Add/Edit School</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/department/manage"class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Add/Edit Department</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Admissions -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-user-graduate"></i>
+          <p><strong>Admissions</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Manage Admissions</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/upload"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Admission List</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/status"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Admission Status</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/update-list"      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Update Admission List</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/notify"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Admission Notification</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/letters"          class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Manage Admission Letter</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/scratch-cards"    class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Manage Scratch Card</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/exam-date"        class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Set Exam Date</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/verify-applicant" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Verify Applicant</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/export"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Export Applicant</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/upload-utme"      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload UTME Admission</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/add-course"       class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Add Course to Application</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Manage Student -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-user-edit"></i>
+          <p><strong>Manage Student</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/students/upload"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/edit"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Edit Student</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Reset Password</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>UTME DATA</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Course Registration</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Student Attendance</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Uniform Measurement</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Manage Applicant -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-user-edit"></i>
+          <p>Manage Applicant <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/students/upload"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/edit"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Edit Applicant</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Reset Password</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Payment / Requery</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Check Screening Result</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Check Admission Status</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Mark Applicant As Inactive</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Bursary / Payment -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-money-bill-wave"></i>
+          <p>Bursary / Payment <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/fees/add"            class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Add Fees</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/fees/manual-payment" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Payment Outside Portal</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/fees/update"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Update Fees</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/utme"        class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>UTME</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/applicants"  class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Applicants</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/verify-applicant" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Verify Applicant</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Manage Password -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-key"></i>
+          <p>Manage Password <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/staff/password/staff"        class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Staff Password</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/password/student"      class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Student Password</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/password/applicant"    class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Applicant Password</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/password/edit-details" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Edit Details</strong></p></a></li>
+        </ul>
+      </li>
+
+      <li class="nav-item"><a href="/records" class="nav-link"><i class="nav-icon fas fa-table"></i><p><strong>Student Academic Records</strong></p></a></li>
+      <li class="nav-item"><a href="/results" class="nav-link"><i class="nav-icon fas fa-calculator"></i><p><strong>Result Computation</strong></p></a></li>
+      <li class="nav-item"><a href="/transcripts/generate" class="nav-link"><i class="nav-icon far fa-file-alt"></i><p><strong>Generate Transcript</strong></p></a></li>
+      <li class="nav-item"><a href="/transcripts/view"     class="nav-link"><i class="nav-icon far fa-file-pdf"></i><p><strong>View / Download Transcript</strong></p></a></li>
+      <li class="nav-item"><a href="/transcripts/send"     class="nav-link"><i class="nav-icon fas fa-paper-plane"></i><p><strong>Send Transcript</strong></p></a></li>
+
+    <% } else if (role === 'student') { %>
+
+      <li class="nav-item">
+        <a href="/student/dashboard" class="nav-link">
+          <i class="nav-icon fas fa-tachometer-alt"></i><p><strong>Dashboard</strong></p>
+        </a>
+      </li>
+
+      <!-- Course Registration (student.registration) -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-clipboard-list"></i>
+          <p><strong>Course Registration</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item">
+            <a href="/student/registration"
+               class="nav-link <%= can('student.registration') ? '' : 'disabled' %>">
+              <i class="far fa-circle nav-icon"></i><p><strong>Register Course</strong></p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/student/registration/print"
+               class="nav-link <%= can('student.registration') ? '' : 'disabled' %>">
+              <i class="far fa-circle nav-icon"></i><p><strong>Print Course Registration</strong></p>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Bursary / Payment (student.fees) -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-money-check-alt"></i>
+          <p><strong>Bursary / Payment</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/student/fees/school"       class="nav-link <%= can('student.fees') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>School Fees</strong></p></a></li>
+          <li class="nav-item"><a href="/student/fees/validate-rrr" class="nav-link <%= can('student.fees') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Validate RRR</strong></p></a></li>
+          <li class="nav-item"><a href="/student/fees/acceptance"   class="nav-link <%= can('student.fees') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Acceptance Fees</strong></p></a></li>
+          <li class="nav-item"><a href="/student/fees/transcript"   class="nav-link <%= can('student.fees') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Transcript Fees</strong></p></a></li>
+          <li class="nav-item"><a href="/student/fees/certificate"  class="nav-link <%= can('student.fees') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Certificate Fees</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Utilities (student.utilities) -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-tools"></i>
+          <p><strong>Utilities</strong> <i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="/student/rrr/track"        class="nav-link <%= can('student.utilities') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Track RRR</strong></p></a></li>
+          <li class="nav-item"><a href="/student/payments/history" class="nav-link <%= can('student.utilities') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Payment History</strong></p></a></li>
+          <li class="nav-item"><a href="/student/exams/clearance"  class="nav-link <%= can('student.utilities') ? '' : 'disabled' %>"><i class="far fa-circle nav-icon"></i><p><strong>Exam Clearance</strong></p></a></li>
+        </ul>
+      </li>
+
+      <!-- Results & Transcript (student.results) -->
+      <li class="nav-header">Student</li>
+
+      <li class="nav-item">
+        <a href="/student/request-transcript" class="nav-link <%= can('student.results') ? '' : 'disabled' %>">
+          <i class="nav-icon far fa-file-alt"></i><p><strong>Request Transcript</strong></p>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/student/check-result" class="nav-link <%= can('student.results') ? '' : 'disabled' %>">
+          <i class="nav-icon fas fa-poll"></i><p><strong>Check Result</strong></p>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/student/academic-record" class="nav-link <%= can('student.results') ? '' : 'disabled' %>">
+          <i class="nav-icon fas fa-book-reader"></i><p><strong>View My Academic Record</strong></p>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/student/current-gcpa" class="nav-link <%= can('student.results') ? '' : 'disabled' %>">
+          <i class="nav-icon fas fa-chart-line"></i><p><strong>My Current GCPA</strong></p>
+        </a>
+      </li>
+
+    <% } %>
+
+  </ul>
+</nav>

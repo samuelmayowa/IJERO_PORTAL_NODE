@@ -1,0 +1,117 @@
+<div class="card card-success">
+  <div class="card-header"><h3 class="card-title">Assign Role to Staff</h3></div>
+  <div class="card-body">
+    <div class="form-row">
+      <div class="form-group col-md-2"><input id="fDept" class="form-control" placeholder="Department"></div>
+      <div class="form-group col-md-2"><input id="fSchool" class="form-control" placeholder="School"></div>
+      <div class="form-group col-md-2"><input id="fEmail" class="form-control" placeholder="Email"></div>
+      <div class="form-group col-md-2"><input id="fName" class="form-control" placeholder="Name"></div>
+      <div class="form-group col-md-2"><input id="fUsername" class="form-control" placeholder="Username"></div>
+      <div class="form-group col-md-2"><input id="fStaffNo" class="form-control" placeholder="Staff No"></div>
+    </div>
+    <button id="btnFind" class="btn btn-primary mr-2">Find</button>
+    <button id="btnClear" class="btn btn-light">Clear Search Input</button>
+
+    <div class="table-responsive mt-3">
+      <table class="table table-striped" id="tbRole">
+        <thead><tr><th>Username</th><th>Name</th><th>Current Role(s)</th><th>Add Roles</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+      <small id="pageInfo" class="text-muted"></small>
+      <nav><ul class="pagination mb-0" id="pager"></ul></nav>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="okModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-success">
+  <div class="modal-header py-2"><h5 class="modal-title">Success</h5><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div>
+  <div class="modal-body" id="okMsg">Done</div><div class="modal-footer py-2"><button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button></div>
+</div></div></div>
+<div class="modal fade" id="errModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-danger">
+  <div class="modal-header py-2"><h5 class="modal-title">Failed</h5><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div>
+  <div class="modal-body" id="errMsg">Error</div><div class="modal-footer py-2"><button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button></div>
+</div></div></div>
+
+<script>
+const ROLES = ['hod','lecturer','applicant','student','dean','ict','student union','bursary','registry','admission officer','auditor','health center','works','library','provost','admin','staff'];
+
+const pageSize = 10; let currentPage = 1;
+const pageInfo = document.getElementById('pageInfo'); const pager = document.getElementById('pager');
+
+function showOk(m){ Modal.success(m || 'Done'); }
+function showErr(m){ Modal.error(m || 'Error'); }
+
+function qs(){
+  return new URLSearchParams({
+    department: fDept.value, school: fSchool.value, email: fEmail.value, name: fName.value,
+    username: fUsername.value, staffNumber: fStaffNo.value, page: currentPage, pageSize
+  }).toString();
+}
+
+function renderPager(total){
+  pager.innerHTML = '';
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  pageInfo.textContent = `Page ${currentPage} of ${pages} • ${total} result(s)`;
+  const add = (label, page, disabled=false, active=false)=>{
+    const li = document.createElement('li'); li.className = 'page-item' + (disabled?' disabled':'') + (active?' active':'');
+    const a = document.createElement('a'); a.className = 'page-link'; a.href='#'; a.textContent=label;
+    a.addEventListener('click', (e)=>{ e.preventDefault(); if(disabled||active) return; currentPage = page; search(); });
+    li.appendChild(a); pager.appendChild(li);
+  };
+  add('Prev', Math.max(1, currentPage-1), currentPage===1);
+  for(let p = Math.max(1,currentPage-2); p<=Math.min(pages,currentPage+2); p++) add(String(p), p, false, p===currentPage);
+  add('Next', Math.min(pages, currentPage+1), currentPage===pages);
+}
+
+async function search(){
+  const res = await fetch('/staff/api/staff?'+qs());
+  const d = await res.json();
+  const tb = document.querySelector('#tbRole tbody'); tb.innerHTML='';
+  for(const u of d.items){
+    const tr = document.createElement('tr');
+    const roleChks = ROLES.map(r=>{
+      const has = (u.roles||[]).map(x=>x.toLowerCase()).includes(r.toLowerCase()) || String(u.role||'').toLowerCase()===r.toLowerCase();
+      return `<label class="mr-2"><input type="checkbox" value="${r}" ${has?'checked':''}> ${r}</label>`;
+    }).join('');
+    tr.innerHTML = `
+      <td>${u.username || ''}</td>
+      <td>${u.name || u.fullName || ''}</td>
+      <td>${[u.role].concat(u.roles || []).filter(Boolean).join(', ')}</td>
+      <td>${roleChks}</td>
+      <td>
+        <button class="btn btn-sm btn-success btn-apply" data-username="${(u.username||'').trim()}">Apply</button>
+      </td>`;
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll('.btn-apply').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const tr = e.target.closest('tr');
+      const username = (btn.dataset.username || '').trim();
+      if (!username) return showErr('User reference missing for this record');
+
+      const roles = Array.from(tr.querySelectorAll('input[type=checkbox]:checked')).map(x => x.value);
+
+      const res = await fetch('/staff/api/staff/assign-roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CSRF-Token': '<%= csrfToken %>' },
+        body: JSON.stringify({ username, roles })
+      });
+      const data = await res.json();
+      if (data.success) { showOk('Roles updated'); search(); }
+      else showErr(data.message || 'Failed');
+    });
+  });
+  renderPager(d.total);
+}
+
+document.getElementById('btnFind').addEventListener('click', ()=>{ currentPage = 1; search(); });
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  fDept.value = fSchool.value = fEmail.value = fName.value = fUsername.value = fStaffNo.value = '';
+  currentPage = 1; search();
+});
+
+search();
+</script>

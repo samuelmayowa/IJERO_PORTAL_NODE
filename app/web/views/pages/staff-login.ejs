@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Signin | COLLEGE IJERO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="csrf-token" content="<%= csrfToken %>">
+
+  <!-- Bootstrap 4 + Font Awesome 4 (matches earlier assets) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="shortcut icon" href="favicon.ico">
+
+  <style>
+    :root{
+      --green:#247D57;      /* dominant brand */
+      --maroon:#82103C;     /* action buttons */
+      --note-bg:#FFF7E6;
+      --note-border:#F0AD4E;
+      --ink:#222;
+    }
+    html,body{height:100%;}
+    body{margin:0;color:var(--ink);}
+    .page-container{position:relative; min-height:100vh; overflow:hidden;}
+    .bg-cover{position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
+    .bg-frost{position:absolute; inset:0; background:#fff; opacity:.80;}
+    .login{position:relative; z-index:2; max-width:520px; margin:7vh auto; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.12); overflow:hidden; background:#fff;}
+    .login-brand{display:flex; align-items:center; justify-content:space-between; padding:.85rem 1rem; background:var(--green); color:#fff;}
+    .login-brand img{height:36px;}
+    .login-brand p{margin:0; font-weight:600; letter-spacing:.3px;}
+    .login-content{ padding:1.1rem 1.25rem 1.5rem; }
+    .note.note-warning{display:flex; border-left:6px solid var(--note-border); background:var(--note-bg); border-radius:10px; padding:.9rem .95rem; margin-bottom:1rem;}
+    .note-icon{margin-right:.65rem; color:#F0AD4E; display:flex; align-items:flex-start; font-size:22px; line-height:1;}
+    .note-content h4{margin:.1rem 0 .4rem; font-weight:700;}
+    .label.label-success{background:#5cb85c; color:#fff; padding:.18rem .45rem; border-radius:3px; font-size:.82rem;}
+    .input-group-addon{background:#f1f3f5; border:1px solid #ced4da; color:#222; padding:.55rem .75rem; font-weight:700; font-size:.85rem; white-space:nowrap; display:flex; align-items:center;}
+    .input-group > .input-group-addon:first-child{ border-right:0; border-radius:.25rem 0 0 .25rem; }
+    .input-group > .form-control{ border-left:0; border-right:0; padding:.65rem .75rem; color:#111; }
+    .input-group > .input-group-addon:last-child{ border-left:0; cursor:pointer; border-radius:0 .25rem .25rem 0; }
+    .btn-login{ background:var(--maroon); color:#fff; font-weight:700; }
+    .btn-login:hover{ filter:brightness(.95); color:#fff; }
+    .btn-reset{ border:2px solid var(--maroon); color:var(--maroon); font-weight:600; background:#fff; }
+    .btn-reset:hover{ background:var(--maroon); color:#fff; }
+    .btn-home{ background:var(--green); border-color:var(--green); color:#fff; font-weight:600; }
+    .btn-home:hover{ filter:brightness(.95); color:#fff; }
+    .text-black{color:#111 !important;}
+    .f-s-12{font-size:.92rem;}
+    .m-b-10{margin-bottom:.625rem;}
+    .m-b-20{margin-bottom:1.25rem;}
+    .pull-right{float:right;}
+    .form-input-flat .form-control{ box-shadow:none !important; }
+    .form-input-flat .form-control:focus{ border-color:#9cc7b8; }
+    .auth-links a{ text-decoration:none; }
+    @media (max-width: 575.98px){ .login{ margin:6vh 14px; } }
+  </style>
+</head>
+
+<body>
+  <div id="page-container" class="page-container">
+    <div class="bg-cover" style="background-image:url('/public/img/login-bg.jpg');"></div>
+    <div class="bg-frost"></div>
+
+    <div class="login">
+      <div class="login-brand">
+        <a href="/"><img src="/public/img/logo.png" alt=""></a>
+        <p class="pull-right"><i class="fa fa-lock"></i> SIGN-IN</p>
+      </div>
+
+      <div class="login-content">
+        <div class="note note-warning">
+          <div class="note-icon"><i class="fa fa-info-circle"></i></div>
+          <div class="note-content">
+            <h4><b>Notice:</b></h4>
+            <p><span class="label label-success">STUDENT</span> Enter JAMB REG Number or Matric number as Username and <b>password1</b> as default password</p>
+            <p><span class="label label-success">STAFF &nbsp;&nbsp;&nbsp;</span> Enter Staff ID as Username and your password</p>
+            <p><marquee><b>NEW USER</b> If you are using the portal for the first time, use <b>"password1"</b> as your default password and matriculation number or Jamb Reg as your username......</marquee></p>
+          </div>
+        </div>
+
+        <% if (user) { %>
+          <script>location.href = '/<%= user.role %>/dashboard'</script>
+        <% } %>
+
+        <form action="/staff-login" method="POST" id="login_form" class="form-input-flat">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-addon input-lg text-black f-s-12" style="padding-top:12px;">
+                <i class="fa fa-user"></i>&nbsp; USERNAME
+              </div>
+              <input type="text" class="form-control input-lg f-s-12 text-black" name="username" id="email"
+                     placeholder="Enter your username" autocomplete="off" required autofocus />
+              <div class="input-group-addon d-none d-sm-flex"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-addon input-lg text-black f-s-12" style="padding-top:12px;">
+                <i class="fa fa-key"></i>&nbsp; PASSWORD
+              </div>
+              <input type="password" class="form-control input-lg f-s-12 text-black" name="password" id="password"
+                     placeholder="password" autocomplete="off" required />
+              <div class="input-group-addon" id="showpassword" title="Show / hide password">
+                <i class="fa fa-eye"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="row m-b-20">
+            <div class="col-lg-12">
+              <button type="submit" id="login" class="btn btn-lg btn-block text-left btn-login">
+                LOGIN <i class="fa fa-sign-in pull-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-lg-6 m-b-10">
+              <a href="/forget_password" class="btn btn-lg btn-block text-left btn-reset">
+                Reset Password <i class="fa fa-lock pull-right m-t-5"></i>
+              </a>
+            </div>
+            <div class="col-lg-6 m-b-10">
+              <a href="/" class="btn btn-lg btn-block text-left btn-home">
+                Homepage <i class="fa fa-home pull-right m-t-5"></i>
+              </a>
+            </div>
+          </div>
+
+          <!-- New user link -->
+          <div class="text-center auth-links mt-2">
+            <span>New user?</span>
+            <a href="/register" style="color:var(--maroon); font-weight:700;">Register here</a>
+          </div>
+
+          <input type="hidden" id="psd1" value="0">
+          <div id="notification"></div>
+          <div class="text-center text-muted">Powered By: College ICT</div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+  <script>
+    (function(){
+      var btn = document.getElementById('showpassword');
+      var input = document.getElementById('password');
+      if(btn && input){
+        btn.addEventListener('click', function(){
+          input.type = input.type === 'password' ? 'text' : 'password';
+          this.querySelector('i').className = input.type === 'password' ? 'fa fa-eye' : 'fa fa-eye-slash';
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

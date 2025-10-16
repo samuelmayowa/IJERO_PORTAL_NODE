@@ -1,0 +1,131 @@
+<!-- app/web/views/staff/attendance-office.ejs -->
+<div class="content-header">
+  <div class="container-fluid">
+    <h2 class="mb-2"><%= pageTitle %></h2>
+  </div>
+</div>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <div class="card">
+      <div class="card-header bg-success text-white"><strong>Set Office Long/Lat.</strong></div>
+      <div class="card-body">
+
+        <form id="office-form" class="form-inline" onsubmit="return false;">
+          <div class="form-group mr-3 mb-2" style="min-width:260px;">
+            <label class="mr-2 mb-0">School</label>
+            <select id="schoolId" class="form-control" style="min-width:200px;">
+              <option value="">-- select school --</option>
+              <% (schools||[]).forEach(s => { %>
+                <option value="<%= s.ID %>"><%= s.Name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group mr-3 mb-2" style="min-width:320px;">
+            <label class="mr-2 mb-0">Department</label>
+            <select id="departmentId" class="form-control" style="min-width:260px;" disabled>
+              <option value="">-- select department --</option>
+              <% (departments||[]).forEach(d => { %>
+                <option value="<%= d.ID %>" data-school="<%= d.SchoolID %>"><%= d.Name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="w-100"></div>
+
+          <div class="form-group mr-3 mb-2">
+            <label class="mr-2 mb-0">Latitude</label>
+            <input type="text" id="latitude" class="form-control" placeholder="e.g. 7.5154321" style="min-width:200px;" disabled>
+          </div>
+
+          <div class="form-group mr-3 mb-2">
+            <label class="mr-2 mb-0">Longitude</label>
+            <input type="text" id="longitude" class="form-control" placeholder="e.g. 4.6154321" style="min-width:200px;" disabled>
+          </div>
+
+          <button type="button" id="saveBtn" class="btn btn-primary mb-2" disabled>Save</button>
+        </form>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  // Use your global modal helpers so UX matches Modify Staff page
+  function toast(kind, msg) {
+    if (window.showAppAlert) return showAppAlert(kind === 'success' ? 'Success' : 'Failed', msg);
+    alert(msg);
+  }
+  function confirmThen(fn) {
+    if (window.showAppConfirm) {
+      showAppConfirm('Are you sure you want to continue?', fn);
+    } else {
+      if (confirm('Are you sure you want to continue?')) fn();
+    }
+  }
+
+  const deptSelect = document.getElementById('departmentId');
+  const schoolSelect = document.getElementById('schoolId');
+  const latInput = document.getElementById('latitude');
+  const lngInput = document.getElementById('longitude');
+  const saveBtn = document.getElementById('saveBtn');
+
+  function filterDepartments() {
+    const sid = schoolSelect.value;
+    deptSelect.value = '';
+    [...deptSelect.options].forEach(opt => {
+      if (!opt.value) return (opt.hidden = false);
+      opt.hidden = (opt.getAttribute('data-school') !== sid);
+    });
+    deptSelect.disabled = !sid;
+    latInput.disabled = true;
+    lngInput.disabled = true;
+    saveBtn.disabled = true;
+  }
+
+  async function loadExisting() {
+    const sid = schoolSelect.value;
+    const did = deptSelect.value;
+    if (!sid || !did) return;
+    const r = await fetch(`/staff/attendance/api/office-location?schoolId=${sid}&departmentId=${did}`);
+    const j = await r.json();
+    if (j.success && j.data) {
+      latInput.value = j.data.Latitude;
+      lngInput.value = j.data.Longitude;
+    } else {
+      latInput.value = '';
+      lngInput.value = '';
+    }
+    latInput.disabled = false;
+    lngInput.disabled = false;
+    saveBtn.disabled = false;
+  }
+
+  async function save() {
+    const sid = schoolSelect.value;
+    const did = deptSelect.value;
+    const latitude  = latInput.value.trim();
+    const longitude = lngInput.value.trim();
+
+    const payload = { schoolId: sid, departmentId: did, latitude, longitude };
+    const r = await fetch('/staff/attendance/api/office-location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+    toast(j.success ? 'success' : 'error', j.message || (j.success ? 'Saved' : 'Failed'));
+    if (j.success) setTimeout(() => loadExisting(), 400);
+  }
+
+  schoolSelect.addEventListener('change', filterDepartments);
+  deptSelect.addEventListener('change', loadExisting);
+  saveBtn.addEventListener('click', () => confirmThen(save));
+
+  // init
+  filterDepartments();
+</script>

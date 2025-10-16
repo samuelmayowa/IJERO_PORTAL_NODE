@@ -1,0 +1,39 @@
+{
+  "name": "portal-node-rebuild",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": "18.x || 20.x"
+  },
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development nodemon --watch app --watch server.js server.js",
+    "start": "cross-env NODE_ENV=production node server.js",
+    "start:cpanel": "cross-env NODE_ENV=production node server.js",
+    "postinstall": "echo \"No build step\""
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "connect-flash": "^0.1.1",
+    "cookie-parser": "^1.4.6",
+    "csurf": "^1.11.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.9",
+    "express": "^5.0.0",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.17.3",
+    "helmet": "^7.0.0",
+    "luxon": "^3.5.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.15.2",
+    "nodemailer": "^6.9.11",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.0.0"
+  }
+}

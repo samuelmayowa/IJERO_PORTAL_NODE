@@ -1,0 +1,65 @@
+<!-- app/web/views/staff/manage-semester.ejs -->
+<div class="content-header">
+  <div class="container-fluid">
+    <h2 class="mb-2"><%= pageTitle %></h2>
+  </div>
+</div>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-header bg-success text-white"><strong>Switch Semester</strong></div>
+      <div class="card-body">
+        <%
+          const curr = String(
+            typeof currentSemester !== 'undefined' ? currentSemester :
+            (typeof current !== 'undefined' ? current : 'First')
+          ).toLowerCase();
+        %>
+        <form id="form-semester" class="form-inline" onsubmit="return false;">
+          <div class="form-group mr-2" style="min-width:320px;">
+            <label class="mr-2">Semester</label>
+            <select name="semester" id="semester" class="form-control" style="min-width:240px;">
+              <option value="First"  <%= curr==='first'  ? 'selected' : '' %> >First</option>
+              <option value="Second" <%= curr==='second' ? 'selected' : '' %> >Second</option>
+              <option value="Summer / Carry Over" <%= curr.startsWith('summer') ? 'selected' : '' %> >Summer / Carry Over</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn btn-primary"
+                  onclick="confirmThen(() => saveSemester())">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  async function saveSemester() {
+    const semester = document.getElementById('semester').value;
+    const r = await fetch('/staff/session/api/semester', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // pass CSRF so the server doesn't 403
+        'CSRF-Token': '<%= typeof csrfToken !== "undefined" && csrfToken ? csrfToken : "" %>'
+      },
+      body: JSON.stringify({ semester })
+    });
+    const j = await r.json();
+    toast(j.success ? 'success' : 'error', j.message || (j.success ? 'Saved' : 'Failed'));
+    if (j.success) setTimeout(() => location.reload(), 600);
+  }
+
+  function confirmThen(fn) {
+    if (window.showAppConfirm) {
+      showAppConfirm('Are you sure you want to continue?', fn);
+    } else {
+      if (confirm('Are you sure you want to continue?')) fn();
+    }
+  }
+  function toast(kind, msg) {
+    if (window.showAppAlert) return showAppAlert(kind === 'success' ? 'Success' : 'Failed', msg);
+    alert(msg);
+  }
+</script>

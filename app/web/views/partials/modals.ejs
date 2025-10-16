@@ -1,0 +1,18 @@
+<!-- Global App Modal (single instance used everywhere) -->
+<div class="modal fade" id="appModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <!-- header color is set via JS by toggling bg-success/bg-danger/etc -->
+      <div class="modal-header py-2" id="appModalHeader">
+        <h5 class="modal-title" id="appModalTitle">Notice</h5>
+        <button type="button" class="close" id="appModalCloseX" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body" id="appModalBody">...</div>
+      <div class="modal-footer py-2" id="appModalFooter">
+        <button type="button" class="btn btn-light btn-sm" id="appModalCancelBtn" data-dismiss="modal" style="display:none;">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="appModalOkBtn" data-dismiss="modal" style="display:none;">OK</button>
+        <button type="button" class="btn btn-light btn-sm" id="appModalCloseBtn" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

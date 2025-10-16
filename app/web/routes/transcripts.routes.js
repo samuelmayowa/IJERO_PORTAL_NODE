@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { can } from '../../core/rbac.js';
+import * as ctrl from '../controllers/transcripts.controller.js';
+const router = Router();
+router.get('/generate', can('transcripts.generate'), ctrl.generateForm);
+router.post('/generate', can('transcripts.generate'), ctrl.generateSubmit);
+router.get('/view', can('transcripts.view'), ctrl.viewList);
+router.get('/download/:id', can('transcripts.view'), ctrl.downloadOne);
+router.get('/send', can('transcripts.send'), ctrl.sendForm);
+router.post('/send', can('transcripts.send'), ctrl.sendSubmit);
+export default router;
