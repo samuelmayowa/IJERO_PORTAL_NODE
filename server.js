@@ -28,10 +28,10 @@ import * as applicantRoutesMod  from './app/web/routes/applicant.routes.js';
 import sessionRoutes  from "./app/web/routes/session.routes.js";
 import semesterRoutes from "./app/web/routes/semester.routes.js";
 import attendanceRoutes from './app/web/routes/attendance.routes.js';
-
-
-
 import { notFound, errorHandler } from './app/core/error.js';
+import markAttendanceRoutes from './app/web/routes/mark-attendance.routes.js';
+import attendanceReportRoutes from './app/web/routes/attendance-report.routes.js';
+import watchlistRoutes from './app/web/routes/watchlist.routes.js';
 
 
 // -------------------------------------------------------------
@@ -151,7 +151,11 @@ function ensureUserForViews(req, res, next) {
 // -------------------------------------------------------------
 app.get('/', (_req, res) => res.render('pages/landing'));
 app.use('/', authRoutes);
-
+// ✅ Add this BEFORE routes:
+app.use((req, res, next) => {
+  res.locals.currentPath = req.path || '';
+  next();
+});
 
 // ✅ Attendance routes (must mount before generic /staff routes)
 app.use(
@@ -160,6 +164,12 @@ app.use(
   requireRole('staff', 'admin'),
   attendanceRoutes
 );
+
+app.use('/staff/attendance', markAttendanceRoutes);
+
+app.use(attendanceReportRoutes);
+
+app.use(watchlistRoutes);
 
 
 // ✅ Staff routes

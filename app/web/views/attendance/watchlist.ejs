@@ -1,0 +1,330 @@
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= title %></h4>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+
+    <!-- Filters -->
+    <div class="card card-outline card-primary">
+      <div class="card-body">
+        <form id="filterForm" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">School</label>
+            <select class="form-control" name="schoolId" id="schoolSel" <%= admin ? '' : 'disabled' %>>
+              <option value="">All</option>
+              <% schools.forEach(s => { %>
+                <option value="<%= s.id %>" <%= String(filters.schoolId)===String(s.id) ? 'selected' : '' %>><%= s.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Department</label>
+            <select class="form-control" name="departmentId" id="deptSel" <%= admin ? '' : 'disabled' %>>
+              <option value="">All</option>
+              <% departments.forEach(d => { %>
+                <option value="<%= d.id %>" <%= String(filters.departmentId)===String(d.id) ? 'selected' : '' %>><%= d.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">Window</label>
+            <select class="form-control" name="window">
+              <option value="7"  <%= Number(filters.windowDays)===7  ? 'selected' : '' %>>Last 7 days</option>
+              <option value="14" <%= Number(filters.windowDays)===14 ? 'selected' : '' %>>Last 14 days</option>
+              <option value="30" <%= Number(filters.windowDays)===30 ? 'selected' : '' %>>Last 30 days</option>
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Thresholds</label>
+            <div class="d-flex">
+              <input class="form-control mr-1" name="lateN"      type="number" min="1" value="<%= filters.lateN %>"      title="Late ≥ N">
+              <input class="form-control mr-1" name="veryLateN"  type="number" min="1" value="<%= filters.veryLateN %>"  title="Very Late ≥ N">
+              <input class="form-control mr-1" name="absentN"    type="number" min="1" value="<%= filters.absentN %>"    title="Absent ≥ N">
+              <input class="form-control"      name="geoFailN"   type="number" min="1" value="<%= filters.geoFailN %>"   title="Geofence Fails ≥ N">
+            </div>
+            <small class="text-muted">Late = Slightly Late or Very Late</small>
+          </div>
+
+          <div class="col-md-4 mt-2">
+            <button type="button" id="btnApply" class="btn btn-primary">Apply</button>
+            <button type="button" id="btnReset" class="btn btn-default ml-1">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Cards (quick view) -->
+    <div class="row" id="summaryRow" style="display:none;">
+      <div class="col-md-3">
+        <div class="small-box bg-danger">
+          <div class="inner">
+            <h3 id="sumVeryLate">0</h3>
+            <p>Very Late ≥ threshold</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-warning">
+          <div class="inner">
+            <h3 id="sumLate">0</h3>
+            <p>Late ≥ threshold</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-secondary">
+          <div class="inner">
+            <h3 id="sumAbsent">0</h3>
+            <p>Absent ≥ threshold</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3 id="sumGeo">0</h3>
+            <p>Geofence Fails ≥ threshold</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions: Manual Add (modal trigger) -->
+    <div class="mb-2">
+      <button class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#manualModal">Add/Update Manual Watch</button>
+    </div>
+
+    <!-- Table -->
+    <div class="card card-primary">
+      <div class="card-body p-0">
+        <table class="table table-striped table-bordered mb-0" id="watchTable">
+          <thead>
+            <tr>
+              <th style="width:110px">Staff ID</th>
+              <th>Staff Name</th>
+              <th>School</th>
+              <th>Department</th>
+              <th style="width:90px">Late</th>
+              <th style="width:110px">Very Late</th>
+              <th style="width:100px">Absent</th>
+              <th style="width:120px">Geo Fails</th>
+              <th style="width:160px">Last Seen</th>
+              <th style="width:90px">Watch</th>
+              <th>Reason / Notes</th>
+              <th style="width:120px">Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Manual Watch Modal -->
+    <div class="modal fade" id="manualModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog">
+        <form action="/staff/attendance/watchlist/manual/add" method="POST" class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add / Update Manual Watch</h5>
+            <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+            <div class="form-group">
+              <label>Staff ID</label>
+              <input class="form-control" name="staff_id" required placeholder="Enter Staff ID (numeric)">
+            </div>
+            <div class="form-group">
+              <label>Reason / Notes</label>
+              <input class="form-control" name="reason" placeholder="Why is this staff on manual watch?">
+            </div>
+            <div class="form-group">
+              <label>Expires On (optional)</label>
+              <input type="date" class="form-control" name="expires_on" min="<%= today %>">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" data-dismiss="modal" type="button">Cancel</button>
+            <button class="btn btn-primary" type="submit">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal fade" id="historyModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Recent Attendance</h5>
+            <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-sm table-striped">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th><th>Reason</th><th>Checkout By</th>
+                </tr>
+              </thead>
+              <tbody id="histBody"><tr><td colspan="6" class="text-muted">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" data-dismiss="modal" type="button">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remove Manual (hidden form) -->
+    <form id="rmForm" action="/staff/attendance/watchlist/manual/remove" method="POST" class="d-none">
+      <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+      <input type="hidden" name="staff_id" id="rmStaffId">
+    </form>
+
+  </div>
+</section>
+
+<script>
+(function(){
+  function paramsFromForm(){
+    const fd = new FormData(document.getElementById('filterForm'));
+    const p = new URLSearchParams();
+    for (const [k,v] of fd.entries()) { if (v !== '') p.set(k, v); }
+    return p;
+  }
+
+  function badgeStatus(count, threshold, color){
+    const ok = Number(count) >= Number(threshold);
+    const cls = ok ? color : 'badge-light';
+    return '<span class="badge '+cls+'">'+(count||0)+'</span>';
+  }
+
+  function load(){
+    const p = paramsFromForm();
+    fetch('/staff/attendance/watchlist/data?'+p.toString())
+      .then(r=>r.json()).then(j=>{
+        if(!j.ok) throw new Error('Failed');
+        fillCards(j.rows);
+        fillTable(j.rows);
+      })
+      .catch(e=>{ console.error(e); alert('Failed to load watch list'); });
+  }
+
+  function fillCards(rows){
+    let veryLate=0, late=0, absent=0, geo=0;
+    rows.forEach(r=>{
+      if (Number(r.very_late_cnt) > 0) veryLate++;
+      if (Number(r.late_cnt) > 0)      late++;
+      if (Number(r.absent_cnt) > 0)    absent++;
+      if (Number(r.geo_fail_cnt) > 0)  geo++;
+    });
+    document.getElementById('sumVeryLate').innerText = veryLate;
+    document.getElementById('sumLate').innerText     = late;
+    document.getElementById('sumAbsent').innerText   = absent;
+    document.getElementById('sumGeo').innerText      = geo;
+    document.getElementById('summaryRow').style.display = 'flex';
+  }
+
+  function fillTable(rows){
+    const fd = new FormData(document.getElementById('filterForm'));
+    const lateN     = Number(fd.get('lateN')||3);
+    const veryLateN = Number(fd.get('veryLateN')||2);
+    const absentN   = Number(fd.get('absentN')||2);
+    const geoFailN  = Number(fd.get('geoFailN')||2);
+
+    const tb = document.querySelector('#watchTable tbody');
+    tb.innerHTML = '';
+    if(!rows || !rows.length){
+      tb.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No staff to show</td></tr>';
+      return;
+    }
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.staff_no || r.staff_id}</td>
+        <td>${r.full_name || ''}</td>
+        <td>${r.school_name || r.school_id || ''}</td>
+        <td>${r.department_name || r.department_id || ''}</td>
+        <td>${badgeStatus(r.late_cnt,      lateN,     'badge-warning')}</td>
+        <td>${badgeStatus(r.very_late_cnt, veryLateN, 'badge-danger')}</td>
+        <td>${badgeStatus(r.absent_cnt,    absentN,   'badge-secondary')}</td>
+        <td>${badgeStatus(r.geo_fail_cnt,  geoFailN,  'badge-info')}</td>
+        <td>${r.last_seen ? new Date(r.last_seen).toLocaleString() : '-'}</td>
+        <td><span class="badge ${r.watch_status==='Manual' ? 'badge-primary' : 'badge-dark'}">${r.watch_status}</span></td>
+        <td>${r.manual_reason || ''} ${r.manual_expires_on ? '<br><small class="text-muted">exp: '+r.manual_expires_on+'</small>' : ''}</td>
+        <td>
+          <button class="btn btn-xs btn-outline-info" data-hist="${r.staff_id}">History</button>
+          ${
+            r.watch_status==='Manual'
+            ? '<button class="btn btn-xs btn-outline-danger ml-1" data-rm="'+r.staff_id+'">Remove</button>'
+            : ''
+          }
+        </td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    // bind actions
+    tb.querySelectorAll('button[data-hist]').forEach(b=>{
+      b.onclick = () => openHistory(b.getAttribute('data-hist'));
+    });
+    tb.querySelectorAll('button[data-rm]').forEach(b=>{
+      b.onclick = () => {
+        if (confirm('Remove from manual watch?')) {
+          document.getElementById('rmStaffId').value = b.getAttribute('data-rm');
+          document.getElementById('rmForm').submit();
+        }
+      };
+    });
+  }
+
+  function openHistory(staffId){
+    const fd = new FormData(document.getElementById('filterForm'));
+    const days = Number(fd.get('window') || 30);
+    const url = '/staff/attendance/watchlist/history?staff_id='+staffId+'&days='+days;
+    const body = document.getElementById('histBody');
+    body.innerHTML = '<tr><td colspan="6" class="text-muted">Loading…</td></tr>';
+    fetch(url).then(r=>r.json()).then(j=>{
+      if(!j.ok) throw new Error('Failed');
+      body.innerHTML = '';
+      if(!j.rows || !j.rows.length){
+        body.innerHTML = '<tr><td colspan="6" class="text-muted">No records</td></tr>';
+        return;
+      }
+      j.rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        const who = r.check_out_time ? (r.marked_by_system ? 'System' : 'Staff') : '';
+        tr.innerHTML = `
+          <td>${new Date(r.date).toDateString()}</td>
+          <td>${r.check_in_time || '-'}</td>
+          <td>${r.check_out_time || '-'}</td>
+          <td>${r.status || '-'}</td>
+          <td>${r.leave_reason || ''}</td>
+          <td>${who}</td>
+        `;
+        body.appendChild(tr);
+      });
+      $('#historyModal').modal('show');
+    }).catch(e=>{
+      console.error(e);
+      alert('Failed to load history');
+    });
+  }
+
+  document.getElementById('btnApply').onclick = () => load();
+  document.getElementById('btnReset').onclick = () => {
+    window.location.href = '/staff/attendance/watchlist';
+  };
+
+  // initial load
+  load();
+})();
+</script>

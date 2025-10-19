@@ -1,0 +1,250 @@
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= title %></h4>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+
+    <!-- Filters -->
+    <div class="card card-outline card-primary">
+      <div class="card-body">
+        <form id="filterForm" class="row g-3">
+          <div class="col-md-2">
+            <label class="form-label">From</label>
+            <input type="date" class="form-control" name="from" value="<%= filters.from %>">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">To</label>
+            <input type="date" class="form-control" name="to" value="<%= filters.to %>">
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">School</label>
+            <select class="form-control" name="schoolId" id="schoolSel" <%= admin ? '' : 'disabled' %>>
+              <option value="">All</option>
+              <% schools.forEach(s => { %>
+                <option value="<%= s.id %>" <%= String(filters.schoolId)===String(s.id) ? 'selected' : '' %>><%= s.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Department</label>
+            <select class="form-control" name="departmentId" id="deptSel" <%= admin ? '' : 'disabled' %>>
+              <option value="">All</option>
+              <% departments.forEach(d => { %>
+                <option value="<%= d.id %>" <%= String(filters.departmentId)===String(d.id) ? 'selected' : '' %>><%= d.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Staff (ID/Name)</label>
+            <input class="form-control" name="staffId" placeholder="Staff ID or leave blank" value="<%= filters.staffId || '' %>">
+          </div>
+
+          <div class="col-md-2 mt-2">
+            <label class="form-label">Status</label>
+            <select class="form-control" name="status">
+              <option value="" <%= !filters.status ? 'selected' : '' %>>All</option>
+              <option value="present" <%= filters.status==='present' ? 'selected' : '' %>>Present</option>
+              <option value="leave" <%= filters.status==='leave' ? 'selected' : '' %>>On Leave</option>
+              <option value="absent" <%= filters.status==='absent' ? 'selected' : '' %>>Absent</option>
+            </select>
+          </div>
+
+          <% if (admin) { %>
+          <div class="col-md-3 mt-4 d-flex align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="onlyMyDept" name="onlyMyDept" value="1" <%= filters.onlyMyDept ? 'checked' : '' %>>
+              <label class="form-check-label" for="onlyMyDept">Only my department</label>
+            </div>
+          </div>
+          <% } %>
+
+          <div class="col-md-3 mt-4">
+            <button type="button" id="btnApply" class="btn btn-primary">Apply</button>
+            <button type="button" id="btnReset" class="btn btn-default ml-1">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row">
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner"><h3 id="sumTotal">0</h3><p>Rows Matched</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-success">
+          <div class="inner"><h3 id="sumPresent">0</h3><p>Present</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-warning">
+          <div class="inner"><h3 id="sumLeave">0</h3><p>On Leave</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-danger">
+          <div class="inner"><h3 id="sumAbsent">0</h3><p>Absent</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exports -->
+    <div class="mb-2">
+      <a id="expCsv"  class="btn btn-outline-primary btn-sm" href="#">Export CSV</a>
+      <a id="expXlsx" class="btn btn-outline-success btn-sm" href="#">Export Excel</a>
+      <a id="expPdf"  class="btn btn-outline-danger btn-sm" href="#">Export PDF</a>
+    </div>
+
+    <!-- Table -->
+    <div class="card card-primary">
+      <div class="card-body p-0">
+        <table class="table table-striped table-bordered mb-0" id="repTable">
+          <thead>
+            <tr>
+              <th style="width:130px">Date</th>
+              <th style="width:110px">Staff ID</th>
+              <th>Staff Name</th>
+              <th>School</th>
+              <th>Department</th>
+              <th style="width:90px">Time In</th>
+              <th style="width:90px">Time Out</th>
+              <th style="width:160px">Status</th>
+              <th>Reason</th>
+              <th style="width:110px">Checkout By</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="p-2 d-flex justify-content-between align-items-center">
+          <div class="text-muted small" id="pgInfo">Page 1 of 1</div>
+          <div id="pgBtns"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const qs = new URLSearchParams(<%- JSON.stringify(filters) %>);
+  const admin = <%- JSON.stringify(admin) %>;
+
+  function formToQS() {
+    const fd = new FormData(document.getElementById('filterForm'));
+    const p = new URLSearchParams();
+    for (const [k,v] of fd.entries()) {
+      if (v !== '') p.set(k, v);
+    }
+    // checkbox
+    if (admin) {
+      p.set('onlyMyDept', document.getElementById('onlyMyDept').checked ? '1' : '');
+      if (!document.getElementById('onlyMyDept').checked) p.delete('onlyMyDept');
+    }
+    return p;
+  }
+
+  function apply(page=1){
+    const p = formToQS();
+    p.set('page', String(page));
+    fetch('/staff/attendance/report/data?' + p.toString())
+      .then(r => r.json())
+      .then(j => {
+        if(!j.ok) throw new Error('Failed');
+        fillSummary(j.summary);
+        fillTable(j.rows);
+        fillPagination(j.pagination);
+        // update export links
+        setExportLinks(p);
+      })
+      .catch(e => { console.error(e); alert('Failed to load report data.'); });
+  }
+
+  function badge(status) {
+    if (!status) return '';
+    if (status.startsWith('PRESENT/On-Time')) return '<span class="badge badge-success">'+status+'</span>';
+    if (status.startsWith('PRESENT/Slightly Late')) return '<span class="badge badge-warning">'+status+'</span>';
+    if (status.startsWith('PRESENT/Very Late')) return '<span class="badge badge-danger">'+status+'</span>';
+    if (status === 'ON LEAVE') return '<span class="badge badge-info">ON LEAVE</span>';
+    if (status === 'ABSENT') return '<span class="badge badge-secondary">ABSENT</span>';
+    return '<span class="badge badge-light">'+status+'</span>';
+  }
+
+  function fillSummary(s){
+    document.getElementById('sumTotal').innerText = s.total || 0;
+    document.getElementById('sumPresent').innerText = s.present || 0;
+    document.getElementById('sumLeave').innerText = s.onleave || 0;
+    document.getElementById('sumAbsent').innerText = s.absent || 0;
+  }
+  function fillTable(rows){
+    const tb = document.querySelector('#repTable tbody');
+    tb.innerHTML = '';
+    if (!rows || !rows.length) {
+      tb.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No records</td></tr>';
+      return;
+    }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${new Date(r.date).toDateString()}</td>
+        <td>${r.staff_no || ''}</td>
+        <td>${r.full_name || ''}</td>
+        <td>${r.school_name || r.school_id || ''}</td>
+        <td>${r.department_name || r.department_id || ''}</td>
+        <td>${r.check_in_time || '-'}</td>
+        <td>${r.check_out_time || '-'}</td>
+        <td>${badge(r.status)}</td>
+        <td>${r.leave_reason || ''}</td>
+        <td>${r.check_out_time ? (r.marked_by_system ? 'System' : 'Staff') : ''}</td>
+      `;
+      tb.appendChild(tr);
+    });
+  }
+  function fillPagination(p){
+    document.getElementById('pgInfo').innerText = `Page ${p.page} of ${p.totalPages}`;
+    const c = document.getElementById('pgBtns');
+    c.innerHTML = '';
+    const mk = (label, target, disabled=false) => {
+      const a = document.createElement('a');
+      a.className = 'btn btn-sm btn-outline-secondary ml-1 ' + (disabled ? 'disabled':'');
+      a.textContent = label;
+      if (!disabled) a.onclick = () => apply(target);
+      c.appendChild(a);
+    };
+    mk('Prev', Math.max(1, p.page-1), p.page<=1);
+    for(let i=1;i<=p.totalPages;i++){
+      const a = document.createElement('a');
+      a.className = 'btn btn-sm ml-1 ' + (i===p.page ? 'btn-primary':'btn-outline-primary');
+      a.textContent = i;
+      a.onclick = () => apply(i);
+      c.appendChild(a);
+    }
+    mk('Next', Math.min(p.totalPages, p.page+1), p.page>=p.totalPages);
+  }
+
+  function setExportLinks(p){
+    const q = p.toString();
+    document.getElementById('expCsv').href  = '/staff/attendance/report/export.csv?'  + q;
+    document.getElementById('expXlsx').href = '/staff/attendance/report/export.xlsx?' + q;
+    document.getElementById('expPdf').href  = '/staff/attendance/report/export.pdf?'  + q;
+  }
+
+  document.getElementById('btnApply').onclick = () => apply(1);
+  document.getElementById('btnReset').onclick = () => {
+    window.location.href = '/staff/attendance/report';
+  };
+
+  // initial load
+  apply(1);
+})();
+</script>
