@@ -1,6 +1,6 @@
 // server.js
-import { requireAuth, requireRole, enforceStatusGlobally } from './app/core/session.js';
 import 'dotenv/config';
+import { requireAuth, requireRole, enforceStatusGlobally } from './app/core/session.js';
 import express from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
