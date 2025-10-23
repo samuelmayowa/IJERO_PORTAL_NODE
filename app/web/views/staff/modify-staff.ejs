@@ -142,7 +142,12 @@ async function load(){
       <td>${u.school||''}</td>
       <td>${(u.status||'ACTIVE')}</td>
       <td>
-        <button class="btn btn-sm btn-info btn-edit" data-id="${u.id}">EDIT</button>
+        <button
+          class="btn btn-sm btn-info btn-edit"
+          data-id="${u.id}"
+          data-phone="${u.phone || ''}"
+          data-status="${(u.status||'ACTIVE')}"
+        >EDIT</button>
         <button class="btn btn-sm btn-danger btn-del" data-id="${u.id}">DELETE</button>
       </td>`;
     tb.appendChild(tr);
@@ -158,8 +163,8 @@ async function load(){
       editEmail.value = row[3].textContent.trim();
       editDept.value = row[4].textContent.trim();
       editSchool.value = row[5].textContent.trim();
-      editPhone.value = '';
-      editStatus.value = (row[6].textContent.trim() || 'ACTIVE').toUpperCase();
+      editPhone.value = btn.dataset.phone || '';
+      editStatus.value = (btn.dataset.status || row[6].textContent.trim() || 'ACTIVE').toUpperCase();
       $('#editModal').modal('show');
     });
   });

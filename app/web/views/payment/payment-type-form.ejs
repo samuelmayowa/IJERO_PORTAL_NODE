@@ -1,0 +1,208 @@
+<!-- app/web/views/payment/payment-type-form.ejs -->
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= title %></h4>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-1"></i><%= messages.error %></div>
+    <% } %>
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><i class="fas fa-check mr-1"></i><%= messages.success %></div>
+    <% } %>
+
+    <form action="<%= (form && form.id) ? '/staff/fees/payment-types/'+form.id+'/edit' : '/staff/fees/payment-types/add' %>" method="POST">
+      <% if (csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+
+      <div class="card card-primary">
+        <div class="card-header"><h5 class="card-title"><%= (form && form.id) ? 'Edit Payment Type' : 'Add Payment Type' %></h5></div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+
+              <div class="form-group">
+                <label>Name <span class="text-danger">*</span></label>
+                <input name="name" class="form-control" required value="<%= form.name || '' %>">
+              </div>
+
+              <div class="form-group">
+                <label>Purpose <span class="text-danger">*</span></label>
+                <input name="purpose" class="form-control" required value="<%= form.purpose || '' %>">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label>Amount (₦)</label>
+                  <input name="amount" type="number" min="0" class="form-control" value="<%= form.amount || 0 %>">
+                </div>
+                <div class="form-group col-md-6">
+                  <label>Portal Charge (₦)</label>
+                  <input name="portal_charge" type="number" min="0" class="form-control" value="<%= form.portal_charge || 0 %>">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="is_active" name="is_active" value="1" <%= (form.is_active ?? 1) ? 'checked' : '' %>>
+                  <label class="custom-control-label" for="is_active">Active</label>
+                </div>
+              </div>
+
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <b>Note:</b> Scope + Session/Semester + Rule determine who sees this fee and which amount applies.
+              </div>
+
+            </div>
+            <div class="col-md-6">
+
+              <div class="form-group">
+                <label>Scope</label>
+                <select class="form-control" id="scope" name="scope">
+                  <option value="GENERAL"    <%= (form.scope||'')==='GENERAL'?'selected':'' %>>General (all)</option>
+                  <option value="SCHOOL"     <%= (form.scope||'')==='SCHOOL'?'selected':'' %>>By School</option>
+                  <option value="DEPARTMENT" <%= (form.scope||'')==='DEPARTMENT'?'selected':'' %>>By Department</option>
+                  <option value="BOTH"       <%= (form.scope||'')==='BOTH'?'selected':'' %>>By School or Department</option>
+                </select>
+              </div>
+
+              <!-- Schools -->
+              <div class="form-group scope scope-school" style="display:none">
+                <label>School(s)</label>
+                <select class="form-control" name="school_ids[]" id="schools" multiple>
+                  <% (schools||[]).forEach(s => { %>
+                    <option value="<%= s.id %>"><%= s.name %></option>
+                  <% }) %>
+                </select>
+                <small class="text-muted">Hold Ctrl/Cmd to pick more than one.</small>
+              </div>
+
+              <!-- Departments -->
+              <div class="form-group scope scope-dept" style="display:none">
+                <label>Department(s)</label>
+                <select class="form-control" name="department_ids[]" id="departments" multiple><!-- filled by JS --></select>
+                <small class="text-muted">Filtered by selected school(s).</small>
+              </div>
+
+              <!-- Session/Semester (repeater) -->
+              <div class="form-group">
+                <label>Session / Semester</label>
+                <div id="ssRows"></div>
+                <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="btnAddSS"><i class="fas fa-plus"></i> Add</button>
+                <small class="form-text text-muted">Leave empty to apply to all sessions. Use “All” semester to cover both semesters.</small>
+              </div>
+
+              <!-- Optional rule (level/admission) -->
+              <div class="card">
+                <div class="card-header py-2"><b>Optional Rule (level/admission)</b></div>
+                <div class="card-body">
+                  <div class="form-row">
+                    <div class="form-group col-md-4">
+                      <label>Entry Level</label>
+                      <select class="form-control" name="rule_entry_level">
+                        <option value="">Any</option>
+                        <% [100,200,300,400,500,600].forEach(L => { %>
+                          <option value="<%= L %>" <%= String(form.rule_entry_level||'')===String(L)?'selected':'' %>><%= L %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                    <div class="form-group col-md-4">
+                      <label>Current Level</label>
+                      <select class="form-control" name="rule_current_level">
+                        <option value="">Any</option>
+                        <% [100,200,300,400,500,600].forEach(L => { %>
+                          <option value="<%= L %>" <%= String(form.rule_current_level||'')===String(L)?'selected':'' %>><%= L %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                    <div class="form-group col-md-4">
+                      <label>Admission Session</label>
+                      <select class="form-control" name="rule_admission_session_id">
+                        <option value="">Any</option>
+                        <% (sessions||[]).forEach(s => { %>
+                          <option value="<%= s.id %>" <%= String(form.rule_admission_session_id||'')===String(s.id)?'selected':'' %>><%= s.name %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Amount Override (₦)</label>
+                    <input class="form-control" name="rule_amount_override" type="number" min="0" value="<%= form.rule_amount_override || '' %>" placeholder="Leave empty to use base amount">
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+          <a class="btn btn-default" href="/staff/fees/payment-types">Back</a>
+          <button class="btn btn-success">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+(function(){
+  // data from server
+  const sessions = <%- JSON.stringify(sessions || []) %>;
+
+  // Scope show/hide
+  function showScope(){
+    const v = document.getElementById('scope').value;
+    document.querySelectorAll('.scope').forEach(el => el.style.display='none');
+    if (v==='SCHOOL' || v==='BOTH') document.querySelector('.scope-school').style.display='';
+    if (v==='DEPARTMENT' || v==='BOTH') document.querySelector('.scope-dept').style.display='';
+  }
+  document.getElementById('scope').addEventListener('change', showScope);
+  showScope();
+
+  // Load departments filtered by selected school(s)
+  async function reloadDepartments() {
+    const schoolIds = Array.from(document.getElementById('schools').selectedOptions).map(o => o.value);
+    const depSel = document.getElementById('departments');
+    depSel.innerHTML = '';
+    for (const sid of schoolIds) {
+      const res = await fetch(`/staff/fees/api/schools/${sid}/departments`);
+      const deps = await res.json();
+      deps.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id; opt.textContent = d.name;
+        depSel.appendChild(opt);
+      });
+    }
+  }
+  document.getElementById('schools').addEventListener('change', reloadDepartments);
+
+  // Session/Semester repeater
+  const ssRows = document.getElementById('ssRows');
+  function addSSRow(valSessionId='', valSemester='') {
+    const wrap = document.createElement('div');
+    wrap.className = 'input-group mb-1';
+    const selSession = document.createElement('select');
+    selSession.className = 'form-control';
+    selSession.name = 'sessionRows[][session_id]';
+    selSession.innerHTML = '<option value="">Select session</option>' +
+      sessions.map(s => `<option value="${s.id}" ${String(valSessionId)===String(s.id)?'selected':''}>${s.name}</option>`).join('');
+    const selSem = document.createElement('select');
+    selSem.className = 'form-control';
+    selSem.style.maxWidth = '160px';
+    selSem.name = 'sessionRows[][semester]';
+    selSem.innerHTML = `
+      <option value="">All</option>
+      <option value="1" ${String(valSemester)==='1'?'selected':''}>First</option>
+      <option value="2" ${String(valSemester)==='2'?'selected':''}>Second</option>
+    `;
+    const btn = document.createElement('div');
+    btn.className = 'input-group-append';
+    btn.innerHTML = '<button class="btn btn-outline-danger" type="button">&times;</button>';
+    btn.firstChild.onclick = () => wrap.remove();
+    wrap.appendChild(selSession);
+    wrap.appendChild(selSem);
+    wrap.appendChild(btn);
+    ssRows.appendChild(wrap);
+  }
+  document.getElementById('btnAddSS').addEventListener('click', () => addSSRow());
+})();
+</script>

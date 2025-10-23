@@ -32,6 +32,10 @@ import { notFound, errorHandler } from './app/core/error.js';
 import markAttendanceRoutes from './app/web/routes/mark-attendance.routes.js';
 import attendanceReportRoutes from './app/web/routes/attendance-report.routes.js';
 import watchlistRoutes from './app/web/routes/watchlist.routes.js';
+// import * as feesRoutesMod from './app/web/routes/fees.routes.js';
+import * as feesRoutesMod from './app/web/routes/staff/fees.js';
+import paymentRoutes from './app/web/routes/payment.routes.js';
+
 
 
 // -------------------------------------------------------------
@@ -54,6 +58,8 @@ const transcriptRoutes = requireRouter(transcriptRoutesMod, 'transcripts.routes.
 const resultsRoutes    = requireRouter(resultsRoutesMod,    'results.routes.js');
 const acadRoutes       = requireRouter(acadRoutesMod,       'academic-records.routes.js');
 const applicantRoutes  = requireRouter(applicantRoutesMod,  'applicant.routes.js');
+// const feesRoutes = requireRouter(feesRoutesMod, 'fees.routes.js');
+const feesRoutes = requireRouter(feesRoutesMod, 'staff/fees.js');
 
 
 // -------------------------------------------------------------
@@ -171,6 +177,9 @@ app.use(attendanceReportRoutes);
 
 app.use(watchlistRoutes);
 
+app.use('/staff/fees', feesRoutes);
+
+app.use('/', paymentRoutes);
 
 // ✅ Staff routes
 app.use(

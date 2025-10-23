@@ -246,7 +246,10 @@ export async function updateUser(id, patch = {}) {
     email: 'email',
     username: 'username',
     staff_no: 'staff_no',
-    status: 'status'
+    status: 'status',
+    phone: 'phone',               
+    department_id: 'department_id',
+    school_id: 'school_id' 
   };
   for (const [k, col] of Object.entries(map)) {
     if (patch[k] !== undefined) { fields.push(`${col}=?`); params.push(patch[k]); }
@@ -333,85 +336,95 @@ export async function setRoles({ username, roles = [] }) {
 }
 
 /** Search + paginate */
-export async function searchUsers(opts = {}) {
-  const {
-    role = '',
-    q = '',
-    department = '',
-    school = '',
-    email = '',
-    name = '',
-    username = '',
-    staffNumber = '',
-    page = 1,
-    pageSize = 10
-  } = opts;
+export async function searchUsers({
+  role = '', q = '', department = '', school = '',
+  email = '', name = '', username = '', staffNumber = '',
+  page = 1, pageSize = 10
+}) {
+  const limit = Math.max(1, Number(pageSize));
+  const offset = Math.max(0, (Number(page) - 1) * limit);
 
-  const where = [];
-  const params = [];
-
-  if (role) {
-    where.push(`
-      EXISTS (
-        SELECT 1 FROM user_roles ur
-        JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = s.id AND r.name = ?
-      )
-    `);
-    params.push(String(role).toLowerCase());
-  }
-  if (q) {
-    const like = `%${q}%`;
-    where.push(`(
-      LOWER(s.full_name) LIKE LOWER(?) OR
-      LOWER(s.username)  LIKE LOWER(?) OR
-      LOWER(s.email)     LIKE LOWER(?) OR
-      LOWER(sc.name)     LIKE LOWER(?) OR
-      LOWER(d.name)      LIKE LOWER(?)
-    )`);
-    params.push(like, like, like, like, like);
-  }
-  if (department) { where.push(`LOWER(d.name) LIKE LOWER(?)`); params.push(`%${department}%`); }
-  if (school)     { where.push(`LOWER(sc.name) LIKE LOWER(?)`); params.push(`%${school}%`); }
-  if (email)      { where.push(`LOWER(s.email) LIKE LOWER(?)`); params.push(`%${email}%`); }
-  if (name)       { where.push(`LOWER(s.full_name) LIKE LOWER(?)`); params.push(`%${name}%`); }
-  if (username)   { where.push(`LOWER(s.username) LIKE LOWER(?)`); params.push(`%${username}%`); }
-  if (staffNumber){ where.push(`LOWER(s.staff_no) LIKE LOWER(?)`); params.push(`%${staffNumber}%`); }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const limit  = Math.max(1, parseInt(pageSize, 10) || 10);
-  const offset = Math.max(0, ((parseInt(page, 10) || 1) - 1) * limit);
-
-  const [[{ total }]] = await pool.query(
-    `
-    SELECT COUNT(*) AS total
-      FROM staff s
-      LEFT JOIN schools sc ON sc.id = s.school_id
-      LEFT JOIN departments d ON d.id = s.department_id
-     ${whereSql}
-    `,
-    params
-  );
-
+  // NOTE: alias full_name -> name for the UI
   const [rows] = await pool.query(
     `
-    SELECT s.id, s.username, s.full_name, s.email, s.staff_no, s.status,
-           sc.name AS school,
-           d.name  AS department,
-           (SELECT GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ',')
-              FROM user_roles ur
-              JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = s.id) AS roles_csv
-      FROM staff s
-      LEFT JOIN schools sc ON sc.id = s.school_id
-      LEFT JOIN departments d ON d.id = s.department_id
-     ${whereSql}
-     ORDER BY s.full_name ASC
-     LIMIT ? OFFSET ?
+    SELECT
+      s.id,
+      s.full_name   AS name,
+      s.username,
+      s.email,
+      s.staff_no    AS staffNumber,
+      s.status,
+      s.phone,
+      sc.name       AS school,
+      d.name        AS department
+    FROM staff s
+    LEFT JOIN schools sc    ON sc.id = s.school_id
+    LEFT JOIN departments d ON d.id = s.department_id
+    WHERE 1=1
+      AND (? = '' OR s.username LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.email    LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.staff_no LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.full_name LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR sc.name LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR d.name LIKE CONCAT('%', ?, '%'))
+    ORDER BY s.id DESC
+    LIMIT ? OFFSET ?
     `,
-    [...params, limit, offset]
+    [
+      username, username,
+      email,    email,
+      staffNumber, staffNumber,
+      name,     name,
+      school,   school,
+      department, department,
+      limit, offset
+    ]
   );
 
-  const items = rows.map(hydrateUserRow);
-  return { items, total };
+  // Found rows count (portable)
+  const [[{ cnt }]] = await pool.query(
+    `
+    SELECT COUNT(*) AS cnt
+    FROM staff s
+    LEFT JOIN schools sc    ON sc.id = s.school_id
+    LEFT JOIN departments d ON d.id = s.department_id
+    WHERE 1=1
+      AND (? = '' OR s.username LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.email    LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.staff_no LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR s.full_name LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR sc.name LIKE CONCAT('%', ?, '%'))
+      AND (? = '' OR d.name LIKE CONCAT('%', ?, '%'))
+    `,
+    [ username, username, email, email, staffNumber, staffNumber, name, name, school, school, department, department ]
+  );
+
+  return { items: rows, total: Number(cnt) || 0, page: Number(page), pageSize: limit };
+}
+
+// --- helpers to resolve "ID or Name" to numeric ID ---
+async function resolveIdByName(table, value, pool) {
+  if (value === null || value === undefined || value === '') return null;
+
+  // numeric-like? use directly
+  const n = Number(value);
+  if (Number.isFinite(n) && n > 0) return n;
+
+  // exact name (case-insensitive)
+  const [rows] = await pool.query(
+    `SELECT id FROM ${table} WHERE LOWER(name) = LOWER(?) LIMIT 1`,
+    [String(value)]
+  );
+  return rows?.[0]?.id || null;
+}
+
+export async function resolveSchoolId(value) {
+  // import pool at top of this file if not already in scope
+  const { default: poolDefault } = await import('../core/db.js');
+  return resolveIdByName('schools', value, poolDefault);
+}
+
+export async function resolveDepartmentId(value) {
+  const { default: poolDefault } = await import('../core/db.js');
+  return resolveIdByName('departments', value, poolDefault);
 }

@@ -65,17 +65,17 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/session') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/session') ? 'active' : '' %>">
           <i class="nav-icon fas fa-calendar-alt"></i>
-          <p><strong>Manage Session</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Manage Session <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item">
             <a href="/staff/session/current" class="nav-link <%= cur.startsWith('/staff/session/current') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Set Current Session</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Set Current Session</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/session/semester" class="nav-link <%= cur.startsWith('/staff/session/semester') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Switch Semester</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Switch Semester</p>
             </a>
           </li>
         </ul>
@@ -85,17 +85,17 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/users') || cur.startsWith('/staff/password-reset') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/users') || cur.startsWith('/staff/password-reset') ? 'active' : '' %>">
           <i class="nav-icon fas fa-user-cog"></i>
-          <p><strong>Action Staff</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Action Staff <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item">
             <a href="/staff/users/add" class="nav-link <%= cur.startsWith('/staff/users/add') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Add User/Role</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Add User/Role</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/password-reset" class="nav-link <%= cur.startsWith('/staff/password-reset') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Password Reset</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Password Reset</p>
             </a>
           </li>
         </ul>
@@ -105,17 +105,17 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/manage') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/manage') ? 'active' : '' %>">
           <i class="nav-icon fas fa-users-cog"></i>
-          <p><strong>Manage Staff</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Manage Staff <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item">
             <a href="/staff/manage/assign-role" class="nav-link <%= cur.startsWith('/staff/manage/assign-role') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Assign Role to Staff</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Assign Role to Staff</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/manage/modify" class="nav-link <%= cur.startsWith('/staff/manage/modify') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Modify Staff</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Modify Staff</p>
             </a>
           </li>
         </ul>
@@ -125,27 +125,27 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= inAttendance ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= inAttendance ? 'active' : '' %>">
           <i class="nav-icon fas fa-users-cog"></i>
-          <p><strong>Attendance Mgt</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Attendance Mgt <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item">
             <a href="/staff/attendance/office-location" class="nav-link <%= cur.startsWith('/staff/attendance/office-location') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Set Office Long/Lat.</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Set Office Long/Lat.</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/attendance/mark" class="nav-link <%= cur.startsWith('/staff/attendance/mark') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Mark Attendance</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Mark Attendance</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/attendance/report" class="nav-link <%= cur.startsWith('/staff/attendance/report') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>View Export Report</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>View Export Report</p>
             </a>
           </li>
           <li class="nav-item">
             <a href="/staff/attendance/watchlist" class="nav-link <%= cur.startsWith('/staff/attendance/watchlist') ? 'active' : '' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Watch-List Staff</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Watch-List Staff</p>
             </a>
           </li>
         </ul>
@@ -155,13 +155,13 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') ? 'active' : '' %>">
           <i class="nav-icon fas fa-book"></i>
-          <p><strong>Manage Courses</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Manage Courses <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/courses/assign"    class="nav-link <%= cur.startsWith('/staff/courses/assign') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Assign Course</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/courses/add"       class="nav-link <%= cur.startsWith('/staff/courses/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Add New Course</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/school/manage"     class="nav-link <%= cur.startsWith('/staff/school/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Add/Edit School</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/department/manage" class="nav-link <%= cur.startsWith('/staff/department/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Add/Edit Department</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/courses/assign"    class="nav-link <%= cur.startsWith('/staff/courses/assign') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Assign Course</p></a></li>
+          <li class="nav-item"><a href="/staff/courses/add"       class="nav-link <%= cur.startsWith('/staff/courses/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add New Course</p></a></li>
+          <li class="nav-item"><a href="/staff/school/manage"     class="nav-link <%= cur.startsWith('/staff/school/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add/Edit School</p></a></li>
+          <li class="nav-item"><a href="/staff/department/manage" class="nav-link <%= cur.startsWith('/staff/department/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add/Edit Department</p></a></li>
         </ul>
       </li>
 
@@ -172,18 +172,18 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <p><strong>Admissions</strong> <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Manage Admissions</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/upload"           class="nav-link <%= cur.startsWith('/staff/admissions/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Upload Admission List</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/status"           class="nav-link <%= cur.startsWith('/staff/admissions/status') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Admission Status</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/update-list"      class="nav-link <%= cur.startsWith('/staff/admissions/update-list') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Update Admission List</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/notify"           class="nav-link <%= cur.startsWith('/staff/admissions/notify') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Admission Notification</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/letters"          class="nav-link <%= cur.startsWith('/staff/admissions/letters') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Manage Admission Letter</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/scratch-cards"    class="nav-link <%= cur.startsWith('/staff/admissions/scratch-cards') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Manage Scratch Card</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/exam-date"        class="nav-link <%= cur.startsWith('/staff/admissions/exam-date') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Set Exam Date</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/verify-applicant" class="nav-link <%= cur.startsWith('/staff/admissions/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Verify Applicant</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/export"           class="nav-link <%= cur.startsWith('/staff/admissions/export') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Export Applicant</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/upload-utme"      class="nav-link <%= cur.startsWith('/staff/admissions/upload-utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Upload UTME Admission</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/add-course"       class="nav-link <%= cur.startsWith('/staff/admissions/add-course') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Add Course to Application</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admissions</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/upload"           class="nav-link <%= cur.startsWith('/staff/admissions/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload Admission List</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/status"           class="nav-link <%= cur.startsWith('/staff/admissions/status') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Status</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/update-list"      class="nav-link <%= cur.startsWith('/staff/admissions/update-list') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Update Admission List</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/notify"           class="nav-link <%= cur.startsWith('/staff/admissions/notify') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Notification</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/letters"          class="nav-link <%= cur.startsWith('/staff/admissions/letters') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admission Letter</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/scratch-cards"    class="nav-link <%= cur.startsWith('/staff/admissions/scratch-cards') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Scratch Card</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/exam-date"        class="nav-link <%= cur.startsWith('/staff/admissions/exam-date') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Set Exam Date</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/verify-applicant" class="nav-link <%= cur.startsWith('/staff/admissions/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Verify Applicant</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/export"           class="nav-link <%= cur.startsWith('/staff/admissions/export') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Export Applicant</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/upload-utme"      class="nav-link <%= cur.startsWith('/staff/admissions/upload-utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload UTME Admission</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/add-course"       class="nav-link <%= cur.startsWith('/staff/admissions/add-course') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Course to Application</p></a></li>
         </ul>
       </li>
 
@@ -191,16 +191,16 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/students') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/students') ? 'active' : '' %>">
           <i class="nav-icon fas fa-user-edit"></i>
-          <p><strong>Manage Student</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Manage Student <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/students/upload"         class="nav-link <%= cur.startsWith('/staff/students/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/edit"           class="nav-link <%= cur.startsWith('/staff/students/edit') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Edit Student</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link <%= cur.startsWith('/staff/students/reset-password') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Reset Password</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>UTME DATA</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Course Registration</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Student Attendance</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Uniform Measurement</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/students/upload"         class="nav-link <%= cur.startsWith('/staff/students/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload Student Data</p></a></li>
+          <li class="nav-item"><a href="/staff/students/edit"           class="nav-link <%= cur.startsWith('/staff/students/edit') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Edit Student</p></a></li>
+          <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link <%= cur.startsWith('/staff/students/reset-password') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Reset Password</p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME DATA</p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Course Registration</p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Student Attendance</p></a></li>
+          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Uniform Measurement</p></a></li>
         </ul>
       </li>
 
@@ -228,12 +228,13 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <p>Bursary / Payment <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/fees/add"            class="nav-link <%= cur.startsWith('/staff/fees/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Add Fees</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/fees/manual-payment" class="nav-link <%= cur.startsWith('/staff/fees/manual-payment') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Payment Outside Portal</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/fees/update"         class="nav-link <%= cur.startsWith('/staff/fees/update') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Update Fees</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/bursary/utme"        class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>UTME</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/bursary/applicants"  class="nav-link <%= cur.startsWith('/staff/bursary/applicants') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Applicants</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/bursary/verify-applicant" class="nav-link <%= cur.startsWith('/staff/bursary/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Verify Applicant</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/fees/payments"class="nav-link <%= cur.startsWith('/staff/fees/payments') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>All / General Payment</p></a></li>
+          <li class="nav-item"><a href="/staff/fees/payment-types" class="nav-link <%= cur.startsWith('/staff/fees/payment-types') && !cur.endsWith('/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Payment Types</p></a></li>
+          <li class="nav-item"><a href="/staff/fees/payment-types/add" class="nav-link <%= cur.startsWith('/staff/fees/payment-types/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Payment Type</p></a></li>
+          <li class="nav-item"><a href="/staff/fees/update" class="nav-link <%= cur.startsWith('/staff/fees/update') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add / Update Fees</p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/utme" class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/applicants" class="nav-link <%= cur.startsWith('/staff/bursary/applicants') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Applicants</p></a></li>
+          <li class="nav-item"><a href="/staff/bursary/verify-applicant" class="nav-link <%= cur.startsWith('/staff/bursary/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Verify Applicant</p></a></li>
         </ul>
       </li>
 
@@ -244,24 +245,24 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <p>Manage Password <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/password/staff"        class="nav-link <%= cur.startsWith('/staff/password/staff') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Staff Password</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/password/student"      class="nav-link <%= cur.startsWith('/staff/password/student') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Student Password</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/password/applicant"    class="nav-link <%= cur.startsWith('/staff/password/applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Applicant Password</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/password/edit-details" class="nav-link <%= cur.startsWith('/staff/password/edit-details') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p><strong>Edit Details</strong></p></a></li>
+          <li class="nav-item"><a href="/staff/password/staff"        class="nav-link <%= cur.startsWith('/staff/password/staff') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Staff Password</p></a></li>
+          <li class="nav-item"><a href="/staff/password/student"      class="nav-link <%= cur.startsWith('/staff/password/student') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Student Password</p></a></li>
+          <li class="nav-item"><a href="/staff/password/applicant"    class="nav-link <%= cur.startsWith('/staff/password/applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Applicant Password</p></a></li>
+          <li class="nav-item"><a href="/staff/password/edit-details" class="nav-link <%= cur.startsWith('/staff/password/edit-details') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Edit Details</p></a></li>
         </ul>
       </li>
 
-      <li class="nav-item"><a href="/records" class="nav-link <%= cur === '/records' ? 'active' : '' %>"><i class="nav-icon fas fa-table"></i><p><strong>Student Academic Records</strong></p></a></li>
-      <li class="nav-item"><a href="/results" class="nav-link <%= cur === '/results' ? 'active' : '' %>"><i class="nav-icon fas fa-calculator"></i><p><strong>Result Computation</strong></p></a></li>
-      <li class="nav-item"><a href="/transcripts/generate" class="nav-link <%= cur === '/transcripts/generate' ? 'active' : '' %>"><i class="nav-icon far fa-file-alt"></i><p><strong>Generate Transcript</strong></p></a></li>
-      <li class="nav-item"><a href="/transcripts/view"     class="nav-link <%= cur === '/transcripts/view' ? 'active' : '' %>"><i class="nav-icon far fa-file-pdf"></i><p><strong>View / Download Transcript</strong></p></a></li>
-      <li class="nav-item"><a href="/transcripts/send"     class="nav-link <%= cur === '/transcripts/send' ? 'active' : '' %>"><i class="nav-icon fas fa-paper-plane"></i><p><strong>Send Transcript</strong></p></a></li>
+      <li class="nav-item"><a href="/records" class="nav-link <%= cur === '/records' ? 'active' : '' %>"><i class="nav-icon fas fa-table"></i><p>Student Academic Records</p></a></li>
+      <li class="nav-item"><a href="/results" class="nav-link <%= cur === '/results' ? 'active' : '' %>"><i class="nav-icon fas fa-calculator"></i><p>Result Computation</p></a></li>
+      <li class="nav-item"><a href="/transcripts/generate" class="nav-link <%= cur === '/transcripts/generate' ? 'active' : '' %>"><i class="nav-icon far fa-file-alt"></i><p>Generate Transcript</p></a></li>
+      <li class="nav-item"><a href="/transcripts/view"     class="nav-link <%= cur === '/transcripts/view' ? 'active' : '' %>"><i class="nav-icon far fa-file-pdf"></i><p>View / Download Transcript</p></a></li>
+      <li class="nav-item"><a href="/transcripts/send"     class="nav-link <%= cur === '/transcripts/send' ? 'active' : '' %>"><i class="nav-icon fas fa-paper-plane"></i><p>Send Transcript</p></a></li>
 
     <% } else if (role === 'student') { %>
 
       <li class="nav-item">
         <a href="/student/dashboard" class="nav-link <%= cur === '/student/dashboard' ? 'active' : '' %>">
-          <i class="nav-icon fas fa-tachometer-alt"></i><p><strong>Dashboard</strong></p>
+          <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
         </a>
       </li>
 
@@ -269,13 +270,13 @@ const inAttendance = cur.startsWith('/staff/attendance');
       <li class="nav-item has-treeview <%= cur.startsWith('/student/registration') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/student/registration') ? 'active' : '' %>">
           <i class="nav-icon fas fa-clipboard-list"></i>
-          <p><strong>Course Registration</strong> <i class="right fas fa-angle-left"></i></p>
+          <p>Course Registration <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item">
             <a href="/student/registration"
                class="nav-link <%= cur === '/student/registration' ? 'active' : '' %> <%= can('student.registration') ? '' : 'disabled' %>">
-              <i class="far fa-circle nav-icon"></i><p><strong>Register Course</strong></p>
+              <i class="far fa-circle nav-icon"></i><p>Register Course</p>
             </a>
           </li>
           <li class="nav-item">

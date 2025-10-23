@@ -1,155 +1,110 @@
 <%
-const _stats = (typeof stats !== 'undefined' && stats) ? stats : {
-  box1: { value: '2025/2026', label: 'Current Academic Session', color: 'bg-info', icon: 'ion ion-bag' },
-  box2: { value: '1157',      label: 'Total Number of Applicants', color: 'bg-success', icon: 'ion ion-stats-bars' },
-  box3: { value: 2310,        label: 'Total Number of Students',    color: 'bg-warning', icon: 'ion ion-person-add' },
-  box4: { value: 125,         label: 'Total Number of Staff',       color: 'bg-danger',  icon: 'ion ion-pie-graph' }
-};
+  // -------- Safe locals (no shadowing) --------
+  const _stats = (typeof stats !== 'undefined' && stats) ? stats : {};
+  const SESSION_NAME     = _stats.sessionName || '2025/2026';
+  const TOTAL_APPLICANTS = (typeof _stats.totalApplicants !== 'undefined') ? _stats.totalApplicants : 1157;
+  const TOTAL_STUDENTS   = (typeof _stats.totalStudents   !== 'undefined') ? _stats.totalStudents   : 2310;
+  const TOTAL_STAFF_BOX  =
+      (typeof _stats.totalStaff !== 'undefined') ? _stats.totalStaff
+    : (typeof staffTotal !== 'undefined')        ? staffTotal
+    : 0;
 
+  // Attendance rows come from controller (already mapped): [{staffId,name,status,time}]
+  const attRows = Array.isArray(attendance) ? attendance.slice(0, 5) : [];
 
-const recentRegs = (typeof recentCourseRegs !== 'undefined' && Array.isArray(recentCourseRegs) && recentCourseRegs.length)
-  ? recentCourseRegs
-  : [
-      { date: '2025-02-10', matric: 'IJR/24/0001', name: 'Ade A.',   course: 'CSC101' },
-      { date: '2025-02-10', matric: 'IJR/24/0002', name: 'Bisi B.',  course: 'MTH101' },
-      { date: '2025-02-11', matric: 'IJR/24/0003', name: 'Chika C.', course: 'GNS101' },
-      { date: '2025-02-11', matric: 'IJR/24/0004', name: 'Dayo D.',  course: 'CHM101' },
-      { date: '2025-02-12', matric: 'IJR/24/0005', name: 'Emeka E.', course: 'PHY101' }
-    ];
+  // Recent course registrations: use provided list if any; else a small placeholder set
+  const recentRegs = (typeof recentCourseRegs !== 'undefined' && Array.isArray(recentCourseRegs) && recentCourseRegs.length)
+    ? recentCourseRegs
+    : [
+        { date: '2025-02-10', matric: 'IJR/24/0001', name: 'Ade A.',   course: 'CSC101' },
+        { date: '2025-02-10', matric: 'IJR/24/0002', name: 'Bisi B.',  course: 'MTH101' },
+        { date: '2025-02-11', matric: 'IJR/24/0003', name: 'Chika C.', course: 'GNS101' },
+        { date: '2025-02-11', matric: 'IJR/24/0004', name: 'Dayo D.',  course: 'CHM101' },
+        { date: '2025-02-12', matric: 'IJR/24/0005', name: 'Emeka E.', course: 'PHY101' }
+      ];
 
-const attendance = (typeof staffAttendance !== 'undefined' && Array.isArray(staffAttendance) && staffAttendance.length)
-  ? staffAttendance
-  : [
-      { time: '08:05', staffId: 'STF-001', name: 'Mrs. Bello', status: 'Online'   },
-      { time: '08:17', staffId: 'STF-014', name: 'Mr. Okoro',  status: 'Online'   },
-      { time: '08:51', staffId: 'STF-022', name: 'Dr. Kemi',   status: 'Online'   },
-      { time: '09:03', staffId: 'STF-031', name: 'Prof. Musa', status: 'In Active'},
-      { time: '09:20', staffId: 'STF-042', name: 'Mrs. Grace', status: 'Online'   }
-    ];
-
-/* Totals for the footer squares */
-const toMin = t => { try { const [h,m]=String(t||'').split(':').map(Number); return (h*60)+m; } catch(e){ return 0; } };
-const recentThreshold = 9 * 60; // >= 09:00 counts as "Recently Login"
-const recentCount   = attendance.filter(r => toMin(r.time) >= recentThreshold).length;
-const onlineCount   = attendance.filter(r => String(r.status||'').toLowerCase() === 'online').length;
-const inactiveCount = attendance.filter(r => String(r.status||'').toLowerCase().replace(/\s+/g,'') === 'inactive').length;
+  // Footer mini metrics (computed from 5 visible attendance rows)
+  const toMin = t => { try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch(_){ return 0; } };
+  const recentThreshold = 9*60; // ≥ 09:00
+  const RECENTLY_LOGIN = attRows.filter(r => toMin(r.time) >= recentThreshold).length;
+  const ONLINE_COUNT   = attRows.filter(r => r.status === 'Online').length;
+  const ON_LEAVE_COUNT = attRows.filter(r => r.status === 'On-Leave').length;
 %>
 
 <style>
-  /* Very light palette derived from #247D57 */
   :root{
     --green-base:#247D57;
-    --green-ink:#184c3b;           /* dark text on light green */
-    --green-soft:#eaf6f2;          /* very light bg */
-    --green-soft-2:#d7eee6;        /* light accent */
-    --green-accent:#bfe4d6;        /* button/bg accent */
-    --green-accent-hover:#abdccd;  /* hover */
-    --green-border:#cfe9e1;        /* borders */
+    --green-ink:#184c3b;
+    --green-soft:#eaf6f2;
+    --green-accent:#bfe4d6;
+    --green-accent-2:#abdccd;
+    --green-border:#cfe9e1;
   }
-
-  /* Buttons (replace the old blue) */
-  .btn-softgreen{
-    background-color:var(--green-accent);
-    border-color:var(--green-border);
-    color:var(--green-ink);
-  }
-  .btn-softgreen:hover,
-  .btn-softgreen:focus{
-    background-color:var(--green-accent-hover);
-    border-color:var(--green-accent-hover);
-    color:var(--green-ink);
-  }
-  .btn-outline-softgreen{
-    background:#fff;
-    border-color:var(--green-border);
-    color:var(--green-ink);
-  }
-  .btn-outline-softgreen:hover,
-  .btn-outline-softgreen:focus{
-    background-color:var(--green-accent);
-    border-color:var(--green-accent);
-    color:var(--green-ink);
-  }
-
-  .badge-softgreen{
-    background-color:var(--green-accent);
-    color:var(--green-ink);
-  }
-
-  /* Cards and tables – subtle green tints */
-  .card-header.softgreen{
-    background:var(--green-soft);
-    border-bottom:1px solid var(--green-border);
-  }
-  .table thead.thead-softgreen th{
-    background:var(--green-soft);
-    border-bottom:1px solid var(--green-border);
-  }
-
-  /* Attendance card: neutral body, light header */
-  .attendance-card .card-header{
-    background:var(--green-soft);
-    border-bottom:1px solid var(--green-border);
-  }
-
-  /* Footer summary squares */
-  .summary-squares { gap: .75rem; }
-  .summary-square {
-    width: 84px; height: 84px; border-radius: .5rem;
-    display: flex; align-items: center; justify-content: center; flex-direction: column;
-    background-color:var(--green-accent);
-    border:1px solid var(--green-border);
-    color:var(--green-ink);
-    box-shadow: 0 2px 6px rgba(0,0,0,.08);
-  }
-  .summary-square .count { font-weight: 700; font-size: 1.25rem; line-height: 1; }
-  .summary-square .label { font-size: .70rem; text-align: center; line-height: 1.1; margin-top: .25rem; }
+  .btn-softgreen{ background-color:var(--green-accent); border:1px solid var(--green-border); color:var(--green-ink); }
+  .btn-softgreen:hover{ background-color:var(--green-accent-2); border-color:var(--green-accent-2); color:var(--green-ink); }
+  .thead-softgreen th{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
+  .card-header.softgreen{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
+  .summary-squares{ gap:.75rem; }
+  .summary-square{ width:84px; height:84px; border-radius:.5rem; background:var(--green-accent); border:1px solid var(--green-border);
+                   display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--green-ink); box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  .summary-square .count{ font-weight:700; font-size:1.25rem; line-height:1; }
+  .summary-square .label{ font-size:.70rem; text-align:center; line-height:1.1; margin-top:.25rem; }
 </style>
 
-<!-- Small boxes (Stat box) -->
+<!-- Stat boxes -->
 <div class="row">
-  <% [ _stats.box1, _stats.box2, _stats.box3, _stats.box4 ].forEach(function(b){ %>
-    <div class="col-lg-3 col-6">
-      <div class="small-box <%= b.color %>">
-        <div class="inner">
-          <h3><%= b.value %></h3>
-          <p><%= b.label %></p>
-        </div>
-        <div class="icon"><i class="<%= b.icon %>"></i></div>
-        <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
-      </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3><%= SESSION_NAME %></h3><p>Current Academic Session</p></div>
+      <div class="icon"><i class="ion ion-bag"></i></div>
+      <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
-  <% }) %>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3><%= TOTAL_APPLICANTS %></h3><p>Total Number of Applicants</p></div>
+      <div class="icon"><i class="ion ion-stats-bars"></i></div>
+      <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner"><h3><%= TOTAL_STUDENTS %></h3><p>Total Number of Students</p></div>
+      <div class="icon"><i class="ion ion-person-add"></i></div>
+      <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner"><h3><%= TOTAL_STAFF_BOX %></h3><p>Total Number of Staff</p></div>
+      <div class="icon"><i class="ion ion-pie-graph"></i></div>
+      <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+  </div>
 </div>
-<!-- /.row -->
 
 <div class="row">
-  <!-- Left col -->
+  <!-- LEFT: recent course registration + chat -->
   <section class="col-lg-6 connectedSortable">
-    <!-- Recent Course Registration (Name removed) -->
+    <!-- Recent Course Registration -->
     <div class="card">
       <div class="card-header softgreen">
-        <h3 class="card-title">
-          <i class="fas fa-chart-line mr-1"></i> Recent Course Registration
-        </h3>
+        <h3 class="card-title"><i class="fas fa-chart-line mr-1"></i> Recent Course Registration</h3>
         <div class="card-tools">
           <a href="#" class="btn btn-softgreen btn-sm">View/Print List</a>
-          <a href="#" class="btn btn-outline-softgreen btn-sm">Print Clearance List</a>
+          <a href="#" class="btn btn-softgreen btn-sm">Print Clearance List</a>
         </div>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-striped table-hover mb-0">
             <thead class="thead-softgreen">
-              <tr>
-                <th>#</th>
-                <th>Matric No.</th>
-                <th>Course</th>
-                <th>Date</th>
-                <th>Action</th>
-              </tr>
+              <tr><th>#</th><th>Matric No.</th><th>Course</th><th>Date</th><th>Action</th></tr>
             </thead>
             <tbody>
+              <% if (!recentRegs.length) { %>
+                <tr><td colspan="5" class="text-center text-muted">No recent registrations</td></tr>
+              <% } %>
               <% recentRegs.forEach(function (row, i) { %>
                 <tr>
                   <td><%= i + 1 %></td>
@@ -180,13 +135,12 @@ const inactiveCount = attendance.filter(r => String(r.status||'').toLowerCase().
         <div class="direct-chat-messages">
           <div class="direct-chat-msg">
             <div class="direct-chat-infos clearfix">
-              <span class="direct-chat-name float-left"><%= (user && user.name) || 'You' %></span>
+              <span class="direct-chat-name float-left"><%= (user && (user.full_name || user.name)) || 'You' %></span>
               <span class="direct-chat-timestamp float-right">10:12 AM</span>
             </div>
             <img class="direct-chat-img" src="/public/img/avatar.png" alt="You">
             <div class="direct-chat-text">Hi, what’s the venue for CSC201 lab?</div>
           </div>
-
           <div class="direct-chat-msg right">
             <div class="direct-chat-infos clearfix">
               <span class="direct-chat-name float-right">Course Rep</span>
@@ -195,18 +149,6 @@ const inactiveCount = attendance.filter(r => String(r.status||'').toLowerCase().
             <img class="direct-chat-img" src="/public/img/course-rep.png" alt="Rep">
             <div class="direct-chat-text">New Lab 2, 1:00–3:00 PM.</div>
           </div>
-        </div>
-
-        <div class="direct-chat-contacts">
-          <ul class="contacts-list">
-            <li>
-              <a href="#"><img class="contacts-list-img" src="/public/img/course-rep.png" alt="Rep">
-                <div class="contacts-list-info">
-                  <span class="contacts-list-name">CSC201 Rep</span>
-                  <span class="contacts-list-msg">Ask timetable or materials…</span>
-                </div></a>
-            </li>
-          </ul>
         </div>
       </div>
       <div class="card-footer">
@@ -220,60 +162,50 @@ const inactiveCount = attendance.filter(r => String(r.status||'').toLowerCase().
     </div>
   </section>
 
-  <!-- Right col -->
+  <!-- RIGHT: Staff Attendance -->
   <section class="col-lg-6 connectedSortable">
-    <!-- Staff Attendance -->
-    <div class="card attendance-card">
-      <div class="card-header">
+    <div class="card">
+      <div class="card-header softgreen">
         <h3 class="card-title"><i class="fas fa-th mr-1"></i> Staff Attendance</h3>
         <div class="card-tools">
-          <button type="button" class="btn btn-outline-softgreen btn-sm" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
-          <button type="button" class="btn btn-outline-softgreen btn-sm" data-card-widget="remove"><i class="fas fa-times"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
         </div>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-striped table-hover mb-0">
             <thead class="thead-softgreen">
-              <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
+              <tr><th>#</th><th>ID</th><th>Name</th><th>Status</th><th>Time</th><th>Action</th></tr>
             </thead>
             <tbody>
-              <% attendance.forEach(function (row, i) { %>
+              <% if (!attRows.length) { %>
+                <tr><td colspan="6" class="text-center text-muted">No recent attendance activity</td></tr>
+              <% } %>
+              <% attRows.forEach(function (r, i) { %>
                 <tr>
-                  <td><%= i + 1 %></td>
-                  <td><%= row.staffId %></td>
-                  <td><%= row.name %></td>
-                  <td><%= row.status %></td>
-                  <td><%= row.time %></td>
-                  <td><a href="#" class="btn btn-softgreen btn-sm">View Details</a></td>
+                  <td><%= i+1 %></td>
+                  <td><%= r.staffId %></td>
+                  <td><%= r.name %></td>
+                  <td><%= r.status %></td>
+                  <td><%= r.time %></td>
+                  <td><a href="/staff/attendance/report" class="btn btn-softgreen btn-sm">View Details</a></td>
                 </tr>
               <% }) %>
             </tbody>
           </table>
         </div>
       </div>
-
-      <!-- Summary squares (very light green) -->
       <div class="card-footer" style="background:var(--green-soft); border-top:1px solid var(--green-border);">
         <div class="d-flex justify-content-around summary-squares">
           <div class="summary-square">
-            <div class="count"><%= recentCount %></div>
-            <div class="label">Recently<br>Login</div>
+            <div class="count"><%= RECENTLY_LOGIN %></div><div class="label">Recently<br>Login</div>
           </div>
           <div class="summary-square">
-            <div class="count"><%= onlineCount %></div>
-            <div class="label">Online</div>
+            <div class="count"><%= ONLINE_COUNT %></div><div class="label">Online</div>
           </div>
           <div class="summary-square">
-            <div class="count"><%= inactiveCount %></div>
-            <div class="label">In Active</div>
+            <div class="count"><%= ON_LEAVE_COUNT %></div><div class="label">On-Leave</div>
           </div>
         </div>
       </div>

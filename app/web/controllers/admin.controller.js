@@ -4,6 +4,9 @@
 
 import * as users from '../../services/user.service.js';
 import * as sessions from '../../services/session.service.js';
+import { resolveSchoolId, resolveDepartmentId } from '../../services/user.service.js';
+import pool from '../../core/db.js';
+
 
 /* ---------- Add User ---------- */
 export const showAddUser = async (_req, res) => {
@@ -118,19 +121,38 @@ export const listUsers = async (req, res) => {
 export const updateStaff = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const payload = req.body || {};
-    await users.updateUser(id, {
-      full_name: payload.fullName,
-      email: payload.email,
-      username: payload.username,
-      staff_no: payload.staffNumber,
-      status: payload.status
-    });
-    res.json({ success: true });
-  } catch (e) {
-    res.status(400).json({ success: false, message: e.message || 'Could not update staff' });
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid staff id' });
+
+    const b = req.body || {};
+
+    // Resolve school/department ids if text names were posted
+    let school_id = null, department_id = null;
+    if (b.school)      school_id = await resolveSchoolId(b.school);
+    if (b.department)  department_id = await resolveDepartmentId(b.department);
+
+    const sets = [], vals = [];
+    if (b.fullName !== undefined)   { sets.push('full_name = ?');  vals.push(b.fullName || null); }
+    if (b.email !== undefined)      { sets.push('email = ?');      vals.push(b.email || null); }
+    if (b.username !== undefined)   { sets.push('username = ?');   vals.push(b.username || null); }
+    if (b.staffNumber !== undefined){ sets.push('staff_no = ?');   vals.push(b.staffNumber || null); }
+    if (b.phone !== undefined)      { sets.push('phone = ?');      vals.push(b.phone || null); }
+    if (b.status !== undefined)     { sets.push('status = ?');     vals.push(b.status || null); }
+    if (school_id)                  { sets.push('school_id = ?');  vals.push(school_id); }
+    if (department_id)              { sets.push('department_id = ?'); vals.push(department_id); }
+
+    if (!sets.length) return res.json({ success: true, message: 'No changes' });
+
+    const sql = `UPDATE staff SET ${sets.join(', ')} WHERE id = ? LIMIT 1`;
+    vals.push(id);
+    await pool.query(sql, vals);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('updateStaff error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Update failed' });
   }
 };
+
 
 export const deleteStaff = async (req, res) => {
   try {

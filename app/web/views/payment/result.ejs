@@ -1,0 +1,26 @@
+<!-- app/web/views/payment/result.ejs -->
+<style>
+  .content,.container-fluid{padding:0!important}
+  .payment-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;background:url('/public/img/bg2.jpg') center/cover no-repeat fixed;}
+  .card{width:520px;max-width:94vw;background:#fff;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28);padding:22px}
+  .logo{width:78px;height:78px;object-fit:contain;margin:0 auto 8px;display:block}
+  h2{text-align:center;margin:8px 0 14px}
+  .muted{color:#6b7280;font-size:13px;text-align:center}
+  .acts{display:flex;gap:10px;margin-top:16px}
+  .acts a{flex:1;display:inline-flex;align-items:center;justify-content:center;height:44px;border-radius:10px;font-weight:700;text-decoration:none}
+  .btn-view{background:#10b981;color:#fff}
+  .btn-dl{background:#2563eb;color:#fff}
+</style>
+
+<section class="payment-bg">
+  <div class="card">
+    <img src="/public/img/logo.png" class="logo" alt="logo">
+    <h2><%= modeTitle || 'PAYMENT RESULT' %></h2>
+    <div class="muted">Request Completed</div>
+    <div class="acts">
+      <a class="btn-view" href="<%= viewUrl %>" target="_blank" rel="noopener">View</a>
+      <a class="btn-dl" href="<%= downloadUrl %>" download>Download</a>
+    </div>
+    <div class="muted" style="margin-top:12px"><a href="/">Back to Home</a></div>
+  </div>
+</section>

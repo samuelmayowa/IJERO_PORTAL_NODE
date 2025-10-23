@@ -1,0 +1,225 @@
+<!-- app/web/views/payment/public-payment.ejs -->
+<%
+const TYPES = (typeof types !== 'undefined' && Array.isArray(types)) ? types : [];
+const FAKE = (typeof FAKE_RRR_ON !== 'undefined') ? !!FAKE_RRR_ON : false;
+const CSRF = (typeof csrfToken !== 'undefined') ? csrfToken : '';
+const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
+%>
+<style>
+  .content,.container-fluid{padding:0!important}
+  .payment-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;background:url('/public/img/bg2.jpg') center/cover no-repeat fixed;}
+  .payment-card{width:520px;max-width:94vw;background:#fff;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28);overflow:hidden}
+  .card-head{padding:22px 24px 8px;text-align:center}
+  .logo{width:78px;height:78px;object-fit:contain;margin:0 auto 8px;display:block}
+  .title{font-weight:700;font-size:18px;color:#111}
+  .muted{color:#6b7280;font-size:12px}
+  .card-body{padding:18px 22px}
+  .card-foot{padding:18px 22px 22px;border-top:1px solid #eee}
+  .field{position:relative;margin-bottom:12px}
+  .field .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;opacity:.65}
+  .field select,.field input{width:100%;height:42px;border:1px solid #d1d5db;border-radius:8px;padding:0 12px 0 40px;font-size:14px}
+  .field.noicon input{padding-left:12px}
+  .btn-primary{width:100%;height:44px;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
+  .btn-primary .pill{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.25)}
+  .btn-yellow{width:100%;height:42px;border-radius:8px;border:0;background:#f59e0b;color:#111;font-weight:700;margin-top:10px}
+  .below{margin-top:14px;padding-top:14px;border-top:1px solid #eee;font-size:13px;color:#4b5563}
+  .below a{color:#2563eb;text-decoration:none}
+  .below a:hover{text-decoration:underline}
+  .alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:6px}
+  .alert-warning{background:#fff3cd;border:1px solid #ffe58f;color:#663c00;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:6px}
+  .flash{position:fixed;top:14px;right:14px;z-index:60;max-width:420px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;z-index:70}
+  .spinner{background:#fff;border-radius:12px;padding:22px 28px;box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center}
+  .spinner .big{font-weight:800}
+  .spinner .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin:0 4px;animation:b 1s infinite alternate;background:#2563eb}
+  .spinner .dot:nth-child(2){animation-delay:.2s}.spinner .dot:nth-child(3){animation-delay:.4s}
+  @keyframes b{to{opacity:.15;transform:translateY(4px)}}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:80}
+  .modal .box{background:#fff;border-radius:12px;max-width:460px;width:92vw;padding:20px 18px;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+  .modal .box h3{margin:0 0 8px;font-size:18px}
+  .modal .acts{display:flex;gap:10px;margin-top:12px}
+  .modal .acts a{flex:1;display:inline-flex;align-items:center;justify-content:center;height:42px;border-radius:8px;font-weight:700;text-decoration:none}
+  .btn-view{background:#10b981;color:#fff}
+  .btn-dl{background:#2563eb;color:#fff}
+</style>
+
+<section class="payment-bg">
+  <form class="payment-card" id="payForm" method="POST" action="/payment" data-csrf="<%= CSRF %>">
+    <input type="hidden" name="_csrf" value="<%= CSRF %>">
+    <div class="card-head">
+      <img src="/public/img/logo.png" class="logo" alt="logo">
+      <div class="title">Other Payments</div>
+      <div class="muted">Supply your details below.</div>
+    </div>
+
+    <div class="card-body">
+      <div class="field">
+        <img class="icon" src="/public/img/icons/type.svg" alt="">
+        <select id="payment_type_id" name="payment_type_id" required>
+          <option value="">Select Payment Type</option>
+          <% for (const t of TYPES){ %>
+            <option value="<%= t.id %>"><%= t.name %></option>
+          <% } %>
+        </select>
+      </div>
+
+      <div class="field noicon"><input id="payee_id" name="payee_id" placeholder="Payee ID (Matric/Reg./Phone) — Optional"></div>
+      <div class="field"><img class="icon" src="/public/img/icons/user.svg"><input id="payee_fullname" name="payee_fullname" placeholder="Payee Fullname" required></div>
+      <div class="field"><img class="icon" src="/public/img/icons/mail.svg"><input id="payee_email" name="payee_email" placeholder="Payee Email Address" type="email"></div>
+      <div class="field"><img class="icon" src="/public/img/icons/phone.svg"><input id="payee_phone" name="payee_phone" placeholder="Payee Phone Number"></div>
+      <div class="field"><img class="icon" src="/public/img/icons/info.svg"><input id="purpose" name="purpose" placeholder="Payment Purpose — auto or custom"></div>
+
+      <div class="field"><img class="icon" src="/public/img/icons/amount.svg"><input id="amount" name="amount" placeholder="Amount (₦) — auto from Payment Type" readonly></div>
+      <div class="field"><img class="icon" src="/public/img/icons/fee.svg"><input id="portal_charge" name="portal_charge" placeholder="Portal Charge (₦)" readonly></div>
+
+      <div class="muted" style="margin:8px 0 12px">Payment Method</div>
+      <div class="field">
+        <select id="method" name="method" required>
+          <option value="BANK">Pay at Bank Branch</option>
+          <option value="ONLINE" <%= FAKE ? 'disabled' : '' %>>Pay Online (Remita)</option>
+        </select>
+      </div>
+
+      <div class="alert-warning" id="onlineInfo" style="display:block">
+        Online payment is temporarily unavailable. Please use <b>Pay at Bank Branch</b>.
+      </div>
+
+      <div class="alert-info">
+        <b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.
+      </div>
+    </div>
+
+    <div class="card-foot">
+      <button class="btn-primary" type="submit">
+        <span>Generate Invoice(RRR) Now</span>
+        <span class="pill">➜</span>
+      </button>
+
+      <a class="btn-yellow" href="/payment/reprint">VALIDATE RRR / REPRINT ➜</a>
+      <div class="below"><a href="/">College Portal Home Page</a></div>
+    </div>
+  </form>
+</section>
+
+<!-- overlay -->
+<div class="overlay" id="overlay">
+  <div class="spinner">
+    <div class="big" id="ovTitle">Processing, please wait...</div>
+    <div style="margin-top:8px">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>
+  </div>
+</div>
+
+<!-- success modal -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h3 id="mTitle">Request Completed</h3>
+    <div class="muted" id="mDesc">Your invoice is ready.</div>
+    <div class="acts">
+      <a id="mView" class="btn-view" href="#" target="_blank" rel="noopener">View Invoice</a>
+      <a id="mDl" class="btn-dl" href="#" download>Download Invoice</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const form = $('#payForm');
+  const elType = $('#payment_type_id');
+  const elAmount = $('#amount');
+  const elCharge = $('#portal_charge');
+  const elPurpose = $('#purpose');
+  const overlay = $('#overlay');
+  const modal = $('#modal');
+  const mTitle = $('#mTitle'), mDesc = $('#mDesc'), mView = $('#mView'), mDl = $('#mDl');
+  const csrf = form.getAttribute('data-csrf') || '';
+
+  elType.addEventListener('change', async () => {
+    const id = elType.value;
+    elAmount.value = ''; elCharge.value = '';
+    if(!id) return;
+    try{
+      const r = await fetch(`/payment/api/payment-types/${id}`, { headers: {'Accept':'application/json'} });
+      const pt = await r.json();
+      elAmount.value = pt.amount || 0;
+      elCharge.value = pt.portal_charge || 0;
+      if (pt.purpose && !elPurpose.value) elPurpose.value = pt.purpose;
+    } catch(e){}
+  });
+
+  function showOverlay(text){ document.getElementById('ovTitle').textContent = text || 'Processing, please wait...'; overlay.style.display='flex'; }
+  function hideOverlay(){ overlay.style.display='none'; }
+
+  function pickOrderId(d){
+    return (d && (d.orderId || d.order_id || d.order || d.id || d.reference || d.ref)) || null;
+  }
+  function buildUrlsFrom(orderId, kind){
+    if(!orderId) return {viewUrl:'#', downloadUrl:'#'};
+    const base = `/payment/print/${encodeURIComponent(orderId)}?type=${encodeURIComponent(kind||'invoice')}`;
+    return { viewUrl: base, downloadUrl: `${base}&dl=1` };
+  }
+  function showModal(kind, data){
+    const orderId   = pickOrderId(data);
+    const urls = (data && data.view_url && data.download_url) ? {viewUrl: data.view_url, downloadUrl: data.download_url} : buildUrlsFrom(orderId, kind);
+    mTitle.textContent = 'Request Completed';
+    mDesc.textContent  = (kind==='receipt') ? 'Your receipt is ready.' : 'Your invoice is ready.';
+    mView.textContent  = (kind==='receipt') ? 'View Receipt' : 'View Invoice';
+    mDl.textContent    = (kind==='receipt') ? 'Download Receipt' : 'Download Invoice';
+
+    if (urls.viewUrl === '#' || urls.downloadUrl === '#') {
+      alert('Order ID missing from server response. Please try again.');
+      return;
+    }
+    mView.href = urls.viewUrl; mView.removeAttribute('download');
+    mDl.href   = urls.downloadUrl; mDl.setAttribute('download','');
+    modal.style.display='flex';
+  }
+  modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.style.display='none'; });
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    showOverlay('Processing, please wait...');
+    const fd = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [k,v] of fd.entries()) params.append(k, v);
+
+    try{
+      const r = await fetch(form.action + '?ajax=1', {
+        method:'POST',
+        headers: {
+          'Accept':'application/json',
+          'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
+          'x-csrf-token': csrf
+        },
+        body: params.toString()
+      });
+
+      const ct = r.headers.get('content-type') || '';
+      if (!r.ok){
+        // if we accidentally got HTML (redirect/error), show a friendly message
+        const msg = ct.includes('application/json') ? (await r.json()).message : 'Request failed. Please check required fields and try again.';
+        throw new Error(msg);
+      }
+
+      if (!ct.includes('application/json')) {
+        throw new Error('Unexpected server response. Please try again.');
+      }
+
+      const data = await r.json();
+      if (data.kind === 'redirect' && data.redirectUrl){
+        document.getElementById('ovTitle').textContent = 'Redirecting to payment...';
+        window.location = data.redirectUrl;
+        return;
+      }
+
+      hideOverlay();
+      showModal(data.kind || 'invoice', data);
+    } catch(err){
+      hideOverlay();
+      alert(err.message || 'Something went wrong.');
+    }
+  });
+})();
+</script>

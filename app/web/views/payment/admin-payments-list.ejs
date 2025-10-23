@@ -1,0 +1,170 @@
+<!-- app/web/views/payment/admin-payments-list.ejs -->
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= title %></h4>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+
+    <!-- Filter Bar (styled similar to Attendance Report) -->
+    <div class="card">
+      <div class="card-body">
+        <form class="form-row" method="GET" id="flt">
+          <div class="form-group col-md-2">
+            <label>From</label>
+            <input type="date" class="form-control" name="from" value="<%= from || '' %>">
+          </div>
+          <div class="form-group col-md-2">
+            <label>To</label>
+            <input type="date" class="form-control" name="to" value="<%= to || '' %>">
+          </div>
+          <div class="form-group col-md-3">
+            <label>Payment Type</label>
+            <select class="form-control" name="typeId">
+              <option value="">All</option>
+              <% (types || []).forEach(t => { %>
+                <option value="<%= t.id %>" <%= String(typeId||'')===String(t.id)?'selected':'' %>><%= t.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Status</label>
+            <select class="form-control" name="status">
+              <option value="ALL" <%= status==='ALL'?'selected':'' %>>All</option>
+              <option value="PAID" <%= status==='PAID'?'selected':'' %>>PAID</option>
+              <option value="PENDING" <%= status==='PENDING'?'selected':'' %>>PENDING</option>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Method</label>
+            <select class="form-control" name="method">
+              <option value="ALL" <%= method==='ALL'?'selected':'' %>>All</option>
+              <option value="ONLINE" <%= method==='ONLINE'?'selected':'' %>>ONLINE</option>
+              <option value="BANK" <%= method==='BANK'?'selected':'' %>>BANK</option>
+            </select>
+          </div>
+          <div class="form-group col-md-6 mt-2">
+            <input type="text" class="form-control" name="q" value="<%= q || '' %>" placeholder="Search order ID / payee / type">
+          </div>
+          <div class="form-group col-md-6 mt-2 d-flex">
+            <button class="btn btn-primary mr-2">Apply</button>
+            <a class="btn btn-default mr-2" href="?">Reset</a>
+            <a class="btn btn-outline-success" href="/staff/fees/payments/export.csv?<%= [
+                from?('from='+encodeURIComponent(from)):'',
+                to?('to='+encodeURIComponent(to)):'',
+                status?('status='+encodeURIComponent(status)):'',
+                method?('method='+encodeURIComponent(method)):'',
+                typeId?('typeId='+encodeURIComponent(typeId)):'',
+                q?('q='+encodeURIComponent(q)):''
+              ].filter(Boolean).join('&') %>">Export CSV</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3><%= (summary && summary.total) || 0 %></h3>
+            <p>Rows Matched</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-success">
+          <div class="inner">
+            <h3><%= (summary && summary.paid) || 0 %></h3>
+            <p>Paid</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-warning">
+          <div class="inner">
+            <h3><%= (summary && summary.pending) || 0 %></h3>
+            <p>Pending</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-danger">
+          <div class="inner">
+            <h3><%= ((summary && summary.online) || 0) %> / <%= ((summary && summary.bank) || 0) %></h3>
+            <p>Online / Bank</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Order ID</th>
+              <th>RRR</th>
+              <th>Payment Type</th>
+              <th class="text-right">Amount</th>
+              <th class="text-right">Portal Charge</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Name</th>
+              <th>Payee ID / Matric</th>
+              <th>Email / Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if ((rows||[]).length === 0) { %>
+              <tr><td colspan="11" class="text-center text-muted">No records</td></tr>
+            <% } %>
+            <% (rows||[]).forEach(r => { %>
+              <tr>
+                <td><%= r.created_at ? new Date(r.created_at).toLocaleDateString() : '' %></td>
+                <td><code><%= r.order_id %></code></td>
+                <td><%= r.rrr || '' %></td>
+                <td><%= r.payment_type_name %></td>
+                <td class="text-right">₦<%= Number(r.amount||0).toLocaleString() %></td>
+                <td class="text-right">₦<%= Number(r.portal_charge||0).toLocaleString() %></td>
+                <td><%= r.method %></td>
+                <td><%= r.status %></td>
+                <td><%= r.payee_fullname || '' %></td>
+                <td><%= r.payee_id || '' %></td>
+                <td>
+                  <div class="small"><%= r.payee_email || '' %></div>
+                  <div class="small"><%= r.payee_phone || '' %></div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer d-flex justify-content-between">
+        <div>Page <%= pagination.page %> of <%= pagination.totalPages %> (Total: <%= pagination.total %>)</div>
+        <div>
+          <% const qsBase = [
+               from?('from='+encodeURIComponent(from)):'',
+               to?('to='+encodeURIComponent(to)):'',
+               status?('status='+encodeURIComponent(status)):'',
+               method?('method='+encodeURIComponent(method)):'',
+               typeId?('typeId='+encodeURIComponent(typeId)):'',
+               q?('q='+encodeURIComponent(q)):''
+             ].filter(Boolean).join('&'); %>
+          <% if (pagination.page > 1) { %>
+            <a class="btn btn-sm btn-default" href="?page=<%= pagination.page-1 %><%= qsBase?('&'+qsBase):'' %>">Prev</a>
+          <% } %>
+          <% if (pagination.page < pagination.totalPages) { %>
+            <a class="btn btn-sm btn-default" href="?page=<%= pagination.page+1 %><%= qsBase?('&'+qsBase):'' %>">Next</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
