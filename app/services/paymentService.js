@@ -68,11 +68,31 @@ export async function findInvoiceByOrder(order_id){
   return row || null;
 }
 
+export async function markPaid(order_id, extra = {}){
+  // If your table doesn't have paid_at or meta columns, this still works (ignored by MySQL).
+  await db.query(
+    `UPDATE payment_invoices
+        SET status='PAID', paid_at=IFNULL(paid_at, NOW()), payment_meta=?
+      WHERE order_id=? LIMIT 1`,
+    [JSON.stringify(extra || {}), order_id]
+  );
+}
+
+export async function refreshInvoice(order_id){
+  const q = await db.query(
+    `SELECT inv.*, pt.name AS payment_type_name, pt.purpose AS payment_type_purpose
+       FROM payment_invoices inv
+       JOIN payment_types pt ON pt.id=inv.payment_type_id
+      WHERE inv.order_id=? LIMIT 1`,
+    [order_id]
+  );
+  const [row] = toRows(q);
+  return row || null;
+}
+
 /* ================================
    ADMIN REPORTING
    listInvoices({ page, pageSize, q, from, to, status, method, typeId })
-   - paginated list with filters
-   - summary counts for stat cards
    ================================ */
 export async function listInvoices(params = {}){
   const page     = Math.max(1, Number(params.page || 1));

@@ -31,7 +31,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;z-index:70}
   .spinner{background:#fff;border-radius:12px;padding:22px 28px;box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center}
   .spinner .big{font-weight:800}
-  .spinner .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin:0 4px;animation:b 1s infinite alternate;background:#2563eb}
+  .spinner .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin:0 4px;background:#2563eb;animation:b 1s infinite alternate}
   .spinner .dot:nth-child(2){animation-delay:.2s}.spinner .dot:nth-child(3){animation-delay:.4s}
   @keyframes b{to{opacity:.15;transform:translateY(4px)}}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:80}
@@ -43,82 +43,101 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   .btn-dl{background:#2563eb;color:#fff}
 </style>
 
+<div class="flash">
+  <% if (MESSAGES.error) { %><div class="alert alert-danger"><%= MESSAGES.error %></div><% } %>
+  <% if (MESSAGES.success) { %><div class="alert alert-success"><%= MESSAGES.success %></div><% } %>
+</div>
+
 <section class="payment-bg">
   <form class="payment-card" id="payForm" method="POST" action="/payment" data-csrf="<%= CSRF %>">
-    <input type="hidden" name="_csrf" value="<%= CSRF %>">
+    <% if (CSRF) { %><input type="hidden" name="_csrf" value="<%= CSRF %>"><% } %>
+
     <div class="card-head">
-      <img src="/public/img/logo.png" class="logo" alt="logo">
-      <div class="title">Other Payments</div>
+      <img src="/public/img/logo.png" class="logo" alt="College logo">
+      <div class="title">Other Payments <span class="muted"></span></div>
       <div class="muted">Supply your details below.</div>
     </div>
 
     <div class="card-body">
       <div class="field">
-        <img class="icon" src="/public/img/icons/type.svg" alt="">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
         <select id="payment_type_id" name="payment_type_id" required>
           <option value="">Select Payment Type</option>
-          <% for (const t of TYPES){ %>
-            <option value="<%= t.id %>"><%= t.name %></option>
-          <% } %>
+          <% TYPES.forEach(function(t){ %>
+            <option value="<%= t.id %>" data-amount="<%= t.amount %>" data-charge="<%= t.portal_charge %>"><%= t.name %></option>
+          <% }) %>
         </select>
       </div>
 
-      <div class="field noicon"><input id="payee_id" name="payee_id" placeholder="Payee ID (Matric/Reg./Phone) — Optional"></div>
-      <div class="field"><img class="icon" src="/public/img/icons/user.svg"><input id="payee_fullname" name="payee_fullname" placeholder="Payee Fullname" required></div>
-      <div class="field"><img class="icon" src="/public/img/icons/mail.svg"><input id="payee_email" name="payee_email" placeholder="Payee Email Address" type="email"></div>
-      <div class="field"><img class="icon" src="/public/img/icons/phone.svg"><input id="payee_phone" name="payee_phone" placeholder="Payee Phone Number"></div>
-      <div class="field"><img class="icon" src="/public/img/icons/info.svg"><input id="purpose" name="purpose" placeholder="Payment Purpose — auto or custom"></div>
-
-      <div class="field"><img class="icon" src="/public/img/icons/amount.svg"><input id="amount" name="amount" placeholder="Amount (₦) — auto from Payment Type" readonly></div>
-      <div class="field"><img class="icon" src="/public/img/icons/fee.svg"><input id="portal_charge" name="portal_charge" placeholder="Portal Charge (₦)" readonly></div>
-
-      <div class="muted" style="margin:8px 0 12px">Payment Method</div>
       <div class="field">
-        <select id="method" name="method" required>
-          <option value="BANK">Pay at Bank Branch</option>
-          <option value="ONLINE" <%= FAKE ? 'disabled' : '' %>>Pay Online (Remita)</option>
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v14H3z M7 9h6v2H7z M7 12h10v2H7z"/></svg>
+        <input type="text" name="payee_id" placeholder="Payee ID (Matric/Reg./Phone) — Optional">
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-5 0-9 2.24-9 5v1h18v-1c0-2.76-4-5-9-5z"/></svg>
+        <input type="text" name="payee_fullname" placeholder="Payee Fullname" required>
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>
+        <input type="email" name="payee_email" placeholder="Payee Email Address">
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.05 15.05 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.36 11.36 0 0 0 3.6.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 8a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .6 3.6 1 1 0 0 1-.25 1z"/></svg>
+        <input type="text" name="payee_phone" placeholder="Payee Phone Number">
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+        <input id="purpose" name="purpose" placeholder="Payment Purpose — auto or custom">
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1v22M5 6h10a3 3 0 0 1 0 6H7a3 3 0 0 0 0 6h10"/></svg>
+        <input id="amount" type="number" placeholder="Amount (₦) — auto from Payment Type" readonly>
+      </div>
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l4 8H8l4-8zm-4 10h8l4 8H4l4-8z"/></svg>
+        <input id="portal_charge" type="number" placeholder="Portal Charge (₦)" readonly>
+      </div>
+
+      <div class="field">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 7h20v10H2zM2 10h20"/></svg>
+        <label for="method" class="field-label">Payment Method</label>
+        <select id="method" name="method" class="field">
+          <option value="BANK" selected>Pay at Bank Branch</option>
+          <% if (!FAKE) { %><option value="ONLINE">Pay Online</option><% } %>
         </select>
+        <% if (FAKE) { %>
+          <div class="alert-warning">
+            Online payment is temporarily unavailable. Please use <b>Pay at Bank Branch</b>.
+          </div>
+        <% } %>
       </div>
 
-      <div class="alert-warning" id="onlineInfo" style="display:block">
-        Online payment is temporarily unavailable. Please use <b>Pay at Bank Branch</b>.
-      </div>
-
-      <div class="alert-info">
-        <b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.
-      </div>
+      <div class="alert-info"><b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.</div>
     </div>
 
     <div class="card-foot">
-      <button class="btn-primary" type="submit">
-        <span>Generate Invoice(RRR) Now</span>
-        <span class="pill">➜</span>
-      </button>
-
+      <button class="btn-primary" type="submit">Generate Invoice(RRR) Now <span class="pill">➜</span></button>
       <a class="btn-yellow" href="/payment/reprint">VALIDATE RRR / REPRINT ➜</a>
       <div class="below"><a href="/">College Portal Home Page</a></div>
     </div>
   </form>
 </section>
 
-<!-- overlay -->
 <div class="overlay" id="overlay">
   <div class="spinner">
     <div class="big" id="ovTitle">Processing, please wait...</div>
-    <div style="margin-top:8px">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    </div>
+    <div style="margin:8px 0 4px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <div class="muted" id="ovNote"></div>
   </div>
 </div>
 
-<!-- success modal -->
 <div class="modal" id="modal">
   <div class="box">
     <h3 id="mTitle">Request Completed</h3>
-    <div class="muted" id="mDesc">Your invoice is ready.</div>
+    <div id="mDesc" class="muted"></div>
     <div class="acts">
-      <a id="mView" class="btn-view" href="#" target="_blank" rel="noopener">View Invoice</a>
-      <a id="mDl" class="btn-dl" href="#" download>Download Invoice</a>
+      <a id="mView" class="btn-view" target="_blank" rel="noopener">View</a>
+      <a id="mDl" class="btn-dl">Download</a>
     </div>
   </div>
 </div>
@@ -127,15 +146,19 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 (function(){
   const $ = (s)=>document.querySelector(s);
   const form = $('#payForm');
+
   const elType = $('#payment_type_id');
   const elAmount = $('#amount');
   const elCharge = $('#portal_charge');
   const elPurpose = $('#purpose');
+
   const overlay = $('#overlay');
   const modal = $('#modal');
   const mTitle = $('#mTitle'), mDesc = $('#mDesc'), mView = $('#mView'), mDl = $('#mDl');
+
   const csrf = form.getAttribute('data-csrf') || '';
 
+  // --- Auto-populate amount / charge / purpose when payment type changes
   elType.addEventListener('change', async () => {
     const id = elType.value;
     elAmount.value = ''; elCharge.value = '';
@@ -143,10 +166,12 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
     try{
       const r = await fetch(`/payment/api/payment-types/${id}`, { headers: {'Accept':'application/json'} });
       const pt = await r.json();
-      elAmount.value = pt.amount || 0;
-      elCharge.value = pt.portal_charge || 0;
-      if (pt.purpose && !elPurpose.value) elPurpose.value = pt.purpose;
-    } catch(e){}
+      elAmount.value = pt.amount ?? '';
+      elCharge.value = pt.portal_charge ?? '';
+      if ((pt.purpose || '').trim() && !elPurpose.value.trim()) elPurpose.value = pt.purpose;
+    } catch(e){
+      console.warn('Failed to load payment type', e);
+    }
   });
 
   function showOverlay(text){ document.getElementById('ovTitle').textContent = text || 'Processing, please wait...'; overlay.style.display='flex'; }
@@ -162,14 +187,17 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   }
   function showModal(kind, data){
     const orderId   = pickOrderId(data);
-    const urls = (data && data.view_url && data.download_url) ? {viewUrl: data.view_url, downloadUrl: data.download_url} : buildUrlsFrom(orderId, kind);
+    const urls = (data && data.view_url && data.download_url)
+      ? {viewUrl: data.view_url, downloadUrl: data.download_url}
+      : buildUrlsFrom(orderId, kind);
+
     mTitle.textContent = 'Request Completed';
     mDesc.textContent  = (kind==='receipt') ? 'Your receipt is ready.' : 'Your invoice is ready.';
     mView.textContent  = (kind==='receipt') ? 'View Receipt' : 'View Invoice';
     mDl.textContent    = (kind==='receipt') ? 'Download Receipt' : 'Download Invoice';
 
     if (urls.viewUrl === '#' || urls.downloadUrl === '#') {
-      alert('Order ID missing from server response. Please try again.');
+      alert('Order reference missing from server response. Please try again.');
       return;
     }
     mView.href = urls.viewUrl; mView.removeAttribute('download');
@@ -178,14 +206,16 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   }
   modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.style.display='none'; });
 
+  // --- Submit handler (robust to HTML/redirect error responses)
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     showOverlay('Processing, please wait...');
-    const fd = new FormData(form);
-    const params = new URLSearchParams();
-    for (const [k,v] of fd.entries()) params.append(k, v);
 
     try{
+      const fd = new FormData(form);
+      const params = new URLSearchParams();
+      for (const [k,v] of fd.entries()) params.append(k, v);
+
       const r = await fetch(form.action + '?ajax=1', {
         method:'POST',
         headers: {
@@ -193,24 +223,40 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
           'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
           'x-csrf-token': csrf
         },
-        body: params.toString()
+        body: params.toString(),
+        redirect: 'manual'
       });
 
-      const ct = r.headers.get('content-type') || '';
-      if (!r.ok){
-        // if we accidentally got HTML (redirect/error), show a friendly message
-        const msg = ct.includes('application/json') ? (await r.json()).message : 'Request failed. Please check required fields and try again.';
-        throw new Error(msg);
+      // If the server tried to redirect to an HTML page, stop and show message
+      const ct = (r.headers.get('content-type') || '').toLowerCase();
+
+      if (!r.ok) {
+        // Prefer JSON error if present
+        if (ct.includes('application/json')) {
+          const err = await r.json().catch(()=>({}));
+          throw new Error(err.message || err.error || 'Request failed. Please check required fields and try again.');
+        }
+        // Otherwise read text for console, but show friendly message to user
+        const txt = await r.text().catch(()=> '');
+        console.error('Server returned non-JSON error:', r.status, txt);
+        throw new Error('Request failed. Please try again.');
       }
 
       if (!ct.includes('application/json')) {
+        // We unexpectedly got HTML or something else — log it, show friendly message
+        const txt = await r.text().catch(()=> '');
+        console.error('Unexpected non-JSON response:', txt);
         throw new Error('Unexpected server response. Please try again.');
       }
 
       const data = await r.json();
-      if (data.kind === 'redirect' && data.redirectUrl){
+
+      // redirect to Remita (online)
+      if (data && data.kind === 'redirect' && data.redirectUrl) {
         document.getElementById('ovTitle').textContent = 'Redirecting to payment...';
+        console.log('Redirecting to:', data.redirectUrl);
         window.location = data.redirectUrl;
+
         return;
       }
 
