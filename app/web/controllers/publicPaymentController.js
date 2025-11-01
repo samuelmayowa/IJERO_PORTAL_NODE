@@ -11,8 +11,27 @@ import crypto from 'crypto';
 // (If you still need a dev fallback, remitaService respects REMITA_FAKE_RRR_WHEN_FAIL=1)
 const ONLINE_ENABLED = true;
 
-// ✅ NEW: for e-Collections paymentinit we must use the *platform* ServiceTypeId (4430731)
-const PLATFORM_STID = process.env.REMITA_STID_DEFAULT || '4430731';
+// Resolve ServiceTypeId from ENV or the selected payment type row.
+// Priority: explicit env → name-based env (from .env) → columns on payment_types → default env.
+function resolveServiceTypeId(pt){
+  const nm = String(pt?.name || '').trim().toLowerCase();
+  const byName =
+    nm === 'school fees'       ? process.env.REMITA_STID_SCHOOL_FEES :
+    nm === 'application form'  ? process.env.REMITA_STID_APPLICATION_FORM :
+    nm === 'compulsory'        ? process.env.REMITA_STID_COMPULSORY :
+    nm === 'acceptance'        ? process.env.REMITA_STID_ACCEPTANCE :
+    nm === 'utme'              ? process.env.REMITA_STID_UTME :
+    '';
+
+  const fromRow = pt?.remita_service_type_id || pt?.service_type_id || pt?.remita_stid || pt?.stid || '';
+
+  return String(
+    process.env.REMITA_SERVICE_TYPE_ID ||  // one global STID if you set it
+    byName ||                              // name → specific STID from .env
+    fromRow ||                             // use any column present in the row
+    process.env.REMITA_STID_DEFAULT || ''  // final fallback
+  ).trim();
+}
 
 // ---------------- helpers ----------------
 function money(n) {
@@ -98,12 +117,15 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   // watermark & crest
   drawLogoWatermark(doc);
   if (kind === 'receipt') drawReceiptTextWatermark(doc);
-  centerLogo(doc);
+    centerLogo(doc);
+
+  // ✅ Ensure we start content on page 1 (avoid accidental page advance)
+  // Put the text baseline safely below the crest.
+  doc.y = 120;
 
   // institution name + address (centered)
   const inst = String(p.institution_name || 'EKITI STATE COLLEGE OF HEALTH, SCIENCES & TECH.').toUpperCase();
   const addr = String(p.institution_address || 'PMB 316, IJERO EKITI, EKITI STATE OF NIGERIA');
-  doc.moveDown(3.6);
   doc.font('Helvetica-Bold').fontSize(12.5).fillColor('#111').text(inst, { align: 'center' });
   doc.font('Helvetica').fontSize(10).fillColor('#111').text(addr, { align: 'center' });
 
@@ -252,17 +274,29 @@ export async function createInvoice(req, res, next){
     const description = rawPurpose || 'Payment';
 
     // ✅ CHANGED: use the platform STID (4430731) for paymentinit
-    const serviceTypeId = PLATFORM_STID;
+    const serviceTypeId = resolveServiceTypeId(created.pt);
+    if (!serviceTypeId) {
+      throw new Error('Remita ServiceTypeId is not configured. Set REMITA_STID_* in .env or a STID column on payment_types.');
+    }
+
 
     // 2) get RRR from Remita
-    const r = await remita.createRRR({
+        const r = await remita.createRRR({
       orderId: created.order_id,
       amount: amount2dp,
       payerName,
       payerEmail,
       payerPhone,
       description,
-      serviceTypeId
+      serviceTypeId,
+      // ✅ Many live STIDs require these custom fields; harmless on test/lenient configs.
+      customFields: [
+        { name: 'name',  value: payerName,  type: 'ALL' },
+        { name: 'email', value: payerEmail, type: 'ALL' },
+        { name: 'phone', value: payerPhone, type: 'ALL' },
+        // Optional but useful for reconciliation on some tenants:
+        { name: 'orderId', value: String(created.order_id), type: 'ALL' }
+      ]
     });
     await svc.attachRRR(created.order_id, r.rrr);
 
