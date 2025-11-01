@@ -5,32 +5,65 @@
 import * as users from '../../services/user.service.js';
 import * as sessions from '../../services/session.service.js';
 import { resolveSchoolId, resolveDepartmentId } from '../../services/user.service.js';
-import pool from '../../core/db.js';
+import { pool } from '../../core/db.js';
 
-
-/* ---------- Add User ---------- */
+/* ---------- Add User (page) ---------- */
 export const showAddUser = async (_req, res) => {
-  res.render('staff/admin-add-user', { title: 'Add User / Role', pageTitle: 'Add User / Role' });
+  try {
+    const [schools] = await pool.query('SELECT id, name FROM schools ORDER BY name');
+    const [departments] = await pool.query('SELECT id, school_id, name FROM departments ORDER BY name');
+
+    res.render('staff/admin-add-user', {
+      title: 'Add User / Role',
+      pageTitle: 'Add User / Role',
+      schools,
+      departments
+    });
+  } catch (e) {
+    console.error('showAddUser error:', e);
+    res.render('staff/admin-add-user', {
+      title: 'Add User / Role',
+      pageTitle: 'Add User / Role',
+      schools: [],
+      departments: [],
+      messages: { error: 'Failed to load schools/departments' }
+    });
+  }
 };
 
+/* ---------- Add User (POST) ---------- */
 export const addUser = async (req, res) => {
   try {
     const {
-      name: fullName, username, email,
-      phone, level, // ignored but kept for form compatibility
-      staffNumber, school, department,
-      highestQualification, password, role
-    } = req.body;
+      // form field names from admin-add-user.ejs
+      name: fullName,
+      username,
+      email,
+      phone,                 // currently unused, kept for future
+      level,                 // currently unused, kept for future
+      staffNumber,
+      school,
+      department,
+      highestQualification,  // currently unused, kept for future
+      password,
+      role
+    } = req.body || {};
 
     await users.createUser({
-      fullName, username, email,
-      staffNumber, school, department, highestQualification,
+      fullName,
+      username,
+      email,
+      staffNumber,
+      school,          // may be id or name; service handles both
+      department,      // may be id or name; service handles both
+      highestQualification,
       password: password || 'College1',
       role
     });
 
     req.flash('success', 'User created successfully!');
   } catch (e) {
+    console.error('addUser error:', e);
     req.flash('error', e.message || 'Could not create user');
   }
   return res.redirect('/staff/users/add');
@@ -153,7 +186,6 @@ export const updateStaff = async (req, res) => {
   }
 };
 
-
 export const deleteStaff = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -165,7 +197,6 @@ export const deleteStaff = async (req, res) => {
 };
 
 /* ---------- API: assign roles (Assign Role page) ---------- */
-/* Accept ONLY username + roles to avoid any accidental NaN/id issues. */
 export const assignExtraRoles = async (req, res) => {
   try {
     const username = String(req.body?.username || '').trim();

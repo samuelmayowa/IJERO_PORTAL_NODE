@@ -5,6 +5,7 @@
       <form action="/staff/users/add" method="POST">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="card-body">
+
           <div class="form-row">
             <div class="form-group col-md-6">
               <label>Full Name</label>
@@ -43,7 +44,6 @@
                 <option>admin</option>
                 <option>hod</option>
                 <option>lecturer</option>
-                <option>applicant</option>
                 <option>student</option>
                 <option>dean</option>
                 <option>ict</option>
@@ -67,11 +67,22 @@
           <div class="form-row">
             <div class="form-group col-md-6">
               <label>School</label>
-              <input type="text" class="form-control" name="school" placeholder="select or type new">
+              <select class="form-control" name="school" id="schoolSelect" required>
+                <option value="">-- select school --</option>
+                <% (schools || []).forEach(function(s){ %>
+                  <option value="<%= s.id %>"><%= s.name %></option>
+                <% }); %>
+              </select>
             </div>
             <div class="form-group col-md-6">
               <label>Department</label>
-              <input type="text" class="form-control" name="department" placeholder="select or type new">
+              <select class="form-control" name="department" id="deptSelect" required>
+                <option value="">-- select department --</option>
+                <% (departments || []).forEach(function(d){ %>
+                  <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
+                <% }); %>
+              </select>
+              <small class="text-muted">Filtered by School.</small>
             </div>
           </div>
 
@@ -98,3 +109,26 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function(){
+    var schoolSel = document.getElementById('schoolSelect');
+    var deptSel   = document.getElementById('deptSelect');
+    if (!schoolSel || !deptSel) return;
+
+    function filterDepartments() {
+      var sid = schoolSel.value;
+      Array.prototype.forEach.call(deptSel.options, function(opt){
+        if (!opt.value) return; // keep placeholder
+        var show = !sid || (opt.getAttribute('data-school') === sid);
+        opt.hidden = !show;
+      });
+      // reset selection if current is hidden
+      if (deptSel.selectedOptions.length && deptSel.selectedOptions[0].hidden) {
+        deptSel.value = '';
+      }
+    }
+    schoolSel.addEventListener('change', filterDepartments);
+    filterDepartments();
+  })();
+</script>

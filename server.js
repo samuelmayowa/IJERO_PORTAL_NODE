@@ -35,6 +35,7 @@ import watchlistRoutes from './app/web/routes/watchlist.routes.js';
 // import * as feesRoutesMod from './app/web/routes/fees.routes.js';
 import * as feesRoutesMod from './app/web/routes/staff/fees.js';
 import paymentRoutes from './app/web/routes/payment.routes.js';
+import roleRoutes from './app/web/routes/roles.routes.js';
 
 
 
@@ -87,6 +88,12 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(flash());
 
+// make the current URL path available to all EJS views as `currentPath`
+app.use((req, res, next) => {
+  res.locals.currentPath = req.path || '';
+  next();
+});
+
 // Static
 app.use('/public', express.static(path.join(__dirname, 'app/web/public')));
 app.get('/favicon.ico', (_req, res) =>
@@ -99,6 +106,8 @@ app.use((req, res, next) => {
   if (req.path === '/login') return next();
   return csrfProtection(req, res, next);
 });
+
+app.use('/', roleRoutes);  // put above any “catch-all” redirects
 
 // Expose CSRF + user to all views
 app.use((req, res, next) => {

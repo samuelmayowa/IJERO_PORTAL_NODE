@@ -4,25 +4,43 @@ import * as staffCtrl from '../controllers/staff.controller.js';
 
 const router = Router();
 
-/** Helper: safely call a controller if it exists, otherwise respond 500 with a useful message. */
+/** Helper: safely call a controller if it exists. */
 const safe = (fnName) => {
   const fn = staffCtrl?.[fnName];
   if (typeof fn === 'function') return fn;
-  return (req, res) => {
+  return (_req, res) => {
     res
       .status(500)
       .send(`Controller "${fnName}" is not exported as a function from app/web/controllers/staff.controller.js`);
   };
 };
 
-/** Always render with AdminLTE layout to keep look & feel consistent */
+/**
+ * Apply AdminLTE layout ONLY to staff areas (keeps public pages clean).
+ */
+router.use(
+  ['/staff', '/dashboard', '/password-reset', '/api'],
+  (req, res, next) => {
+    res.locals.layout = 'layouts/adminlte';
+    next();
+  }
+);
+
+/**
+ * Expose CSRF token to AdminLTE views for safe POST /logout.
+ * Falls back to empty string if csurf isn't active on this request.
+ */
 router.use((req, res, next) => {
-  res.locals.layout = 'layouts/adminlte';
+  try {
+    res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
+  } catch (e) {
+    res.locals.csrfToken = '';
+  }
   next();
 });
 
-/** Keep old links working */
-router.get('/', (_req, res) => res.redirect('/staff/dashboard'));
+/** Keep old link working: /staff -> /staff/dashboard */
+router.get('/staff', (_req, res) => res.redirect('/staff/dashboard'));
 
 /** Dashboard (existing page) */
 router.get('/dashboard', safe('dashboard'));

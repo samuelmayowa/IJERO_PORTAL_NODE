@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <% /* helper for optional vars (not used for head/scripts) */ %>
   <% const safe = v => (typeof v !== 'undefined' && v) ? v : ''; %>
 
   <meta charset="utf-8" />
@@ -13,13 +12,66 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.4/main.min.css">
 
+  <!-- Unified green (sidebar) + wine (active) skin -->
   <style>
+    :root{
+      /* GREEN */
+      --sidebar-bg:#247D57;       /* main sidebar background */
+      --sidebar-bg-dark:#1E6A4A;  /* brand strip (slightly darker than #247D57) */
+      --sidebar-tree:#1F5F45;     /* treeview background (slightly darker) */
+
+      /* TEXT / HOVER */
+      --sidebar-link:rgba(255,255,255,.9);
+      --sidebar-link-muted:rgba(255,255,255,.75);
+      --sidebar-hover:rgba(255,255,255,.08);
+
+      /* WINE (active item) */
+      --accent-wine:#82103C;      /* your wine */
+      --accent-wine-2:#9A1648;    /* hover state (a touch brighter) */
+    }
+
+    /* sidebar chrome */
+    .main-sidebar{ background:var(--sidebar-bg) !important; }
+    .main-sidebar .brand-link{
+      background:var(--sidebar-bg-dark) !important;
+      border-bottom-color: rgba(255,255,255,.15) !important;
+      color:#fff !important;
+    }
+    .main-sidebar .brand-link .brand-image{ filter:none; }
+    /* links */
+    .nav-sidebar .nav-link{
+      color:var(--sidebar-link-muted) !important;
+    }
+    .nav-sidebar .nav-link:hover{
+      background-color:var(--sidebar-hover) !important;
+      color:#fff !important;
+    }
+    /* active / open state (wine) */
+    .nav-sidebar .menu-open > .nav-link,
+    .nav-sidebar .nav-link.active{
+      background-color:var(--accent-wine) !important;
+      color:#fff !important;
+    }
+    .nav-sidebar .menu-open > .nav-link:hover,
+    .nav-sidebar .nav-link.active:hover{
+      background-color:var(--accent-wine-2) !important;
+    }
+    /* icons + tree */
+    .nav-sidebar .nav-icon{ color:var(--sidebar-link-muted) !important; }
+    .nav-sidebar .nav-treeview{ background:var(--sidebar-tree) !important; }
+    .nav-sidebar .nav-treeview > .nav-item > .nav-link{
+      color:var(--sidebar-link-muted) !important;
+    }
+    .nav-sidebar .nav-treeview > .nav-item > .nav-link.active{
+      background-color:var(--accent-wine) !important; color:#fff !important;
+    }
+    /* small layout niceties */
     .brand-text { font-weight: 600; }
     .small-box .icon { opacity: .25; }
     .direct-chat-messages, .direct-chat-contacts { height: 300px; }
   </style>
 
-  <!-- safe optional head injection -->
+  <!-- optional head injection -->
   <%- (typeof locals !== 'undefined' && typeof locals.head !== 'undefined' && locals.head) ? locals.head : '' %>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
@@ -28,17 +80,24 @@
   <!-- Navbar -->
   <nav class="main-header navbar navbar-expand navbar-white navbar-light">
     <ul class="navbar-nav">
-      <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a></li>
-      <li class="nav-item d-none d-sm-inline-block"><a href="/" class="nav-link">Home</a></li>
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="/" class="nav-link">Home</a>
+      </li>
     </ul>
     <ul class="navbar-nav ml-auto">
-      <li class="nav-item"><a class="nav-link" data-widget="fullscreen" href="#"><i class="fas fa-expand-arrows-alt"></i></a></li>
+      <li class="nav-item">
+        <a class="nav-link" data-widget="fullscreen" href="#"><i class="fas fa-expand-arrows-alt"></i></a>
+      </li>
     </ul>
   </nav>
 
   <!-- Sidebar -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <a href="/staff/dashboard" class="brand-link">
+    <!-- brand: go to role-aware home -->
+    <a href="/dashboard" class="brand-link">
       <img src="/public/img/logo.png" class="brand-image img-circle elevation-3" style="opacity:.9" alt="Logo">
       <span class="brand-text">Admin E-Portal</span>
     </a>
@@ -47,7 +106,6 @@
       <!-- User panel -->
       <div class="user-panel mt-3 pb-3 mb-3 d-flex">
         <div class="image">
-          <!-- FIX: correct path -->
           <img src="/public/img/avatar.png" class="img-circle elevation-2" alt="User">
         </div>
         <div class="info">
@@ -55,55 +113,81 @@
         </div>
       </div>
 
-      <!-- FIX: render the sidebar partial here; remove stray </nav> -->
-      <%- include('../partials/sidebar', {
-        user: (typeof user !== 'undefined' && user)
-                ? user
-                : ((typeof locals !== 'undefined' && locals.user) ? locals.user : null)
-      }) %>
+      <% 
+        // ----- Resolve user & role safely -----
+        const _user = (typeof user !== 'undefined' && user)
+          ? user
+          : ((typeof locals !== 'undefined' && locals.user) ? locals.user : null);
 
+        let _role = (_user && _user.role ? String(_user.role) : 'staff').toLowerCase();
+
+        // Normalize common aliases
+        if (['administrator','superadmin'].includes(_role)) _role = 'admin';
+
+        // Only allow known role partials; otherwise fall back to 'staff'
+        const roleCandidates = [
+          'admin','staff','lecturer','hod','dean','bursary','registry','admission officer','ict','student','applicant'
+        ];
+        const roleFile = roleCandidates.includes(_role) ? _role : 'staff';
+
+        // Ensure currentPath & allowedModules always exist for partials
+        const _currentPath = (typeof currentPath === 'string') ? currentPath : '';
+        const _allowedModules = (typeof locals !== 'undefined' && typeof locals.allowedModules !== 'undefined')
+          ? locals.allowedModules
+          : null;
+      %>
+
+      <!-- IMPORTANT: keep role-specific menus, just the style is unified -->
+      <%- include(`../partials/sidebars/${roleFile}`, {
+        user: _user,
+        currentPath: _currentPath,
+        allowedModules: _allowedModules
+      }) %>
     </div>
   </aside>
 
   <!-- Content -->
   <div class="content-wrapper">
     <% if (typeof readOnly !== 'undefined' && readOnly) { %>
-  <div class="alert alert-warning mx-3 mt-3">
-    <strong>Read-only mode:</strong>
-    Your current status (<%= (user && user.status) ? user.status : 'READ-ONLY' %>) limits actions.
-    Editing and administrative operations are disabled where applicable.
-  </div>
-<% } %>
-  <section class="content-header">
-    <div class="container-fluid">
-      <div class="row mb-2 align-items-center">
-        <div class="col-sm-6">
-          <h1><%= (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dashboard' %></h1>
-        </div>
-        <div class="col-sm-6 text-right">
-          <% const _displayName = (user && (user.username || user.name)) ? (user.username || user.name) : 'User'; %>
-          <span class="mr-3">Welcome: <%= _displayName %></span>
+      <div class="alert alert-warning mx-3 mt-3">
+        <strong>Read-only mode:</strong>
+        Your current status (<%= (user && user.status) ? user.status : 'READ-ONLY' %>) limits actions.
+        Editing and administrative operations are disabled where applicable.
+      </div>
+    <% } %>
 
-          <!-- POST /logout needs CSRF -->
-          <form id="logout-form" action="/logout" method="POST" class="d-inline">
-            <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>">
-            <button type="button" class="btn btn-danger btn-sm" data-toggle="modal" data-target="#logoutConfirmModal">
-              Logout
-            </button>
-          </form>
+    <section class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2 align-items-center">
+          <div class="col-sm-6">
+            <h1><%= (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dashboard' %></h1>
+          </div>
+          <div class="col-sm-6 text-right">
+            <% const _displayName = (user && (user.username || user.name)) ? (user.username || user.name) : 'User'; %>
+            <span class="mr-3">Welcome: <%= _displayName %></span>
 
+            <!-- POST /logout needs CSRF; we will fall back to GET if token missing -->
+            <form id="logout-form" action="/logout" method="POST" class="d-inline">
+              <input type="hidden" name="_csrf" value="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>">
+              <button type="button" class="btn btn-danger btn-sm" data-toggle="modal" data-target="#logoutConfirmModal">
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="content">
-    <div class="container-fluid"><%- body %></div>
-  </section>
-</div>
+    <section class="content">
+      <div class="container-fluid">
+        <%- body %>
+      </div>
+    </section>
+  </div>
 
-
-  <footer class="main-footer"><strong>&copy; <%= new Date().getFullYear() %> Portal.</strong> All rights reserved.</footer>
+  <footer class="main-footer">
+    <strong>&copy; <%= new Date().getFullYear() %> Portal.</strong> All rights reserved.
+  </footer>
   <aside class="control-sidebar control-sidebar-dark"></aside>
 </div>
 
@@ -114,30 +198,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.4/main.min.js"></script>
 
-<!-- safe optional scripts injection -->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  var btn = document.getElementById('logout-btn');
-  if (!btn) return;
-  btn.addEventListener('click', function () {
-    if (confirm('Are you sure you want to logout?')) {
-      document.getElementById('logout-form').submit();
-    }
-  });
-});
-</script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    var confirmBtn = document.getElementById('confirm-logout');
-    if (!confirmBtn) return;
-    confirmBtn.addEventListener('click', function () {
-      document.getElementById('logout-form').submit();
-    });
-  });
-</script>
-
-
+<!-- optional scripts injection -->
 <%- (typeof locals !== 'undefined' && typeof locals.scripts !== 'undefined' && locals.scripts) ? locals.scripts : '' %>
+
 <!-- Logout Confirm Modal -->
 <div class="modal fade" id="logoutConfirmModal" tabindex="-1" role="dialog" aria-labelledby="logoutConfirmLabel" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
@@ -148,9 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <div class="modal-body">
-        Are you sure you want to logout?
-      </div>
+      <div class="modal-body">Are you sure you want to logout?</div>
       <div class="modal-footer py-2">
         <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">No, Stay Logged In</button>
         <button type="button" id="confirm-logout" class="btn btn-danger btn-sm">Yes, Logout</button>
@@ -158,10 +219,29 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
   </div>
 </div>
-  <!-- Global modal container + helper (available on every page) -->
-  <%- include('../partials/modals') %>
-  <script src="/public/js/modal.js"></script>
-  <!-- Optional CSS for header close icon on colored bars -->
-  <link rel="stylesheet" href="/public/css/app-modal.css">
+
+<!-- Global modal container + helper -->
+<%- include('../partials/modals') %>
+<script src="/public/js/modal.js"></script>
+<link rel="stylesheet" href="/public/css/app-modal.css">
+
+<script>
+  // Reliable logout: prefer POST with CSRF; fall back to GET if token is not present
+  document.addEventListener('DOMContentLoaded', function () {
+    var confirmBtn = document.getElementById('confirm-logout');
+    if (!confirmBtn) return;
+
+    var tokenPresent = '<%= (typeof csrfToken !== "undefined" && csrfToken) ? "1" : "" %>' === '1';
+    confirmBtn.addEventListener('click', function () {
+      var form = document.getElementById('logout-form');
+      if (tokenPresent && form) {
+        form.submit();                 // POST /logout with CSRF token
+      } else {
+        window.location.href = '/logout'; // fallback GET /logout
+      }
+    });
+  });
+</script>
+
 </body>
 </html>
