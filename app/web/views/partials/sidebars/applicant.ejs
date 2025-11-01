@@ -1,7 +1,50 @@
+<%
+// safe currentPath
+const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath : '';
+%>
 <nav class="mt-2">
-  <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
-    <li class="nav-item"><a href="/applicant/dashboard" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
-    <li class="nav-item"><a href="/applicant/application" class="nav-link"><i class="nav-icon fas fa-file-alt"></i><p>Application</p></a></li>
-    <li class="nav-item"><a href="/applicant/payments" class="nav-link"><i class="nav-icon fas fa-receipt"></i><p>Payments</p></a></li>
+  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+    <li class="nav-item">
+      <a href="/applicant/dashboard" class="nav-link <%= path === '/applicant/dashboard' ? 'active' : '' %>">
+        <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
+      </a>
+    </li>
+
+    <li class="nav-item has-treeview <%= path.startsWith('/applicant/apply') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= path.startsWith('/applicant/apply') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-user-plus"></i><p>Apply for Admission<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/applicant/apply/utme" class="nav-link"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>
+        <li class="nav-item"><a href="/applicant/apply/de" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Direct Entry</p></a></li>
+        <li class="nav-item"><a href="/applicant/apply/hnd" class="nav-link"><i class="far fa-circle nav-icon"></i><p>HND</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item"><a href="/applicant/payments/acceptance" class="nav-link <%= path.startsWith('/applicant/payments/acceptance') ? 'active' : '' %>"><i class="nav-icon fas fa-hand-holding-usd"></i><p>Pay Acceptance Fee</p></a></li>
+    <li class="nav-item"><a href="/applicant/payments/portal-charges" class="nav-link <%= path.startsWith('/applicant/payments/portal-charges') ? 'active' : '' %>"><i class="nav-icon fas fa-cash-register"></i><p>Pay Portal Charges</p></a></li>
+    <li class="nav-item"><a href="/applicant/payments/other" class="nav-link <%= path.startsWith('/applicant/payments/other') ? 'active' : '' %>"><i class="nav-icon fas fa-credit-card"></i><p>Make Other Payment</p></a></li>
+
+    <li class="nav-item"><a href="/applicant/application/return" class="nav-link <%= path.startsWith('/applicant/application/return') ? 'active' : '' %>"><i class="nav-icon fas fa-undo"></i><p>Return to Application</p></a></li>
+    <li class="nav-item"><a href="/applicant/payments/history" class="nav-link <%= path.startsWith('/applicant/payments/history') ? 'active' : '' %>"><i class="nav-icon fas fa-receipt"></i><p>Payment History</p></a></li>
+    <li class="nav-item"><a href="/applicant/result/check" class="nav-link <%= path.startsWith('/applicant/result') ? 'active' : '' %>"><i class="nav-icon fas fa-file-alt"></i><p>Check Result</p></a></li>
+
+    <li class="nav-item has-treeview <%= path.startsWith('/applicant/exam-date') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= path.startsWith('/applicant/exam-date') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-calendar-alt"></i><p>Entrance Exam Date<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/applicant/exam-date/view" class="nav-link"><i class="far fa-circle nav-icon"></i><p>View</p></a></li>
+        <li class="nav-item"><a href="/applicant/exam-date/check" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Check</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item">
+      <a href="/applicant/uniform" class="nav-link <%= path.startsWith('/applicant/uniform') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p>
+      </a>
+    </li>
+
   </ul>
 </nav>

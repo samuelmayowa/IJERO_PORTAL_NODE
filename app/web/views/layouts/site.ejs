@@ -1,0 +1,18 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title><%= typeof title==='string'? title : 'Portal' %></title>
+<link rel="stylesheet" href="/public/style.css"/>
+<link rel="stylesheet" href="/public/css/portal.css"/>
+<style>
+  body{background:#f7f8fa}
+  .wrap{min-height:100vh;display:grid;place-items:center}
+  .card{width:min(920px,96vw);background:#fff;border-radius:10px;box-shadow:0 10px 35px rgba(0,0,0,.08);overflow:hidden}
+  .head{background:#247D57;color:#fff;padding:14px 18px;font-weight:700}
+  .body{padding:18px}
+</style>
+</head><body>
+<div class="wrap"><div class="card">
+<div class="head"><%= typeof title==='string'? title : 'Portal' %></div>
+<div class="body"><%- body %></div>
+</div></div>
+</body></html>

@@ -1,1 +1,258 @@
-<div class="bg-white border rounded-xl p-6 shadow-sm"></div>
+<%
+/* ---------- tolerant defaults ---------- */
+const sess = (typeof currentSession !== 'undefined' && currentSession) ? currentSession : { name: '2025/2026' };
+const sem  = (typeof currentSemester !== 'undefined' && currentSemester) ? currentSemester : { name: 'First' };
+const paid = Number(typeof totalPaid !== 'undefined' ? totalPaid : 0);
+const totalCourses = Number(typeof totalRegisteredCourses !== 'undefined' ? totalRegisteredCourses : 0);
+const pb = (typeof paymentsBreakdown !== 'undefined' && paymentsBreakdown) ? paymentsBreakdown : { school:0, faculty:0, application:0 };
+
+/* course regs + payments are optional; fallback to empty arrays */
+const recentRegs = (typeof recentRegistrations !== 'undefined' && Array.isArray(recentRegistrations)) ? recentRegistrations : [];
+const recentPaysRaw = (typeof recentPayments !== 'undefined' && Array.isArray(recentPayments)) ? recentPayments : [];
+const recentPays = recentPaysRaw.slice(0,4); // compact widget: show up to 4 rows
+
+/* ---------- demo student attendance rows (no On-Leave) ---------- */
+const attRows = (typeof studentAttendance !== 'undefined' && Array.isArray(studentAttendance) && studentAttendance.length)
+  ? studentAttendance.slice(0,4)
+  : [
+      { matric:'IJR/24/1001', name:'You',           status:'Online', time:'08:45' },
+      { matric:'IJR/24/1012', name:'Course Rep',   status:'Online', time:'09:05' },
+      { matric:'IJR/24/1044', name:'Lab Partner',  status:'Online', time:'09:20' },
+      { matric:'IJR/24/1060', name:'Classmate',    status:'Online', time:'09:30' }
+    ];
+
+/* footer mini metrics from the 4 visible rows */
+const toMin = t => { try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch(_){ return 0; } };
+const recentThreshold = 9*60; // ≥ 09:00
+const RECENTLY_LOGIN = attRows.filter(r => toMin(r.time) >= recentThreshold).length;
+const ONLINE_COUNT   = attRows.filter(r => String(r.status||'').toLowerCase() === 'online').length;
+%>
+
+<style>
+  :root{
+    --green-base:#247D57;
+    --green-ink:#184c3b;
+    --green-soft:#eaf6f2;
+    --green-accent:#bfe4d6;
+    --green-accent-2:#abdccd;
+    --green-border:#cfe9e1;
+  }
+  .btn-softgreen{ background-color:var(--green-accent); border:1px solid var(--green-border); color:var(--green-ink); }
+  .btn-softgreen:hover{ background-color:var(--green-accent-2); border-color:var(--green-accent-2); color:var(--green-ink); }
+  .thead-softgreen th{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
+  .card-header.softgreen{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
+  .summary-squares{ gap:.75rem; }
+  .summary-square{ width:84px; height:84px; border-radius:.5rem; background:var(--green-accent); border:1px solid var(--green-border);
+                   display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--green-ink); box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  .summary-square .count{ font-weight:700; font-size:1.25rem; line-height:1; }
+  .summary-square .label{ font-size:.70rem; text-align:center; line-height:1.1; margin-top:.25rem; }
+
+  /* compact payment widget under attendance */
+  .payments-compact .table td, .payments-compact .table th { padding:.45rem .5rem; }
+  .payments-compact .card-body { padding:0; }
+  .payments-compact .card-header { padding:.55rem .9rem; }
+  @media (min-width: 992px) {
+    .payments-compact { margin-top:.75rem; }
+  }
+</style>
+
+<!-- Top summary boxes -->
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3><%= sess.name %></h3><p>Current Academic Session</p></div>
+      <div class="icon"><i class="fas fa-calendar"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3><%= sem.name %></h3><p>Current Semester</p></div>
+      <div class="icon"><i class="fas fa-layer-group"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner">
+        <h3><%= paid.toLocaleString() %></h3>
+        <p>Total Amount Paid</p>
+        <p class="mb-0 text-sm">
+          1. School: <%= Number(pb.school||0).toLocaleString() %><br/>
+          2. Faculty Due: <%= Number(pb.faculty||0).toLocaleString() %><br/>
+          3. Application Fee: <%= Number(pb.application||0).toLocaleString() %>
+          &nbsp; <a href="/student/payments/history" class="text-dark"><strong>(View more)</strong></a>
+        </p>
+      </div>
+      <div class="icon"><i class="fas fa-wallet"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner">
+        <h3><%= totalCourses %></h3>
+        <p>Total Number of Registered Course(s)</p>
+        <p class="mb-0 text-sm">(<%= sess.name %>)</p>
+      </div>
+      <div class="icon"><i class="fas fa-book"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- LEFT COLUMN: Recent Course Registration + Direct Chat -->
+  <section class="col-lg-6 connectedSortable">
+
+    <!-- Recent Course Registration -->
+    <div class="card">
+      <div class="card-header softgreen d-flex justify-content-between align-items-center">
+        <h3 class="card-title m-0"><i class="fas fa-chart-line mr-1"></i> Recent Course Registration</h3>
+        <div class="card-tools">
+          <a href="/student/registration" class="btn btn-softgreen btn-sm">View/Print List</a>
+          <a href="/student/registration" class="btn btn-softgreen btn-sm">Print Clearance List</a>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead class="thead-softgreen">
+              <tr><th>#</th><th>Course</th><th>Code</th><th>Date</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <% if (!recentRegs.length) { %>
+                <tr><td>1</td><td>CSC101</td><td>CSC101</td><td><%= new Date().toISOString().slice(0,10) %></td>
+                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
+                <tr><td>2</td><td>MTH101</td><td>MTH101</td><td><%= new Date().toISOString().slice(0,10) %></td>
+                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
+                <tr><td>3</td><td>GNS101</td><td>GNS101</td><td><%= new Date().toISOString().slice(0,10) %></td>
+                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
+              <% } else { recentRegs.forEach(function (r,i){ %>
+                <tr>
+                  <td><%= i+1 %></td>
+                  <td><%= r.course || '-' %></td>
+                  <td><%= r.code || '-' %></td>
+                  <td><%= r.date || '-' %></td>
+                  <td><a href="/student/registration/<%= r.id %>" class="btn btn-softgreen btn-sm">View Details</a></td>
+                </tr>
+              <% }) } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct Chat -->
+    <div class="card direct-chat direct-chat-primary">
+      <div class="card-header softgreen">
+        <h3 class="card-title">Direct Chat student / staff</h3>
+        <div class="card-tools">
+          <span class="badge badge-softgreen">3</span>
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+          <button type="button" class="btn btn-tool" title="Contacts" data-widget="chat-pane-toggle"><i class="fas fa-comments"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="direct-chat-messages">
+          <div class="direct-chat-msg">
+            <div class="direct-chat-infos clearfix">
+              <span class="direct-chat-name float-left">You</span>
+              <span class="direct-chat-timestamp float-right">10:12 AM</span>
+            </div>
+            <img class="direct-chat-img" src="/public/img/avatar.png" alt="You">
+            <div class="direct-chat-text">Hi, what’s the venue for CSC201 lab?</div>
+          </div>
+          <div class="direct-chat-msg right">
+            <div class="direct-chat-infos clearfix">
+              <span class="direct-chat-name float-right">Course Rep</span>
+              <span class="direct-chat-timestamp float-left">10:13 AM</span>
+            </div>
+            <img class="direct-chat-img" src="/public/img/avatar.png" alt="Rep">
+            <div class="direct-chat-text">New Lab 2, 1:00–3:00 PM.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <form action="#"><div class="input-group">
+          <input type="text" name="message" placeholder="Type Message ..." class="form-control" disabled>
+          <span class="input-group-append"><button type="button" class="btn btn-softgreen" disabled>Send</button></span>
+        </div></form>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT COLUMN: Student Attendance + Compact Recent Payment History -->
+  <section class="col-lg-6 connectedSortable">
+    <!-- Student Attendance -->
+    <div class="card">
+      <div class="card-header softgreen">
+        <h3 class="card-title"><i class="fas fa-th mr-1"></i> Student Attendance</h3>
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+          <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead class="thead-softgreen">
+              <tr><th>#</th><th>Matric No.</th><th>Name</th><th>Status</th><th>Time</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <% attRows.forEach(function (r, i) { 
+                   const st = String(r.status||'');
+                   const statusText = st.toLowerCase()==='on-leave' ? '' : st; // hide "On-Leave" for students
+              %>
+                <tr>
+                  <td><%= i+1 %></td>
+                  <td><%= r.matric %></td>
+                  <td><%= r.name %></td>
+                  <td><%= statusText %></td>
+                  <td><%= r.time %></td>
+                  <td><a href="/student/attendance" class="btn btn-softgreen btn-sm">View Details</a></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer" style="background:var(--green-soft); border-top:1px solid var(--green-border);">
+        <div class="d-flex justify-content-around summary-squares">
+          <div class="summary-square"><div class="count"><%= RECENTLY_LOGIN %></div><div class="label">Recently<br>Login</div></div>
+          <div class="summary-square"><div class="count"><%= ONLINE_COUNT %></div><div class="label">Online</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compact Recent Payment History (fits under attendance) -->
+    <div class="card card-outline card-success payments-compact">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title m-0"><i class="fas fa-receipt mr-2"></i> Recent Payment History</h3>
+        <div class="card-tools">
+          <a href="/student/payments/history" class="btn btn-sm btn-outline-success">Open Full History</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead>
+              <tr><th style="width:48px">#</th><th style="width:140px">RRR</th><th>Purpose</th><th style="width:110px">Amount</th><th style="width:90px">Status</th><th style="width:120px">Date</th></tr>
+            </thead>
+            <tbody>
+              <% if (!recentPays.length) { %>
+                <tr><td colspan="6" class="text-muted p-2">No recent payments.</td></tr>
+              <% } else { recentPays.forEach((p,i)=>{ %>
+                <tr>
+                  <td><%= i+1 %></td>
+                  <td><%= p.rrr || '-' %></td>
+                  <td><%= p.purpose || '-' %></td>
+                  <td><%= Number(p.amount||0).toLocaleString() %></td>
+                  <td><span class="badge <%= p.status==='PAID'?'badge-success':'badge-secondary' %>"><%= p.status || 'PENDING' %></span></td>
+                  <td><%= p.date || '-' %></td>
+                </tr>
+              <% }) } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

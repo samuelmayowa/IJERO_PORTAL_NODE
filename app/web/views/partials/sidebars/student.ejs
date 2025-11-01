@@ -1,7 +1,79 @@
+<%
+// safe currentPath
+const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath : '';
+%>
 <nav class="mt-2">
-  <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
-    <li class="nav-item"><a href="/student/dashboard" class="nav-link"><i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
-    <li class="nav-item"><a href="/student/registration" class="nav-link"><i class="nav-icon fas fa-clipboard-list"></i><p>Course Registration</p></a></li>
-    <li class="nav-item"><a href="/student/fees/school" class="nav-link"><i class="nav-icon fas fa-money-check-alt"></i><p>School Fees</p></a></li>
+  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+    <li class="nav-item">
+      <a href="/student/dashboard" class="nav-link <%= path === '/student/dashboard' ? 'active' : '' %>">
+        <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/registration" class="nav-link <%= path.startsWith('/student/registration') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-clipboard-list"></i><p>Course Registration</p>
+      </a>
+    </li>
+
+    <li class="nav-item has-treeview <%= path.startsWith('/student/payments') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= path.startsWith('/student/payments') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-credit-card"></i><p>Make Payment<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/student/payments/school-fees" class="nav-link"><i class="far fa-circle nav-icon"></i><p>School Fees</p></a></li>
+        <li class="nav-item"><a href="/student/payments/department-dues" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Dept Due</p></a></li>
+        <li class="nav-item"><a href="/student/payments/acceptance" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Acceptance Fee</p></a></li>
+        <li class="nav-item"><a href="/student/payments/certificate" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Certificate Fee</p></a></li>
+        <li class="nav-item"><a href="/student/payments/transcript" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Transcript Fee</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/payments/validate" class="nav-link <%= path.startsWith('/student/payments/validate') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-barcode"></i><p>Validate RRR</p>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/payments/history" class="nav-link <%= path.startsWith('/student/payments/history') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-receipt"></i><p>Payment History</p>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/cgpa" class="nav-link <%= path.startsWith('/student/cgpa') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-chart-line"></i><p>My CGPA</p>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/results/semester" class="nav-link <%= path.startsWith('/student/results/semester') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-file-alt"></i><p>Check Semester Result</p>
+      </a>
+    </li>
+
+    <li class="nav-item has-treeview <%= path.startsWith('/student/records') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= path.startsWith('/student/records') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-folder-open"></i><p>My Academic Records<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Result</p></a></li>
+        <li class="nav-item"><a href="/student/records/graduating-list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Graduating List</p></a></li>
+        <li class="nav-item"><a href="/student/records/transcript-draft" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transcript (Draft)</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item has-treeview <%= path.startsWith('/student/exams/clearance') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= path.startsWith('/student/exams/clearance') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-id-badge"></i><p>Exam Clearance<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/student/exams/clearance/print" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Print Exam Clearance</p></a></li>
+        <li class="nav-item"><a href="/student/exams/clearance/exception" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Request Exception</p></a></li>
+      </ul>
+    </li>
+
   </ul>
 </nav>

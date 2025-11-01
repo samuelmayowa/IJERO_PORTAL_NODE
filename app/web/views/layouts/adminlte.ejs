@@ -17,8 +17,8 @@
     :root{
       /* GREEN */
       --sidebar-bg:#247D57;       /* main sidebar background */
-      --sidebar-bg-dark:#1E6A4A;  /* brand strip (slightly darker than #247D57) */
-      --sidebar-tree:#1F5F45;     /* treeview background (slightly darker) */
+      --sidebar-bg-dark:#1E6A4A;  /* brand strip */
+      --sidebar-tree:#1F5F45;     /* treeview background */
 
       /* TEXT / HOVER */
       --sidebar-link:rgba(255,255,255,.9);
@@ -26,11 +26,10 @@
       --sidebar-hover:rgba(255,255,255,.08);
 
       /* WINE (active item) */
-      --accent-wine:#82103C;      /* your wine */
-      --accent-wine-2:#9A1648;    /* hover state (a touch brighter) */
+      --accent-wine:#82103C;
+      --accent-wine-2:#9A1648;
     }
 
-    /* sidebar chrome */
     .main-sidebar{ background:var(--sidebar-bg) !important; }
     .main-sidebar .brand-link{
       background:var(--sidebar-bg-dark) !important;
@@ -38,25 +37,21 @@
       color:#fff !important;
     }
     .main-sidebar .brand-link .brand-image{ filter:none; }
-    /* links */
-    .nav-sidebar .nav-link{
-      color:var(--sidebar-link-muted) !important;
-    }
+
+    .nav-sidebar .nav-link{ color:var(--sidebar-link-muted) !important; }
     .nav-sidebar .nav-link:hover{
-      background-color:var(--sidebar-hover) !important;
-      color:#fff !important;
+      background-color:var(--sidebar-hover) !important; color:#fff !important;
     }
-    /* active / open state (wine) */
+
     .nav-sidebar .menu-open > .nav-link,
     .nav-sidebar .nav-link.active{
-      background-color:var(--accent-wine) !important;
-      color:#fff !important;
+      background-color:var(--accent-wine) !important; color:#fff !important;
     }
     .nav-sidebar .menu-open > .nav-link:hover,
     .nav-sidebar .nav-link.active:hover{
       background-color:var(--accent-wine-2) !important;
     }
-    /* icons + tree */
+
     .nav-sidebar .nav-icon{ color:var(--sidebar-link-muted) !important; }
     .nav-sidebar .nav-treeview{ background:var(--sidebar-tree) !important; }
     .nav-sidebar .nav-treeview > .nav-item > .nav-link{
@@ -65,7 +60,7 @@
     .nav-sidebar .nav-treeview > .nav-item > .nav-link.active{
       background-color:var(--accent-wine) !important; color:#fff !important;
     }
-    /* small layout niceties */
+
     .brand-text { font-weight: 600; }
     .small-box .icon { opacity: .25; }
     .direct-chat-messages, .direct-chat-contacts { height: 300px; }
@@ -109,17 +104,32 @@
           <img src="/public/img/avatar.png" class="img-circle elevation-2" alt="User">
         </div>
         <div class="info">
-          <a href="#" class="d-block"><%= (typeof user !== 'undefined' && user && user.name) ? user.name : 'User' %></a>
+          <% 
+            // Build unified _user EARLY so we can display a proper name here as well.
+            const __user =
+              (typeof user !== 'undefined' && user && user) ? user :
+              (typeof publicUser !== 'undefined' && publicUser && publicUser) ? publicUser :
+              ((typeof locals !== 'undefined' && (locals.user || locals.publicUser)) ? (locals.user || locals.publicUser) : null);
+            const __displayName = (__user && (__user.name || __user.username)) ? (__user.name || __user.username) : 'User';
+          %>
+          <a href="#" class="d-block"><%= __displayName %></a>
         </div>
       </div>
 
       <% 
-        // ----- Resolve user & role safely -----
-        const _user = (typeof user !== 'undefined' && user)
-          ? user
-          : ((typeof locals !== 'undefined' && locals.user) ? locals.user : null);
+        // ----- Resolve user & role safely (uses same __user) -----
+        const _user = __user;
 
-        let _role = (_user && _user.role ? String(_user.role) : 'staff').toLowerCase();
+        // derive role (prefer explicit role, otherwise infer from path)
+        const _path = (typeof currentPath === 'string') ? currentPath : '';
+        let _role = (_user && _user.role ? String(_user.role) : '').toLowerCase();
+
+        if (!_role) {
+          if (_path.startsWith('/student'))    _role = 'student';
+          else if (_path.startsWith('/applicant')) _role = 'applicant';
+          else _role = 'staff';
+        }
+
 
         // Normalize common aliases
         if (['administrator','superadmin'].includes(_role)) _role = 'admin';
@@ -137,21 +147,27 @@
           : null;
       %>
 
-      <!-- IMPORTANT: keep role-specific menus, just the style is unified -->
-      <%- include(`../partials/sidebars/${roleFile}`, {
+      <!-- Role-specific sidebar -->
+      <%- include('../partials/sidebars/' + roleFile, {
         user: _user,
         currentPath: _currentPath,
         allowedModules: _allowedModules
       }) %>
+
     </div>
   </aside>
 
   <!-- Content -->
   <div class="content-wrapper">
+    <% 
+      // Build display name for the header (also uses __user so it works for public users)
+      const _displayName =
+        (__user && (__user.username || __user.name)) ? (__user.username || __user.name) : 'User';
+    %>
     <% if (typeof readOnly !== 'undefined' && readOnly) { %>
       <div class="alert alert-warning mx-3 mt-3">
         <strong>Read-only mode:</strong>
-        Your current status (<%= (user && user.status) ? user.status : 'READ-ONLY' %>) limits actions.
+        Your current status (<%= (_user && _user.status) ? _user.status : 'READ-ONLY' %>) limits actions.
         Editing and administrative operations are disabled where applicable.
       </div>
     <% } %>
@@ -163,7 +179,6 @@
             <h1><%= (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dashboard' %></h1>
           </div>
           <div class="col-sm-6 text-right">
-            <% const _displayName = (user && (user.username || user.name)) ? (user.username || user.name) : 'User'; %>
             <span class="mr-3">Welcome: <%= _displayName %></span>
 
             <!-- POST /logout needs CSRF; we will fall back to GET if token missing -->

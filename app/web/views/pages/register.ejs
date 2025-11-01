@@ -2,106 +2,290 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Register | EKITI STATE UNIVERSITY</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="csrf-token" content="<%= csrfToken %>">
+  <title><%= typeof title === 'string' ? title : 'Create Portal Account' %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-  <link rel="shortcut icon" href="favicon.ico">
 
   <style>
-    :root{ --green:#247D57; --maroon:#82103C; --ink:#222; }
+    :root{ --green:#247D57; --wine:#82103C; --ink:#222; }
     html,body{height:100%;}
+    body{margin:0;color:var(--ink);}
     .page-container{position:relative; min-height:100vh; overflow:hidden;}
-    .bg-cover{position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
-    .bg-frost{position:absolute; inset:0; background:#fff; opacity:.80;}
-    .card-wrap{position:relative; z-index:2; max-width:560px; margin:7vh auto; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.12); overflow:hidden; background:#fff;}
-    .brand{display:flex; align-items:center; justify-content:space-between; padding:.85rem 1rem; background:var(--green); color:#fff;}
-    .brand img{height:36px;}
-    .brand p{margin:0; font-weight:600; letter-spacing:.3px;}
-    .content{ padding:1.1rem 1.25rem 1.5rem; }
-    .input-group-addon{background:#f1f3f5; border:1px solid #ced4da; color:#222; padding:.55rem .75rem; font-weight:700; font-size:.85rem; white-space:nowrap; display:flex; align-items:center;}
-    .input-group > .input-group-addon:first-child{ border-right:0; border-radius:.25rem 0 0 .25rem; }
-    .input-group > .form-control{ border-left:0; border-right:0; padding:.65rem .75rem; color:#111; }
-    .input-group > .input-group-addon:last-child{ border-left:0; cursor:pointer; border-radius:0 .25rem .25rem 0; }
-    .btn-submit{ background:var(--maroon); color:#fff; font-weight:700; }
+    .bg-cover{position:absolute; inset:0; background:url('/public/img/login-bg.jpg') center/cover no-repeat;}
+    .bg-frost{position:absolute; inset:0; background:#fff; opacity:.85;}
+    .card-wrap{position:relative; z-index:2; max-width:920px; margin:5vh auto; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.10); overflow:hidden; background:#fff;}
+    .brand{display:flex; align-items:center; justify-content:space-between; padding:.9rem 1rem; background:var(--green); color:#fff;}
+    .brand img{height:38px;}
+    .brand p{margin:0; font-weight:700; letter-spacing:.3px;}
+    .content{ padding:1.1rem 1.25rem 1.6rem; }
+    .notice{ background:#fff7e0; border:1px solid #ffe39c; border-radius:6px; padding:10px 12px; margin-bottom:16px }
+    .form-row-grid{ display:grid; grid-template-columns: 1fr 1fr; grid-gap:14px; }
+    @media (max-width:900px){ .form-row-grid{ grid-template-columns:1fr; } }
+    .form-group label{ font-weight:600; margin-bottom:4px; }
+    .btn-submit{ background:var(--wine); color:#fff; font-weight:700; }
     .btn-submit:hover{ filter:brightness(.95); color:#fff; }
-    .auth-links a{ text-decoration:none; color:var(--maroon); font-weight:700; }
+    .btn-green{ background:var(--green); color:#fff; font-weight:700; }
+    .strength{height:8px; border-radius:4px; background:#eee; overflow:hidden;}
+    .strength > div{height:100%;}
+    .preview{ background:#f5f7fa; border:1px dashed #ccd; padding:12px; border-radius:8px; }
+    .muted{color:#6b7280}
+    .small-link{font-size:.9rem}
   </style>
 </head>
-
 <body>
-  <div class="page-container">
-    <div class="bg-cover" style="background-image:url('/public/img/login-bg.jpg');"></div>
-    <div class="bg-frost"></div>
+<div class="page-container">
+  <div class="bg-cover"></div>
+  <div class="bg-frost"></div>
 
-    <div class="card-wrap">
-      <div class="brand">
-        <a href="/"><img src="/public/img/logo.png" alt=""></a>
-        <p><i class="fa fa-user-plus"></i> SIGN-UP</p>
+  <div class="card-wrap">
+    <div class="brand">
+      <a href="/"><img src="/public/img/logo.png" alt="logo"></a>
+      <p><i class="fa fa-user-plus"></i> SIGN-UP</p>
+    </div>
+
+    <div class="content">
+      <% if (messages && messages.error) { %>
+        <div class="alert alert-danger"><%= messages.error %></div>
+      <% } %>
+      <% if (messages && messages.success) { %>
+        <div class="alert alert-success"><%= messages.success %></div>
+      <% } %>
+
+      <div class="notice">
+        <b>Note:</b> This registration only creates portal access. Complete applications or student actions after sign-in (payments, course registration, etc).
       </div>
 
-      <div class="content">
-        <form action="/register" method="POST" id="register_form" novalidate>
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <form id="regForm" method="post" action="/register" novalidate>
+        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+        <input type="hidden" name="_preview" id="_preview" value="0" />
 
+        <div class="form-row-grid">
           <div class="form-group">
-            <label class="font-weight-bold">I am</label>
-            <select name="role" class="form-control" required>
+            <label>Registering As</label>
+            <select id="role" name="role" class="form-control" required>
+              <option value="">-- choose --</option>
               <option value="applicant">Applicant</option>
               <option value="student">Student</option>
             </select>
+            <small class="muted">Student requires a valid Access Code.</small>
           </div>
 
           <div class="form-group">
-            <div class="input-group">
-              <div class="input-group-addon"><i class="fa fa-id-card"></i>&nbsp; USERNAME</div>
-              <input type="text" class="form-control" name="username" placeholder="Matric No / JAMB Reg / Email" required>
-              <div class="input-group-addon d-none d-sm-flex"></div>
-            </div>
+            <label>Date of Birth</label>
+            <input type="date" name="dob" class="form-control" required>
           </div>
 
           <div class="form-group">
-            <div class="input-group">
-              <div class="input-group-addon"><i class="fa fa-key"></i>&nbsp; PASSWORD</div>
-              <input type="password" class="form-control" id="password" name="password" placeholder="Choose a strong password" required>
-              <div class="input-group-addon" id="togglePwd"><i class="fa fa-eye"></i></div>
-            </div>
+            <label>First Name</label>
+            <input name="first_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Middle Name (optional)</label>
+            <input name="middle_name" class="form-control">
           </div>
 
           <div class="form-group">
+            <label>Surname</label>
+            <input name="last_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input name="phone" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label>State of Origin</label>
+            <select id="state" name="state_of_origin" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Local Government (LGA)</label>
+            <select id="lga" name="lga" class="form-control" required></select>
+          </div>
+
+          <div class="form-group">
+            <label>Email</label>
+            <input id="email" type="email" name="email" class="form-control" placeholder="name@example.com" required>
+            <small class="muted">We’ll use this as your portal username.</small>
+          </div>
+          <div class="form-group">
+            <label>Username</label>
             <div class="input-group">
-              <div class="input-group-addon"><i class="fa fa-check-circle"></i>&nbsp; CONFIRM</div>
-              <input type="password" class="form-control" id="confirm" name="confirm" placeholder="Re-enter password" required>
-              <div class="input-group-addon d-none d-sm-flex"></div>
+              <input id="username" name="username" class="form-control" readonly>
+              <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button" id="editUsername">Edit</button>
+              </div>
             </div>
-            <small id="pm" class="text-danger" style="display:none;">Passwords do not match</small>
           </div>
 
-          <button class="btn btn-submit btn-block">Create account</button>
-
-          <div class="text-center auth-links mt-3">
-            Already have an account? <a href="/login">Login</a>
+          <div class="form-group" id="accessWrap" style="display:none">
+            <label>Access Code (Student)</label>
+            <input id="access_code" name="access_code" maxlength="16" class="form-control" placeholder="16-character code">
+            <small class="muted">Required only for Student registration.</small>
           </div>
-        </form>
-      </div>
+
+          <div class="form-group">
+            <label>Password</label>
+            <div class="input-group">
+              <input id="password" name="password" type="password" class="form-control" placeholder="Choose a strong password" required>
+              <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button" id="togglePw"><i class="fa fa-eye"></i></button>
+              </div>
+            </div>
+            <div class="strength mt-2"><div id="meter"></div></div>
+            <small id="meterText" class="text-muted">Strength: —</small>
+          </div>
+        </div>
+
+        <div class="form-group form-check mt-2">
+          <input type="checkbox" class="form-check-input" id="terms" name="agree" value="1" required>
+          <label class="form-check-label" for="terms">I accept the portal terms and conditions.</label>
+        </div>
+
+        <div class="d-flex mt-2">
+          <button type="button" class="btn btn-secondary mr-2" id="previewBtn">Preview</button>
+          <button class="btn btn-submit">Create account</button>
+          <div class="ml-auto align-self-center small-link">
+            Already have an account? <a href="/login" style="color:var(--wine); font-weight:700;">Login</a>
+          </div>
+        </div>
+
+        <div id="previewBox" style="display:none; margin-top:16px">
+          <div class="preview">
+            <h5 class="mb-2"><i class="fa fa-eye"></i> Please confirm your details</h5>
+            <div id="previewContent"></div>
+            <div class="d-flex mt-2">
+              <button class="btn btn-green mr-2" id="confirmSubmit" type="button">Submit Registration</button>
+              <button class="btn btn-outline-secondary" id="editBtn" type="button">Edit</button>
+            </div>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
+</div>
 
-  <script>
-    // show/hide + simple confirm check
-    (function(){
-      var t = document.getElementById('togglePwd');
-      var p = document.getElementById('password');
-      var c = document.getElementById('confirm');
-      var m = document.getElementById('pm');
-      if(t && p){ t.addEventListener('click', function(){ p.type = p.type === 'password' ? 'text' : 'password'; this.firstElementChild.className = p.type==='password'?'fa fa-eye':'fa fa-eye-slash'; }) }
-      if(p && c && m){
-        function chk(){ m.style.display = (p.value && c.value && p.value !== c.value) ? 'block' : 'none'; }
-        p.addEventListener('input', chk); c.addEventListener('input', chk);
-      }
-    })();
-  </script>
+<script>
+/* ===== Nigeria States & LGAs (full) ===== */
+const NG_LGAS = {
+  "Abia":["Aba North","Aba South","Arochukwu","Bende","Ikwuano","Isiala Ngwa North","Isiala Ngwa South","Isuikwuato","Obi Ngwa","Ohafia","Osisioma","Ugwunagbo","Ukwa East","Ukwa West","Umuahia North","Umuahia South","Umu Nneochi"],
+  "Adamawa":["Demsa","Fufore","Ganye","Girei","Gombi","Guyuk","Hong","Jada","Lamurde","Madagali","Maiha","Mayo-Belwa","Michika","Mubi North","Mubi South","Numan","Shelleng","Song","Toungo","Yola North","Yola South"],
+  "Akwa Ibom":["Abak","Eastern Obolo","Eket","Esit Eket","Essien Udim","Etim Ekpo","Etinan","Ibeno","Ibesikpo Asutan","Ibiono Ibom","Ika","Ikono","Ikot Abasi","Ikot Ekpene","Ini","Itu","Mbo","Mkpat Enin","Nsit Atai","Nsit Ibom","Nsit Ubium","Obot Akara","Okobo","Onna","Oron","Oruk Anam","Udung Uko","Ukanafun","Uruan","Urue-Offong/Oruko","Uyo"],
+  "Anambra":["Aguata","Anambra East","Anambra West","Anaocha","Awka North","Awka South","Ayamelum","Dunukofia","Ekwusigo","Idemili North","Idemili South","Ihiala","Njikoka","Nnewi North","Nnewi South","Ogbaru","Onitsha North","Onitsha South","Orumba North","Orumba South","Oyi"],
+  "Bauchi":["Alkaleri","Bauchi","Bogoro","Damban","Darazo","Dass","Gamawa","Ganjuwa","Giade","Itas/Gadau","Jama'are","Katagum","Kirfi","Misau","Ningi","Shira","Tafawa Balewa","Toro","Warji","Zaki"],
+  "Bayelsa":["Brass","Ekeremor","Kolokuma/Opokuma","Nembe","Ogbia","Sagbama","Southern Ijaw","Yenagoa"],
+  "Benue":["Ado","Agatu","Apa","Buruku","Gboko","Guma","Gwer East","Gwer West","Katsina-Ala","Konshisha","Kwande","Logo","Makurdi","Obi","Ogbadibo","Ohimini","Oju","Okpokwu","Otukpo","Tarka","Ukum","Ushongo","Vandeikya"],
+  "Borno":["Abadam","Askira/Uba","Bama","Bayo","Biu","Chibok","Damboa","Dikwa","Gubio","Guzamala","Gwoza","Hawul","Jere","Kaga","Kala/Balge","Konduga","Kukawa","Kwaya Kusar","Mafa","Magumeri","Maiduguri","Marte","Mobbar","Monguno","Ngala","Nganzai","Shani"],
+  "Cross River":["Abi","Akamkpa","Akpabuyo","Bakassi","Bekwarra","Biase","Boki","Calabar Municipal","Calabar South","Etung","Ikom","Obanliku","Obubra","Obudu","Odukpani","Ogoja","Yakurr","Yala"],
+  "Delta":["Aniocha North","Aniocha South","Bomadi","Burutu","Ethiope East","Ethiope West","Ika North East","Ika South","Isoko North","Isoko South","Ndokwa East","Ndokwa West","Okpe","Oshimili North","Oshimili South","Patani","Sapele","Udu","Ughelli North","Ughelli South","Ukwuani","Uvwie","Warri North","Warri South","Warri South West"],
+  "Ebonyi":["Abakaliki","Afikpo North","Afikpo South","Ebonyi","Ezza North","Ezza South","Ikwo","Ishielu","Ivo","Izzi","Ohaozara","Ohaukwu","Onicha"],
+  "Edo":["Akoko-Edo","Egor","Esan Central","Esan North-East","Esan South-East","Esan West","Etsako Central","Etsako East","Etsako West","Igueben","Ikpoba-Okha","Orhionmwon","Oredo","Ovia North-East","Ovia South-West","Owan East","Owan West","Uhunmwonde"],
+  "Ekiti":["Ado-Ekiti","Efon","Ekiti East","Ekiti South-West","Ekiti West","Emure","Gbonyin","Ido-Osi","Ijero","Ikere","Ikole","Ilejemeje","Irepodun/Ifelodun","Ise/Orun","Moba","Oye"],
+  "Enugu":["Aninri","Awgu","Enugu East","Enugu North","Enugu South","Ezeagu","Igbo Etiti","Igbo Eze North","Igbo Eze South","Isi Uzo","Nkanu East","Nkanu West","Nsukka","Oji River","Udenu","Udi","Uzo-Uwani"],
+  "FCT":["Abaji","Abuja Municipal","Bwari","Gwagwalada","Kuje","Kwali"],
+  "Gombe":["Akko","Balanga","Billiri","Dukku","Funakaye","Gombe","Kaltungo","Kwami","Nafada","Shongom","Yamaltu/Deba"],
+  "Imo":["Aboh Mbaise","Ahiazu Mbaise","Ehime Mbano","Ezinihitte","Ideato North","Ideato South","Ihitte/Uboma","Ikeduru","Isiala Mbano","Isu","Mbaitoli","Ngor Okpala","Njaba","Nkwerre","Nwangele","Obowo","Oguta","Ohaji/Egbema","Okigwe","Onuimo","Orlu","Orsu","Oru East","Oru West","Owerri Municipal","Owerri North","Owerri West"],
+  "Jigawa":["Auyo","Babura","Biriniwa","Birnin Kudu","Buji","Dutse","Gagarawa","Garki","Gumel","Guri","Gwaram","Gwiwa","Hadejia","Jahun","Kafin Hausa","Kazaure","Kiri Kasama","Kiyawa","Maigatari","Malam Madori","Miga","Ringim","Roni","Sule Tankarkar","Taura","Yankwashi"],
+  "Kaduna":["Birnin Gwari","Chikun","Giwa","Igabi","Ikara","Jaba","Jema'a","Kachia","Kaduna North","Kaduna South","Kagarko","Kajuru","Kaura","Kauru","Kubau","Kudan","Lere","Makarfi","Sabon Gari","Sanga","Soba","Zangon Kataf","Zaria"],
+  "Kano":["Ajingi","Albasu","Bagwai","Bebeji","Bichi","Bunkure","Dala","Dambatta","Dawakin Kudu","Dawakin Tofa","Doguwa","Fagge","Gabasawa","Garko","Garun Mallam","Gaya","Gezawa","Gwale","Gwarzo","Kabo","Kano Municipal","Karaye","Kibiya","Kiru","Kumbotso","Kunchi","Kura","Madobi","Makoda","Minjibir","Nasarawa","Rano","Rimin Gado","Rogo","Shanono","Sumaila","Takai","Tarauni","Tofa","Tsanyawa","Tudun Wada","Ungogo","Warawa","Wudil"],
+  "Katsina":["Bakori","Batagarawa","Batsari","Baure","Bindawa","Charanchi","Dandume","Danja","Dan Musa","Daura","Dutsi","Dutsin-Ma","Faskari","Funtua","Ingawa","Jibia","Kafur","Kaita","Kankara","Kankia","Katsina","Kurfi","Kusada","Mai'Adua","Malumfashi","Mani","Mashi","Matazu","Musawa","Rimi","Sabuwa","Safana","Sandamu","Zango"],
+  "Kebbi":["Aleiro","Arewa Dandi","Argungu","Augie","Bagudo","Birnin Kebbi","Bunza","Dandi","Fakai","Gwandu","Jega","Kalgo","Koko/Besse","Maiyama","Ngaski","Sakaba","Shanga","Suru","Wasagu/Danko","Yauri","Zuru"],
+  "Kogi":["Adavi","Ajaokuta","Ankpa","Bassa","Dekina","Ibaji","Idah","Igalamela-Odolu","Ijumu","Kabba/Bunu","Kogi","Lokoja","Mopa-Muro","Ofu","Ogori/Magongo","Okehi","Okene","Olamaboro","Omala","Yagba East","Yagba West"],
+  "Kwara":["Asa","Baruten","Edu","Ekiti","Ifelodun","Ilorin East","Ilorin South","Ilorin West","Irepodun","Isin","Kaiama","Moro","Offa","Oke Ero","Oyun","Pategi"],
+  "Lagos":["Agege","Ajeromi-Ifelodun","Alimosho","Amuwo-Odofin","Apapa","Badagry","Epe","Eti-Osa","Ibeju-Lekki","Ifako-Ijaiye","Ikeja","Ikorodu","Kosofe","Lagos Island","Lagos Mainland","Mushin","Ojo","Oshodi-Isolo","Shomolu","Surulere"],
+  "Nasarawa":["Akwanga","Awe","Doma","Karu","Keana","Keffi","Kokona","Lafia","Nasarawa","Nasarawa Egon","Obi","Toto","Wamba"],
+  "Niger":["Agaie","Agwara","Bida","Borgu","Bosso","Chanchaga","Edati","Gbako","Gurara","Katcha","Kontagora","Lapai","Lavun","Magama","Mariga","Mashegu","Mokwa","Muya","Paikoro","Rafi","Rijau","Shiroro","Suleja","Tafa","Wushishi"],
+  "Ogun":["Abeokuta North","Abeokuta South","Ado-Odo/Ota","Egbado North","Egbado South","Ewekoro","Ifo","Ijebu East","Ijebu North","Ijebu North East","Ijebu Ode","Ikenne","Imeko Afon","Ipokia","Obafemi Owode","Odeda","Odogbolu","Ogun Waterside","Remo North","Shagamu"],
+  "Ondo":["Akoko North-East","Akoko North-West","Akoko South-East","Akoko South-West","Akure North","Akure South","Ese Odo","Idanre","Ifedore","Ilaje","Ile Oluji/Okeigbo","Irele","Odigbo","Okitipupa","Ondo East","Ondo West","Ose","Owo"],
+  "Osun":["Atakunmosa East","Atakunmosa West","Aiyedaade","Aiyedire","Boluwaduro","Boripe","Ede North","Ede South","Ife Central","Ife East","Ife North","Ife South","Egbedore","Ejigbo","Ila","Ilesa East","Ilesa West","Irepodun","Irewole","Isokan","Iwo","Obokun","Odo Otin","Ola Oluwa","Olorunda","Oriade","Orolu","Osogbo"],
+  "Oyo":["Afijio","Akinyele","Atiba","Atisbo","Egbeda","Ibadan North","Ibadan North-East","Ibadan North-West","Ibadan South-East","Ibadan South-West","Ibarapa Central","Ibarapa East","Ibarapa North","Ido","Irepo","Iseyin","Itesiwaju","Iwajowa","Kajola","Lagelu","Ogbomosho North","Ogbomosho South","Ogo-Oluwa","Olorunsogo","Oluyole","Ona Ara","Orelope","Ori Ire","Oyo East","Oyo West","Saki East","Saki West","Surulere"],
+  "Plateau":["Barkin Ladi","Bassa","Bokkos","Jos East","Jos North","Jos South","Kanam","Kanke","Langtang North","Langtang South","Mangu","Mikang","Pankshin","Qua'an Pan","Riyom","Shendam","Wase"],
+  "Rivers":["Abua/Odual","Ahoada East","Ahoada West","Akuku-Toru","Andoni","Asari-Toru","Bonny","Degema","Eleme","Emohua","Etche","Gokana","Ikwerre","Khana","Obio/Akpor","Ogba/Egbema/Ndoni","Ogu/Bolo","Okrika","Omuma","Opobo/Nkoro","Oyigbo","Port Harcourt","Tai"],
+  "Sokoto":["Binji","Bodinga","Dange Shuni","Gada","Goronyo","Gudu","Gwadabawa","Illela","Isa","Kebbe","Kware","Rabah","Sabon Birni","Shagari","Silame","Sokoto North","Sokoto South","Tambuwal","Tangaza","Tureta","Wamako","Wurno","Yabo"],
+  "Taraba":["Ardo-Kola","Bali","Donga","Gashaka","Gassol","Ibi","Jalingo","Karim Lamido","Kumi","Lau","Sardauna","Takum","Ussa","Wukari","Yorro","Zing"],
+  "Yobe":["Bade","Bursari","Damaturu","Fika","Fune","Geidam","Gujba","Gulani","Jakusko","Karasuwa","Machina","Nangere","Nguru","Potiskum","Tarmuwa","Yunusari","Yusufari"],
+  "Zamfara":["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"]
+};
+
+/* populate states + LGAs */
+(function(){
+  const stateSel = document.getElementById('state');
+  const lgaSel = document.getElementById('lga');
+  const states = Object.keys(NG_LGAS).sort();
+  stateSel.innerHTML = '<option value="">-- select state --</option>' + states.map(s=>`<option>${s}</option>`).join('');
+  function fillLgas(st){
+    const arr = NG_LGAS[st] || [];
+    lgaSel.innerHTML = '<option value="">-- select LGA --</option>' + arr.map(n=>`<option>${n}</option>`).join('');
+  }
+  stateSel.addEventListener('change', e=>fillLgas(e.target.value));
+})();
+
+/* email => username (readonly unless Edit) + show access code when role=student */
+(function(){
+  const email = document.getElementById('email');
+  const user = document.getElementById('username');
+  const edit = document.getElementById('editUsername');
+  const role = document.getElementById('role');
+  const access = document.getElementById('accessWrap');
+
+  function sync(){ user.value = email.value.trim().toLowerCase(); }
+  email.addEventListener('input', sync);
+  edit.addEventListener('click', ()=>{ user.readOnly = !user.readOnly; edit.textContent = user.readOnly ? 'Edit' : 'Lock'; });
+  role.addEventListener('change', ()=>{ access.style.display = (role.value==='student') ? 'block' : 'none'; });
+})();
+
+/* password strength + eye toggle */
+(function(){
+  const p = document.getElementById('password');
+  const bar = document.getElementById('meter');
+  const txt = document.getElementById('meterText');
+  const eye = document.getElementById('togglePw');
+  function score(s){ let n=0; if(s.length>=8)n++; if(/[A-Z]/.test(s))n++; if(/[a-z]/.test(s))n++; if(/[0-9]/.test(s))n++; if(/[^A-Za-z0-9]/.test(s))n++; return n; }
+  function paint(n){ const w = Math.min(100, (n/5)*100); bar.style.width = w+'%'; bar.style.background = ['#ddd','#f66','#f90','#cc3','#6c6'][Math.min(n,4)]; txt.textContent='Strength: '+(['—','Very Weak','Weak','Average','Good','Strong'][n]||'—'); }
+  p.addEventListener('input', ()=>paint(score(p.value||'')));
+  eye.addEventListener('click', ()=>{
+    const is = p.type === 'password';
+    p.type = is ? 'text' : 'password';
+    eye.innerHTML = `<i class="fa ${is?'fa-eye-slash':'fa-eye'}"></i>`;
+  });
+})();
+
+/* preview step */
+(function(){
+  const form = document.getElementById('regForm');
+  const previewBtn = document.getElementById('previewBtn');
+  const confirmBtn = document.getElementById('confirmSubmit');
+  const editBtn = document.getElementById('editBtn');
+  const box = document.getElementById('previewBox');
+  const content = document.getElementById('previewContent');
+
+  previewBtn.addEventListener('click', ()=>{
+    if(!form.reportValidity()) return;
+    const fd = new FormData(form); const o = Object.fromEntries(fd.entries());
+    const safe = k => (o[k]||'').toString();
+    content.innerHTML = `
+      <ul class="mb-0" style="line-height:1.9">
+        <li><b>Registering As:</b> ${safe('role')}</li>
+        <li><b>Name:</b> ${safe('first_name')} ${safe('middle_name')} ${safe('last_name')}</li>
+        <li><b>Date of Birth:</b> ${safe('dob')}</li>
+        <li><b>State/LGA:</b> ${safe('state_of_origin')} / ${safe('lga')}</li>
+        <li><b>Phone:</b> ${safe('phone')}</li>
+        <li><b>Email/Username:</b> ${safe('email')}</li>
+        ${safe('role')==='student' ? `<li><b>Access Code:</b> ${safe('access_code')}</li>` : ``}
+      </ul>`;
+    document.getElementById('_preview').value = '1';
+    box.style.display = 'block';
+    window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
+  });
+
+  confirmBtn.addEventListener('click', ()=> form.submit());
+  editBtn.addEventListener('click', ()=>{
+    document.getElementById('_preview').value = '0';
+    box.style.display = 'none';
+  });
+})();
+</script>
 </body>
 </html>
