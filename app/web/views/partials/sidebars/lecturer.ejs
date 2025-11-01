@@ -1,0 +1,49 @@
+<nav class="mt-2">
+  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+    <li class="nav-item">
+      <a href="/lecturer/dashboard" class="nav-link <%= currentPath === '/lecturer/dashboard' ? 'active' : '' %>">
+        <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
+      </a>
+    </li>
+
+    <li class="nav-item has-treeview <%= currentPath.startsWith('/staff/attendance') ? 'menu-open' : '' %>">
+      <a href="#" class="nav-link <%= currentPath.startsWith('/staff/attendance') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-user-check"></i><p>Mark Attendance<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/staff/attendance/mark" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Mark Attendance</p></a></li>
+        <li class="nav-item"><a href="/staff/attendance/report" class="nav-link"><i class="far fa-circle nav-icon"></i><p>View Export Report</p></a></li>
+        <li class="nav-item"><a href="/staff/attendance/watchlist" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watch-List Staff</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item"><a href="/staff/courses/assigned" class="nav-link"><i class="nav-icon fas fa-book"></i><p>View Assigned Course(s)</p></a></li>
+    <li class="nav-item"><a href="/staff/registration" class="nav-link"><i class="nav-icon fas fa-clipboard-list"></i><p>Course Registration</p></a></li>
+    <li class="nav-item"><a href="/staff/registration/report" class="nav-link"><i class="nav-icon fas fa-list"></i><p>View Registration Report</p></a></li>
+    <li class="nav-item"><a href="/staff/exams/date" class="nav-link"><i class="nav-icon fas fa-calendar-alt"></i><p>Set Exam Date</p></a></li>
+
+    <li class="nav-item has-treeview">
+      <a href="#" class="nav-link">
+        <i class="nav-icon fas fa-user-graduate"></i><p>Manage Student<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="/staff/students/manage" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Manage Student</p></a></li>
+        <li class="nav-item"><a href="/staff/students/records" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Student Academic Records</p></a></li>
+        <li class="nav-item"><a href="/staff/students/upload-result" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Upload Student Result</p></a></li>
+        <li class="nav-item"><a href="/results" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Result Computation</p></a></li>
+        <li class="nav-item"><a href="/transcripts/generate" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Generate Transcript</p></a></li>
+        <li class="nav-item"><a href="/reports" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Generate Report</p></a></li>
+      </ul>
+    </li>
+
+    <li class="nav-item has-treeview">
+      <a href="#" class="nav-link">
+        <i class="nav-icon fas fa-hourglass-half"></i><p>Coming Soon<i class="right fas fa-angle-left"></i></p>
+      </a>
+      <ul class="nav nav-treeview">
+        <li class="nav-item"><a href="#" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Student Class Room Attendance</p></a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>

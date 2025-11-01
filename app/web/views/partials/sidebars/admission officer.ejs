@@ -1,0 +1,11 @@
+<%- include('./registry', { user, currentPath }) %>
+<script>
+  // Hide transcript-related items from the included registry menu
+  document.addEventListener('DOMContentLoaded', function(){
+    const labels = ['Generate Transcript','View / Download Transcript','Send Transcript'];
+    labels.forEach(t => {
+      const link = Array.from(document.querySelectorAll('.nav-link')).find(a => a.textContent.trim() === t);
+      if (link) link.parentElement.style.display = 'none';
+    });
+  });
+</script>
