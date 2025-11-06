@@ -1,0 +1,206 @@
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-2"><%= pageTitle || title || 'Uniform Report' %></h4>
+
+    <!-- Filters -->
+    <div class="card card-outline card-primary">
+      <div class="card-body">
+        <form id="filterForm" class="form-row">
+          <div class="form-group col-md-2">
+            <label>Session</label>
+            <select name="session_id" class="form-control">
+              <option value="">All</option>
+              <% (sessions || []).forEach(s => { %>
+                <option value="<%= s.id %>"><%= s.name %> <%= s.is_current ? '(Current)' : '' %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>School</label>
+            <select id="school" name="school_id" class="form-control">
+              <option value="">All</option>
+              <% (schools || []).forEach(s => { %>
+                <option value="<%= s.id %>"><%= s.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Department</label>
+            <select id="department" name="department_id" class="form-control">
+              <option value="">All</option>
+              <% (departments || []).forEach(d => { %>
+                <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Gender</label>
+            <select name="gender" class="form-control">
+              <option value="">All</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Status</label>
+            <select name="status" class="form-control">
+              <option value="">All</option>
+              <option value="DRAFT">Draft</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Person (ID/Name)</label>
+            <input name="person" class="form-control" placeholder="username or name">
+          </div>
+          <div class="form-group col-md-12 mt-2">
+            <button type="button" id="btnApply" class="btn btn-primary">Apply</button>
+            <button type="button" id="btnReset" class="btn btn-default ml-2">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Counters -->
+    <div class="row">
+      <div class="col-md-3"><div class="small-box bg-info"><div class="inner"><h3 id="boxTotal">0</h3><p>Rows Matched</p></div></div></div>
+      <div class="col-md-3"><div class="small-box bg-success"><div class="inner"><h3 id="boxCompleted">0</h3><p>Completed</p></div></div></div>
+      <div class="col-md-3"><div class="small-box bg-warning"><div class="inner"><h3 id="boxDraft">0</h3><p>Draft</p></div></div></div>
+      <div class="col-md-3"><div class="small-box bg-danger"><div class="inner"><h3 id="boxFemale">0</h3><p>Female</p></div></div></div>
+    </div>
+
+    <!-- Export buttons -->
+    <div class="mb-2">
+      <a id="btnCsv"   class="btn btn-sm btn-outline-primary">Export CSV</a>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-hover" id="tbl">
+          <thead>
+            <tr>
+              <th>Session</th><th>Role</th><th>Person ID</th><th>Name</th>
+              <th>School</th><th>Department</th><th>Gender</th><th>Status</th>
+              <th>Waist</th><th>Chest/Bust</th><th>Hips</th><th>Sleeve</th><th>Shoulder</th>
+              <th>TopLen</th><th>TrouserLen</th><th>SkirtLen</th><th>Shoe</th>
+              <th>Cap</th><th>Top</th><th>Bottom</th><th>Tie</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="p-2 d-flex justify-content-between align-items-center">
+          <div class="text-muted small" id="pgInfo"></div>
+          <div id="pgBtns"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const $ = (s,p=document)=>p.querySelector(s);
+  const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
+
+  // Filter depts by school
+  const schoolSel = $('#school'), deptSel = $('#department');
+  const allDeptOpts = $$('#department option').map(o=>({v:o.value,t:o.textContent,s:o.getAttribute('data-school')}));
+  function refreshDepts(){
+    const sid = schoolSel.value||'';
+    deptSel.innerHTML = '<option value="">All</option>';
+    allDeptOpts.forEach(o=>{
+      if(!o.v) return;
+      if(!sid || String(o.s)===String(sid)){
+        const opt=document.createElement('option'); opt.value=o.v; opt.textContent=o.t; opt.setAttribute('data-school',o.s);
+        deptSel.appendChild(opt);
+      }
+    });
+  }
+  if(schoolSel && deptSel){ schoolSel.addEventListener('change', refreshDepts); }
+
+  // paging helpers
+  let page = 1, pageSize = 10, total=0, totalPages=1;
+  function setPg(){
+    $('#pgInfo').textContent = `Page ${page} of ${totalPages}`;
+    const c = $('#pgBtns'); c.innerHTML = '';
+    const mk = (label, target, disabled=false) => {
+      const a=document.createElement('a'); a.className='btn btn-sm btn-outline-secondary ml-1 '+(disabled?'disabled':'');
+      a.textContent=label; if(!disabled) a.onclick=()=>{ page=target; load(); };
+      c.appendChild(a);
+    };
+    mk('Prev', Math.max(1,page-1), page<=1);
+    for(let i=1;i<=totalPages;i++){
+      const a=document.createElement('a');
+      a.className='btn btn-sm ml-1 ' + (i===page ? 'btn-primary' : 'btn-outline-primary');
+      a.textContent = i; a.onclick=()=>{ page=i; load(); };
+      c.appendChild(a);
+    }
+    mk('Next', Math.min(totalPages,page+1), page>=totalPages);
+  }
+
+  function qs(){
+    const fd = new FormData(document.getElementById('filterForm'));
+    const p = new URLSearchParams();
+    for (const [k,v] of fd.entries()) if (v) p.set(k,v);
+    p.set('page', String(page));
+    p.set('pageSize', String(pageSize));
+    return p.toString();
+  }
+
+  async function load(){
+    const r = await fetch('/staff/uniform/api/report?'+qs());
+    const j = await r.json();
+    total = j.total || 0;
+    totalPages = Math.max(1, Math.ceil(total / pageSize));
+    setPg();
+
+    $('#boxTotal').textContent = total;
+    let completed=0, draft=0, female=0;
+
+    const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+    (j.items||[]).forEach(it=>{
+      if(it.status==='COMPLETED') completed++; else draft++;
+      if((it.gender||'').toUpperCase()==='FEMALE') female++;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${it.session_id||''}</td>
+        <td>${it.role||''}</td>
+        <td>${it.person_id||''}</td>
+        <td>${it.person_name||''}</td>
+        <td>${it.school||''}</td>
+        <td>${it.department||''}</td>
+        <td>${it.gender||''}</td>
+        <td>${it.status||''}</td>
+        <td>${it.waist||''}</td>
+        <td>${it.chest||''}</td>
+        <td>${it.hips||''}</td>
+        <td>${it.sleeve||''}</td>
+        <td>${it.shoulder||''}</td>
+        <td>${it.top_length||''}</td>
+        <td>${it.trouser_length||''}</td>
+        <td>${it.skirt_length||''}</td>
+        <td>${it.shoe_size||''}</td>
+        <td><code>${it.colors.cap||''}</code></td>
+        <td><code>${it.colors.top||''}</code></td>
+        <td><code>${it.colors.bottom||''}</code></td>
+        <td><code>${it.colors.tie||''}</code></td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    $('#boxCompleted').textContent = completed;
+    $('#boxDraft').textContent = draft;
+    $('#boxFemale').textContent = female;
+  }
+
+  document.getElementById('btnApply').onclick = ()=>{ page=1; load(); };
+  document.getElementById('btnReset').onclick = ()=>{ document.getElementById('filterForm').reset(); refreshDepts(); page=1; load(); };
+  document.getElementById('btnCsv').onclick   = ()=>{ window.location = '/staff/uniform/api/export/csv?'+qs(); };
+
+  // initial
+  refreshDepts();
+  load();
+})();
+</script>

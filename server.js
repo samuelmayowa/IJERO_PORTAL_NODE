@@ -201,7 +201,7 @@ app.use((req, res, next) => {
 app.use(
   '/staff/attendance',
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
-  requireRole('staff', 'admin'),
+  requireRole('staff','admin','hod','registry', 'lecturer', 'bursary'),
   attendanceRoutes
 );
 
@@ -219,7 +219,7 @@ app.use('/', paymentRoutes);
 app.use(
   '/staff',
   ensureUserForViews,
-  requireRole('staff', 'admin'),
+  requireRole('staff', 'admin', 'registry', 'hod'),
   requireMenuPermission({
     base: '/staff',
     allowIfNoConfig: true,
@@ -234,7 +234,7 @@ app.use(
   '/staff',
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
   (req, res, next) => { try { res.locals.csrfToken = req.csrfToken?.() || null; } catch {} next(); },
-  requireRole('staff', 'admin'),
+  requireRole('staff','admin','hod','registry'),
   requireMenuPermission({
     base: '/staff',
     allowIfNoConfig: true,
@@ -242,6 +242,19 @@ app.use(
   }),
   adminRoutes
 );
+
+// app.use(
+//   '/staff',
+//   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+//   (req, res, next) => { try { res.locals.csrfToken = req.csrfToken?.() || null; } catch {} next(); },
+//   requireRole('staff', 'admin'),
+//   requireMenuPermission({
+//     base: '/staff',
+//     allowIfNoConfig: true,
+//     superRoles: ['admin', 'superadmin', 'administrator']
+//   }),
+//   adminRoutes
+// );
 
 
 // ✅ Academic/session/semester routes

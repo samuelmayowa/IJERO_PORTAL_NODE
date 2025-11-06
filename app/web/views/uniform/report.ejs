@@ -1,0 +1,249 @@
+<!-- app/web/views/uniform/report.ejs -->
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= pageTitle || title %></h4>
+
+    <!-- Filters -->
+    <div class="card card-outline card-primary">
+      <div class="card-body">
+        <form id="flt" class="form-row">
+          <div class="form-group col-md-2">
+            <label>Session</label>
+            <select class="form-control" name="session_id">
+              <option value="">All</option>
+              <% (sessions||[]).forEach(s => { %>
+                <option value="<%= s.id %>"><%= s.name || s.id %> <%= s.is_current?'(Current)':'' %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>School</label>
+            <select class="form-control" name="school_id" id="schoolSel">
+              <option value="">All</option>
+              <% (schools||[]).forEach(sc => { %>
+                <option value="<%= sc.id %>"><%= sc.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>Department</label>
+            <select class="form-control" name="department_id" id="deptSel">
+              <option value="">All</option>
+              <% (departments||[]).forEach(dp => { %>
+                <option value="<%= dp.id %>" data-school="<%= dp.school_id %>"><%= dp.name %></option>
+              <% }) %>
+            </select>
+            <% if (hodDeptId) { %>
+              <small class="text-muted">* HOD view auto-limited to your department</small>
+            <% } %>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>Person</label>
+            <select class="form-control" name="person_role" id="personSel">
+              <option value="" selected>All</option>
+              <option value="STUDENT">Student</option>
+              <option value="APPLICANT">Applicant</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>Search</label>
+            <input class="form-control" name="q" placeholder="ID / Name / School / Dept">
+          </div>
+
+          <div class="form-group col-md-2 d-flex align-items-end">
+            <button type="button" id="apply" class="btn btn-primary btn-block">Apply</button>
+          </div>
+        </form>
+
+        <div class="mb-2">
+          <a id="dlCsv" class="btn btn-success btn-sm" href="#">Export CSV</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row">
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner"><h3 id="sumTotal">0</h3><p>Rows Matched</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-success">
+          <div class="inner"><h3 id="sumCompleted">0</h3><p>Completed</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-primary">
+          <div class="inner"><h3 id="sumMale">0</h3><p>Male</p></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-pink">
+          <div class="inner"><h3 id="sumFemale">0</h3><p>Female</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-hover" id="tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Role</th>
+              <th>Person ID</th>
+              <th>Name</th>
+              <th>Session</th>
+              <th>School</th>
+              <th>Department</th>
+              <th>Level</th>
+              <th>Gender</th>
+              <th>Waist</th>
+              <th>Chest</th>
+              <th>Hips</th>
+              <th>Shoe</th>
+              <th>Colours</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="p-2 d-flex justify-content-between align-items-center">
+          <div class="text-muted small" id="pgInfo">Page 1</div>
+          <div id="pgBtns"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const $  = (s,p=document)=>p.querySelector(s);
+  const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
+
+  const form = $('#flt');
+  const schoolSel = $('#schoolSel');
+  const deptSel   = $('#deptSel');
+
+  // cache dept options for filtering by school
+  const deptAll = $$('#deptSel option').map(o=>({v:o.value,t:o.textContent,s:o.getAttribute('data-school')}));
+
+  // filter departments when school changes
+  schoolSel.addEventListener('change', ()=>{
+    const sid = schoolSel.value||'';
+    deptSel.innerHTML = '<option value="">All</option>';
+    deptAll.forEach(d=>{
+      if(!d.v) return;
+      if(!sid || String(d.s)===String(sid)){
+        const o=document.createElement('option');
+        o.value=d.v; o.textContent=d.t; o.setAttribute('data-school', d.s);
+        deptSel.appendChild(o);
+      }
+    });
+  });
+
+  // paging
+  let page=1, pageSize=10, total=0, totalPages=1;
+
+  function buildQS(){
+    const fd = new FormData(form);
+    const u = new URLSearchParams();
+    for (const [k,v] of fd.entries()) if (v) u.set(k,v);
+    u.set('page', page);
+    u.set('pageSize', pageSize);
+    return u.toString();
+  }
+
+  function setCards(j){
+    $('#sumTotal').textContent     = j.total || 0;
+    $('#sumCompleted').textContent = j.completed || 0;
+    $('#sumMale').textContent      = j.male || 0;
+    $('#sumFemale').textContent    = j.female || 0;
+  }
+
+  function setPaging(j){
+    total = j.total || 0;
+    totalPages = Math.max(1, Math.ceil(total / pageSize));
+    $('#pgInfo').textContent = `Page ${page} of ${totalPages}`;
+
+    const c = $('#pgBtns'); c.innerHTML='';
+    const mk = (label, target, disabled=false) => {
+      const a=document.createElement('a');
+      a.className='btn btn-sm ' + (disabled? 'btn-secondary disabled' : 'btn-outline-secondary');
+      a.textContent=label;
+      if(!disabled) a.onclick=()=>{ page=target; load(); };
+      c.appendChild(a);
+    };
+    mk('Prev', Math.max(1,page-1), page<=1);
+    for(let i=1;i<=totalPages;i++){
+      const a=document.createElement('a');
+      a.className='btn btn-sm ml-1 ' + (i===page? 'btn-primary' : 'btn-outline-primary');
+      a.textContent = i;
+      a.onclick=()=>{ page=i; load(); };
+      c.appendChild(a);
+    }
+    mk('Next', Math.min(totalPages,page+1), page>=totalPages);
+  }
+
+  async function load(){
+    const q = buildQS();
+    const r = await fetch('/staff/uniform/api/report?' + q);
+    const j = await r.json();
+
+    // summary + paging
+    setCards(j);
+    setPaging(j);
+
+    // render rows
+    const tb = $('#tbl tbody'); tb.innerHTML='';
+    (j.items||[]).forEach((row, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${(page-1)*pageSize + idx + 1}</td>
+        <td>${row.person_role||''}</td>
+        <td>${row.person_id||''}</td>
+        <td>${row.person_name||''}</td>
+        <td>${row.session_id||''}</td>
+        <td>${row.school_name||''}</td>
+        <td>${row.department_name||''}</td>
+        <td>${row.level||''}</td>
+        <td>${row.gender||''}</td>
+        <td>${row.waist_cm||''}</td>
+        <td>${row.chest_cm||''}</td>
+        <td>${row.hips_cm||''}</td>
+        <td>${row.shoe_size||''}</td>
+        <td>
+          <span class="badge" style="background:${row.color_cap||'#ccc'}">Cap</span>
+          <span class="badge" style="background:${row.color_top||'#ccc'}">Top</span>
+          <span class="badge" style="background:${row.color_bottom||'#ccc'}">Bottom</span>
+          <span class="badge" style="background:${row.color_tie||'#ccc'}">Tie</span>
+        </td>
+        <td>${row.status||''}</td>
+        <td>${row.created_at||''}</td>
+      `;
+      tb.appendChild(tr);
+    });
+  }
+
+  // actions
+  $('#apply').addEventListener('click', ()=>{ page=1; load(); });
+  $('#dlCsv').addEventListener('click', (e)=>{ e.preventDefault(); window.location='/staff/uniform/api/export/csv?' + buildQS(); });
+
+  // initial: force Person to "All" (avoid browser auto-fill selecting Student)
+  const personSel = document.getElementById('personSel');
+  if (personSel) personSel.value = '';
+
+  page = 1;
+  load();
+})();
+</script>

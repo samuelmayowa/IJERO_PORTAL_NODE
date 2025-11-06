@@ -2,14 +2,9 @@
   <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
     <li class="nav-item"><a href="/registry/dashboard" class="nav-link <%= currentPath === '/registry/dashboard' ? 'active' : '' %>"><i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
 
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link"><i class="nav-icon fas fa-user-check"></i><p>Attendance<i class="right fas fa-angle-left"></i></p></a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="/staff/attendance/mark" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Mark Attendance</p></a></li>
-        <li class="nav-item"><a href="/staff/attendance/report" class="nav-link"><i class="far fa-circle nav-icon"></i><p>View Expert Report</p></a></li>
-        <li class="nav-item"><a href="/staff/attendance/watchlist" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watch-list Staff</p></a></li>
-      </ul>
-    </li>
+    <li class="nav-item"><a href="/staff/attendance/mark" class="nav-link"><i class="nav-icon fas fa-plus"></i><p>Mark Attendance</p></a></li>
+    <li class="nav-item"><a href="/staff/attendance/report" class="nav-link"><i class="nav-icon fas fa-money-bill-wave"></i><p>View Export Report</p></a></li>
+    <li class="nav-item"><a href="/staff/attendance/watchlist" class="nav-link"><i class="nav-icon fas fa-search-dollar"></i><p>Watch-list Staff</p></a></li>
 
     <li class="nav-item"><a href="/staff/admissions/verify-applicant" class="nav-link"><i class="nav-icon fas fa-user-check"></i><p>Verify Applicant</p></a></li>
     <li class="nav-item"><a href="/staff/students/verify" class="nav-link"><i class="nav-icon fas fa-user-check"></i><p>Verify Student</p></a></li>
@@ -23,7 +18,9 @@
 
     <li class="nav-item"><a href="/reports/student" class="nav-link"><i class="nav-icon fas fa-file-alt"></i><p>Student Report</p></a></li>
     <li class="nav-item"><a href="/reports/applicant" class="nav-link"><i class="nav-icon fas fa-file-alt"></i><p>Applicant Report</p></a></li>
-
+    <li class="nav-item"><a href="/staff/uniform/report" class="nav-link">
+      <i class="nav-icon fas fa-ruler"></i><p>Uniform Report</p>
+    </a></li>
     <li class="nav-item has-treeview">
       <a href="#" class="nav-link"><i class="nav-icon fas fa-graduation-cap"></i><p>Student Academic Records<i class="right fas fa-angle-left"></i></p></a>
       <ul class="nav nav-treeview">

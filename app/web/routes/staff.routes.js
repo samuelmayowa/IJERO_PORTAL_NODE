@@ -1,6 +1,8 @@
 // app/web/routes/staff.routes.js
 import { Router } from 'express';
 import * as staffCtrl from '../controllers/staff.controller.js';
+import * as uniformRpt from '../controllers/uniform.report.controller.js';
+import { requireRole } from '../../core/session.js';
 
 const router = Router();
 
@@ -50,5 +52,14 @@ router.get('/password-reset', safe('passwordResetPage'));                  // re
 router.get('/api/password/users', safe('listUsersForPasswordReset'));      // table data (paginated)
 router.post('/api/password/reset/:id', safe('resetPasswordToCollege1'));   // reset to College1
 router.post('/api/password/change', safe('changePasswordByAdmin'));        // admin sets custom password
+// ─────────────────────────────────────────────
+// Uniform Measurement Report (Admin/Registry/HOD)
+// ─────────────────────────────────────────────
+// Page
+router.get('/uniform/report',         requireRole('admin','registry','hod'), uniformRpt.page);
+router.get('/uniform/api/report',     requireRole('admin','registry','hod'), uniformRpt.apiList);
+router.get('/uniform/api/export/csv', requireRole('admin','registry','hod'), uniformRpt.exportCsv);
+
+
 
 export default router;

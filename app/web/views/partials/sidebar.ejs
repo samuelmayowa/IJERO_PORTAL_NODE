@@ -200,8 +200,15 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME DATA</p></a></li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Course Registration</p></a></li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Student Attendance</p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Uniform Measurement</p></a></li>
         </ul>
+      </li>
+      <!-- Uniform Report -->
+      <li class="nav-item">
+        <a href="/staff/uniform/report"
+          class="nav-link <%= (cur && cur.startsWith('/staff/uniform')) ? 'active' : '' %>">
+          <i class="nav-icon fas fa-ruler"></i>
+          <p>Uniform Report</p>
+        </a>
       </li>
 
       <!-- Manage Applicant -->

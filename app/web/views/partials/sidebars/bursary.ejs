@@ -2,14 +2,9 @@
   <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
     <li class="nav-item"><a href="/bursary/dashboard" class="nav-link <%= currentPath === '/bursary/dashboard' ? 'active' : '' %>"><i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
 
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link"><i class="nav-icon fas fa-user-check"></i><p>Attendance<i class="right fas fa-angle-left"></i></p></a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="/staff/attendance/mark" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Mark Attendance</p></a></li>
-        <li class="nav-item"><a href="/staff/attendance/report" class="nav-link"><i class="far fa-circle nav-icon"></i><p>View Export Report</p></a></li>
-        <li class="nav-item"><a href="/staff/attendance/watchlist" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watch-list Staff</p></a></li>
-      </ul>
-    </li>
+        <li class="nav-item"><a href="/staff/attendance/mark" class="nav-link"><i class="nav-icon fas fa-plus"></i><p>Mark Attendance</p></a></li>
+        <li class="nav-item"><a href="/staff/attendance/report" class="nav-link"><i class="nav-icon fas fa-money-bill-wave"></i><p>View Export Report</p></a></li>
+        <li class="nav-item"><a href="/staff/attendance/watchlist" class="nav-link"><i class="nav-icon fas fa-search-dollar"></i><p>Watch-list Staff</p></a></li>
 
     <li class="nav-item"><a href="/staff/bursary/verify-applicant" class="nav-link"><i class="nav-icon fas fa-search-dollar"></i><p>Verify Applicant Payment</p></a></li>
     <li class="nav-item"><a href="/staff/bursary/verify-student" class="nav-link"><i class="nav-icon fas fa-search-dollar"></i><p>Verify Student Payment</p></a></li>
