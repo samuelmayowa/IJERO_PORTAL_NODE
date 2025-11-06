@@ -1,0 +1,270 @@
+<section class="content">
+  <div class="container-fluid">
+    <h4 class="mb-3"><%= pageTitle || title %></h4>
+
+    <% if (messages && messages.error)   { %><div class="alert alert-danger"><%= messages.error %></div><% } %>
+    <% if (messages && messages.success) { %><div class="alert alert-success"><%= messages.success %></div><% } %>
+    <% if (data && data.id) { %>
+        <div class="card card-outline card-secondary mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Saved Measurement</h5>
+            <a target="_blank"
+                href="<%= (personRole==='APPLICANT')?'/applicant/uniform/print':'/student/uniform/print' %>"
+                class="btn btn-sm btn-primary">
+                <i class="fas fa-print"></i> Print
+            </a>
+            </div>
+            <div class="card-body p-2">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                <thead class="thead-light">
+                    <tr>
+                    <th>Gender</th><th>Neck</th><th>Chest/Bust</th><th>Waist</th><th>Hips</th><th>Sleeve</th><th>Shoulder</th><th>Top Len</th><th>Trouser Len</th><th>Skirt Len</th><th>Shoe</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <td><%= data.gender || '' %></td>
+                    <td><%= data.neck_cm || '' %></td>
+                    <td><%= (data.chest_cm || data.bust_cm || '') %></td>
+                    <td><%= data.waist_cm || '' %></td>
+                    <td><%= data.hips_cm || '' %></td>
+                    <td><%= data.sleeve_cm || '' %></td>
+                    <td><%= data.shoulder_cm || '' %></td>
+                    <td><%= data.top_length_cm || '' %></td>
+                    <td><%= data.trouser_len_cm || '' %></td>
+                    <td><%= data.skirt_len_cm || '' %></td>
+                    <td><%= data.shoe_size || '' %></td>
+                    <td><span class="badge badge-<%= (data.status==='COMPLETED')?'success':'secondary' %>"><%= data.status || 'DRAFT' %></span></td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+            </div>
+        </div>
+        <% } %>
+    <div class="row">
+      <!-- LEFT -->
+      <div class="col-md-7">
+        <form method="POST" action="<%= (personRole==='APPLICANT')?'/applicant/uniform':'/student/uniform' %>">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="session_id" value="<%= sessionId || '' %>">
+
+          <div class="card card-outline card-primary">
+            <div class="card-header"><h5 class="card-title">Identity & Programme</h5></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label><%= (personRole==='APPLICANT')?'Application No':'Matric No' %></label>
+                  <input class="form-control" value="<%= personId || '' %>" readonly>
+                </div>
+                <div class="form-group col-md-6">
+                  <label>Session</label>
+                  <input class="form-control" value="<%= sessionId || '' %>" readonly>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label>School</label>
+                  <select id="school_id" name="school_id" class="form-control">
+                    <option value="">-- Select School --</option>
+                    <% (schools || []).forEach(s => { %>
+                      <option value="<%= s.id %>" <%= String(data.school_id||'')===String(s.id)?'selected':'' %>><%= s.name %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Department</label>
+                  <select id="department_id" name="department_id" class="form-control" <%= data.school_id ? '' : 'disabled' %>>
+                    <option value="">-- Select Department --</option>
+                    <% (departments || []).forEach(d => { %>
+                      <% if (!data.school_id || String(d.school_id)===String(data.school_id)) { %>
+                        <option value="<%= d.id %>" data-school="<%= d.school_id %>"
+                          <%= String(data.department_id||'')===String(d.id)?'selected':'' %>>
+                          <%= d.name %>
+                        </option>
+                      <% } %>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Programme</label>
+                  <input name="programme" class="form-control" value="<%= data.programme||'' %>">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-4"><label>Level</label><input name="level" class="form-control" value="<%= data.level||'' %>" placeholder="e.g. ND1"></div>
+                <div class="form-group col-md-4"><label>Entry Year</label><input name="entry_year" class="form-control" value="<%= data.entry_year||'' %>" placeholder="e.g. 2025"></div>
+                <div class="form-group col-md-4">
+                  <label>Gender <span class="text-danger">*</span></label>
+                  <select id="gender" name="gender" class="form-control" required>
+                    <option value="">-- Select --</option>
+                    <option value="MALE"   <%= data.gender==='MALE'?'selected':'' %>>Male</option>
+                    <option value="FEMALE" <%= data.gender==='FEMALE'?'selected':'' %>>Female</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-outline card-success">
+            <div class="card-header"><h5 class="card-title">Measurements (cm)</h5></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group col-md-4"><label>Height</label><input name="height_cm" class="form-control meas" value="<%= data.height_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Weight (kg)</label><input name="weight_kg" class="form-control" value="<%= data.weight_kg||'' %>"></div>
+                <div class="form-group col-md-4"><label>Cap Size</label><input name="cap_size_cm" class="form-control meas" value="<%= data.cap_size_cm||'' %>"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-4"><label>Neck</label><input name="neck_cm" class="form-control meas" value="<%= data.neck_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Chest</label><input name="chest_cm" class="form-control meas" value="<%= data.chest_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Bust (F)</label><input name="bust_cm" class="form-control meas" value="<%= data.bust_cm||'' %>"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-4"><label>Waist <span class="text-danger">*</span></label><input id="waist" name="waist_cm" class="form-control meas" value="<%= data.waist_cm||'' %>" required></div>
+                <div class="form-group col-md-4"><label>Hips</label><input name="hips_cm" class="form-control meas" value="<%= data.hips_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Shoulder</label><input name="shoulder_cm" class="form-control meas" value="<%= data.shoulder_cm||'' %>"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-4"><label>Sleeve</label><input name="sleeve_cm" class="form-control meas" value="<%= data.sleeve_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Top Length</label><input name="top_length_cm" class="form-control meas" value="<%= data.top_length_cm||'' %>"></div>
+                <div class="form-group col-md-4"><label>Trouser Length</label><input name="trouser_len_cm" class="form-control meas" value="<%= data.trouser_len_cm||'' %>"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-6"><label>Skirt Length (F)</label><input name="skirt_len_cm" class="form-control meas" value="<%= data.skirt_len_cm||'' %>"></div>
+                <div class="form-group col-md-6"><label>Shoe Size</label><input name="shoe_size" class="form-control" value="<%= data.shoe_size||'' %>"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-outline card-warning">
+            <div class="card-header"><h5 class="card-title">Uniform Colours (live preview)</h5></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group col-md-3"><label>Cap</label><input type="color" id="color_cap" name="color_cap" class="form-control" value="<%= data.color_cap||'#0a74da' %>"></div>
+                <div class="form-group col-md-3"><label>Top</label><input type="color" id="color_top" name="color_top" class="form-control" value="<%= data.color_top||'#2ecc71' %>"></div>
+                <div class="form-group col-md-3"><label>Bottom</label><input type="color" id="color_bottom" name="color_bottom" class="form-control" value="<%= data.color_bottom||'#34495e' %>"></div>
+                <div class="form-group col-md-3"><label>Tie</label><input type="color" id="color_tie" name="color_tie" class="form-control" value="<%= data.color_tie||'#e67e22' %>"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body d-flex justify-content-between">
+              <button class="btn btn-secondary" name="complete" value="0" type="submit"><i class="fas fa-save"></i> Save Draft</button>
+              <button id="btn-complete" class="btn btn-success" name="complete" value="1" type="submit"><i class="fas fa-check-circle"></i> Finish / Complete</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col-md-5">
+        <div class="card card-outline card-info">
+          <div class="card-header"><h5 class="card-title">Live Preview</h5></div>
+          <div class="card-body d-flex justify-content-center">
+            <svg id="avatar" width="260" height="360" viewBox="0 0 130 180">
+              <path id="part-cap" d="M25,30 Q65,10 105,30 L95,40 Q65,25 35,40 Z" fill="<%= data.color_cap || '#0a74da' %>" opacity="0.15"></path>
+              <circle cx="65" cy="55" r="18" fill="#f2d3b0" stroke="#caa17e"></circle>
+              <rect id="part-top" x="35" y="75" width="60" height="45" rx="8" fill="<%= data.color_top || '#2ecc71' %>"></rect>
+              <path id="part-tie" d="M64,76 L66,76 L69,100 L61,100 Z" fill="<%= data.color_tie || '#e67e22' %>"></path>
+              <rect id="part-bottom" x="40" y="120" width="50" height="35" rx="6" fill="<%= data.color_bottom || '#34495e' %>"></rect>
+              <text id="lbl-waist" x="95" y="120" font-size="6" fill="#333"></text>
+              <text id="lbl-shoulder" x="15" y="90" font-size="6" fill="#333"></text>
+              <text id="lbl-sleeve" x="95" y="95" font-size="6" fill="#333"></text>
+              <text id="lbl-chest" x="20" y="70" font-size="6" fill="#333"></text>
+              <text id="lbl-hips" x="95" y="135" font-size="6" fill="#333"></text>
+            </svg>
+          </div>
+          <div class="small text-muted px-3 pb-2">Tip: Choose Gender and enter a few sizes to see labels on the avatar. Colours update live.</div>
+        </div>
+        <% if (data && data.id) { %>
+            <div class="px-3 pb-3 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+                <a target="_blank"
+                href="<%= (personRole==='APPLICANT')?'/applicant/uniform/print':'/student/uniform/print' %>"
+                class="btn btn-primary mb-2 mb-md-0">
+                <i class="fas fa-print mr-1"></i> Print Measurement (PDF)
+                </a>
+                <span class="small text-muted ml-md-3">
+                <strong>Note:</strong> submitting a new measurement for the same session overrides your previous measurement.
+                </span>
+            </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const cap = $('#part-cap');
+  const capCol = $('#color_cap'), topCol = $('#color_top'), botCol = $('#color_bottom'), tieCol = $('#color_tie');
+
+  function bindColor(inp, id){
+    if (!inp) return;
+    inp.addEventListener('input', ()=>{
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('fill', inp.value);
+      if (id==='part-cap') cap.style.opacity = inp.value ? 1 : .15;
+    });
+  }
+  bindColor(capCol,'part-cap'); bindColor(topCol,'part-top'); bindColor(botCol,'part-bottom'); bindColor(tieCol,'part-tie');
+
+  function bindLabel(field, labelId, labelText){
+    const i = document.querySelector('[name="'+field+'"]');
+    const t = document.getElementById('lbl-'+labelId);
+    if (!i || !t) return;
+    const update = () => { t.textContent = i.value ? (labelText+' '+i.value+'cm') : ''; };
+    i.addEventListener('input', update); update();
+  }
+  bindLabel('waist_cm','waist','Waist');
+  bindLabel('shoulder_cm','shoulder','Shoulder');
+  bindLabel('sleeve_cm','sleeve','Sleeve');
+  bindLabel('chest_cm','chest','Chest');
+  bindLabel('hips_cm','hips','Hips');
+
+  // School -> Department filter
+  const schoolSel = document.getElementById('school_id');
+  const deptSel = document.getElementById('department_id');
+  const allDeptOptions = Array.from((departmentsInit() || []));
+
+  function departmentsInit(){
+    const arr = [];
+    (deptSel?.querySelectorAll('option') || []).forEach(o => {
+      const v = o.value; if (!v) return;
+      arr.push({ value: v, text: o.textContent, school: o.getAttribute('data-school') });
+    });
+    return arr;
+  }
+  function refreshDepartments(){
+    const sid = schoolSel.value || '';
+    deptSel.innerHTML = '<option value="">-- Select Department --</option>';
+    allDeptOptions.forEach(o=>{
+      if (!sid || String(o.school)===String(sid)) {
+        const opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.text; opt.setAttribute('data-school', o.school);
+        deptSel.appendChild(opt);
+      }
+    });
+    deptSel.disabled = !sid;
+  }
+  if (schoolSel && deptSel) {
+    schoolSel.addEventListener('change', refreshDepartments);
+    if (!schoolSel.value) { deptSel.disabled = true; }
+  }
+
+  // Finish minimal checks
+  document.getElementById('btn-complete')?.addEventListener('click', (e)=>{
+    const g = (document.getElementById('gender')?.value || '');
+    const w = document.getElementById('waist').value;
+    if (!g) { alert('Please select Gender'); e.preventDefault(); return; }
+    if (!w) { alert('Please enter Waist'); e.preventDefault(); return; }
+    if (!capCol.value || !topCol.value || !botCol.value) {
+      alert('Please pick Cap, Top and Bottom colours'); e.preventDefault(); return;
+    }
+  });
+})();
+</script>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Uniform Measurement</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 30px; }
+    .header { display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 16px; }
+    .header img { height: 65px; margin-right: 15px; }
+    .title { font-size: 18px; font-weight: 700; line-height: 1.2; text-transform: uppercase; }
+    .sub { font-size: 13px; color: #333; }
+    .meta { margin-left: auto; text-align: right; font-size: 12px; color: #444; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #333; padding: 8px; font-size: 13px; }
+    th { background: #f2f2f2; text-align: left; }
+    .section { margin-top: 14px; }
+    .swatch { width: 16px; height: 16px; border: 1px solid #333; display: inline-block; vertical-align: -3px; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="/public/img/logo.png" alt="Logo">
+    <div>
+      <div class="title">COLLEGE OF HEALTH SCIENCES AND TECHNOLOGY, IJERO</div>
+      <div class="sub">Uniform Measurement Record</div>
+    </div>
+    <div class="meta">
+      <div><strong>Date:</strong> <span id="printDate"></span></div>
+      <div><strong>Session ID:</strong> <%= sessionId || '' %></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <table>
+      <tr><th>Person</th><td><%= personId %> (<%= personRole %>)</td></tr>
+      <tr><th>Name</th><td><%= personName || '' %></td></tr>
+      <tr><th>School</th><td><%= record?.school_name || '' %></td></tr>
+      <tr><th>Department</th><td><%= record?.department_name || '' %></td></tr>
+      <tr><th>Programme</th><td><%= record?.programme || '' %></td></tr>
+      <tr><th>Level</th><td><%= record?.level || '' %></td></tr>
+      <tr><th>Entry Year</th><td><%= record?.entry_year || '' %></td></tr>
+      <tr><th>Gender</th><td><%= record?.gender || '' %></td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <table>
+      <thead><tr><th>Size Type</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Neck</td><td><%= record?.neck_cm || '' %> cm</td></tr>
+        <tr><td>Chest</td><td><%= record?.chest_cm || '' %> cm</td></tr>
+        <tr><td>Bust (F)</td><td><%= record?.bust_cm || '' %> cm</td></tr>
+        <tr><td>Waist</td><td><%= record?.waist_cm || '' %> cm</td></tr>
+        <tr><td>Hips</td><td><%= record?.hips_cm || '' %> cm</td></tr>
+        <tr><td>Sleeve</td><td><%= record?.sleeve_cm || '' %> cm</td></tr>
+        <tr><td>Shoulder</td><td><%= record?.shoulder_cm || '' %> cm</td></tr>
+        <tr><td>Top Length</td><td><%= record?.top_length_cm || '' %> cm</td></tr>
+        <tr><td>Trouser Length</td><td><%= record?.trouser_len_cm || '' %> cm</td></tr>
+        <tr><td>Skirt Length</td><td><%= record?.skirt_len_cm || '' %> cm</td></tr>
+        <tr><td>Shoe Size</td><td><%= record?.shoe_size || '' %></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <table>
+      <thead><tr><th>Colour Part</th><th>Code</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Cap</td>
+          <td><span class="swatch" style="background:<%= record?.color_cap || '#fff' %>"></span> <%= (record?.color_cap || '').toUpperCase() %></td>
+        </tr>
+        <tr>
+          <td>Top</td>
+          <td><span class="swatch" style="background:<%= record?.color_top || '#fff' %>"></span> <%= (record?.color_top || '').toUpperCase() %></td>
+        </tr>
+        <tr>
+          <td>Bottom</td>
+          <td><span class="swatch" style="background:<%= record?.color_bottom || '#fff' %>"></span> <%= (record?.color_bottom || '').toUpperCase() %></td>
+        </tr>
+        <tr>
+          <td>Tie</td>
+          <td><span class="swatch" style="background:<%= record?.color_tie || '#fff' %>"></span> <%= (record?.color_tie || '').toUpperCase() %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // show local date-time and auto-open print
+    document.getElementById('printDate').textContent = new Date().toLocaleString();
+    window.print();
+  </script>
+</body>
+</html>

@@ -74,6 +74,11 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <li class="nav-item"><a href="/student/exams/clearance/exception" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Request Exception</p></a></li>
       </ul>
     </li>
+    <li class="nav-item">
+      <a href="/student/uniform" class="nav-link <%= path.startsWith('/student/uniform') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p>
+      </a>
+    </li>
 
   </ul>
 </nav>

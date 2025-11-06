@@ -1,30 +1,151 @@
+import { pool } from '../../core/db.js';
 
-import { fetchStudentByMatric, fetchResults, computePerTermGPA, computeCGPA } from '../../services/results.service.js';
-
+// Student dashboard -> render your AdminLTE student page
 export function dashboard(req, res) {
-  res.send('Student Dashboard');
+  res.render('pages/student', { title: 'Student Dashboard', pageTitle: 'Dashboard' });
 }
 
+// GET /student/uniform
+export async function uniformForm(req, res) {
+  const personRole = 'STUDENT';
 
-export const requestTranscript=async (req,res)=>{
-  res.render('pages/student-request-transcript');
-};
+  // Prefer public portal session → username as stable personId
+  const pu = req.session?.publicUser || {};
+  const personId = (pu.username || req.user?.matricNumber || req.session?.user?.matricNumber || '').trim();
 
-export const checkResult=async (req,res)=>{
-  // expects ?matric=...
-  const matric = (req.query.matric || req.user?.matricNumber || '').trim();
-  const rows = matric ? await fetchResults(matric) : [];
-  res.render('pages/student-check-result', { rows, matric });
-};
+  let sessionId = null;
+  try {
+    const [cur] = await pool.query('SELECT id FROM sessions WHERE is_current=1 LIMIT 1');
+    sessionId = cur?.[0]?.id ?? null;
+  } catch {}
 
-export const academicRecord=async (req,res)=>{
-  const matric = (req.query.matric || req.user?.matricNumber || '').trim();
-  const perTerm = matric ? await computePerTermGPA(matric) : [];
-  res.render('pages/student-academic-record', { perTerm, matric });
-};
+  // existing record (if any)
+  let data = {};
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM uniform_measurements WHERE person_role=? AND person_id=? AND session_id <=> ? LIMIT 1`,
+      [personRole, personId, sessionId]
+    );
+    data = rows[0] || {};
+  } catch {}
 
-export const currentGCPA=async (req,res)=>{
-  const matric = (req.query.matric || req.user?.matricNumber || '').trim();
-  const cgpa = matric ? await computeCGPA(matric) : 0;
-  res.render('pages/student-current-gcpa', { cgpa, matric });
-};
+  // dropdown data
+  let schools = [], departments = [];
+  try {
+    const [r1] = await pool.query('SELECT id, name FROM schools ORDER BY name');
+    const [r2] = await pool.query('SELECT id, name, school_id FROM departments ORDER BY name');
+    schools = r1; departments = r2;
+  } catch {}
+
+  res.render('uniform/uniform', {
+    title: 'Uniform Measurement',
+    pageTitle: 'Uniform Measurement',
+    mode: data?.id ? 'edit' : 'create',
+    data, personRole, personId, sessionId, schools, departments
+  });
+}
+
+// POST /student/uniform
+export async function saveUniform(req, res) {
+  const b = req.body || {};
+  const personRole = 'STUDENT';
+
+  const pu = req.session?.publicUser || {};
+  const personId = (pu.username || req.user?.matricNumber || req.session?.user?.matricNumber || '').trim();
+
+  let sessionId = null;
+  try {
+    const [cur] = await pool.query('SELECT id FROM sessions WHERE is_current=1 LIMIT 1');
+    sessionId = cur?.[0]?.id ?? null;
+  } catch {}
+
+  const sql = `
+    INSERT INTO uniform_measurements
+      (person_role, person_id, session_id, school_id, department_id, programme, level, entry_year,
+       gender, height_cm, weight_kg, cap_size_cm, neck_cm, chest_cm, bust_cm, waist_cm, hips_cm,
+       shoulder_cm, sleeve_cm, top_length_cm, trouser_len_cm, skirt_len_cm, shoe_size,
+       color_cap, color_top, color_bottom, color_tie, status)
+    VALUES (?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,
+            ?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE
+      school_id=VALUES(school_id), department_id=VALUES(department_id), programme=VALUES(programme),
+      level=VALUES(level), entry_year=VALUES(entry_year), gender=VALUES(gender),
+      height_cm=VALUES(height_cm), weight_kg=VALUES(weight_kg), cap_size_cm=VALUES(cap_size_cm),
+      neck_cm=VALUES(neck_cm), chest_cm=VALUES(chest_cm), bust_cm=VALUES(bust_cm), waist_cm=VALUES(waist_cm),
+      hips_cm=VALUES(hips_cm), shoulder_cm=VALUES(shoulder_cm), sleeve_cm=VALUES(sleeve_cm),
+      top_length_cm=VALUES(top_length_cm), trouser_len_cm=VALUES(trouser_len_cm), skirt_len_cm=VALUES(skirt_len_cm),
+      shoe_size=VALUES(shoe_size), color_cap=VALUES(color_cap), color_top=VALUES(color_top),
+      color_bottom=VALUES(color_bottom), color_tie=VALUES(color_tie), status=VALUES(status)
+  `;
+
+  const params = [
+    personRole, personId, sessionId,
+    b.school_id || null, b.department_id || null, b.programme || null, b.level || null, b.entry_year || null,
+    b.gender || null, b.height_cm || null, b.weight_kg || null, b.cap_size_cm || null, b.neck_cm || null,
+    b.chest_cm || null, b.bust_cm || null, b.waist_cm || null, b.hips_cm || null,
+    b.shoulder_cm || null, b.sleeve_cm || null, b.top_length_cm || null, b.trouser_len_cm || null, b.skirt_len_cm || null,
+    b.shoe_size || null,
+    b.color_cap || null, b.color_top || null, b.color_bottom || null, b.color_tie || null,
+    (b.complete === '1') ? 'COMPLETED' : 'DRAFT'
+  ];
+
+  try { await pool.query(sql, params); } catch {}
+
+  req.flash('success', (b.complete === '1') ? 'Uniform measurement submitted.' : 'Uniform measurement saved (draft).');
+  return res.redirect('/student/uniform');
+}
+
+// GET /student/uniform/print
+export async function uniformPrint(req, res) {
+  const personRole = 'STUDENT';
+
+  // stable id + potential name from session
+  const pu = req.session?.publicUser || {};
+  const personId = (pu.username || req.user?.matricNumber || req.session?.user?.matricNumber || '').trim();
+
+  let sessionId = null;
+  try {
+    const [cur] = await pool.query('SELECT id FROM sessions WHERE is_current=1 LIMIT 1');
+    sessionId = cur?.[0]?.id ?? null;
+  } catch {}
+
+  const [rows] = await pool.query(
+    `SELECT um.*, s.name AS school_name, d.name AS department_name
+     FROM uniform_measurements um
+     LEFT JOIN schools s ON s.id = um.school_id
+     LEFT JOIN departments d ON d.id = um.department_id
+     WHERE um.person_role=? AND um.person_id=? AND um.session_id <=> ? LIMIT 1`,
+    [personRole, personId, sessionId]
+  );
+  const rec = rows[0] || {};
+
+  // Build name: session → DB fallback → staff session
+  let personName = (pu.first_name || pu.last_name)
+    ? [pu.first_name, pu.middle_name, pu.last_name].filter(Boolean).join(' ')
+    : '';
+
+  if (!personName && personId) {
+    try {
+      const [pr] = await pool.query(
+        'SELECT first_name, middle_name, last_name FROM public_users WHERE username=? LIMIT 1',
+        [personId]
+      );
+      if (pr[0]) personName = [pr[0].first_name, pr[0].middle_name, pr[0].last_name].filter(Boolean).join(' ');
+    } catch {}
+  }
+  if (!personName) {
+    personName = (req.user?.full_name || req.user?.fullName || req.session?.user?.name || '');
+  }
+
+  res.render('uniform/print', {
+    title: 'Uniform Measurement',
+    pageTitle: 'Uniform Measurement',
+    record: rec,
+    personRole,
+    personId,
+    personName,
+    sessionId
+  });
+}

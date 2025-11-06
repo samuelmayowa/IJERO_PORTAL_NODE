@@ -166,6 +166,31 @@ function ensureUserForViews(req, res, next) {
 // -------------------------------------------------------------
 app.get('/', (_req, res) => res.render('pages/landing'));
 app.use('/', authRoutes);
+
+// Applicant (AdminLTE layout + correct sidebar role)
+app.use(
+  '/applicant',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  (req, res, next) => {
+    if (!res.locals.user) res.locals.user = { name: 'User', role: 'applicant' };
+    else res.locals.user.role = 'applicant';
+    next();
+  },
+  applicantRoutes
+);
+
+// Student (AdminLTE layout + correct sidebar role)
+app.use(
+  '/student',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  (req, res, next) => {
+    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
+    else res.locals.user.role = 'student';
+    next();
+  },
+  studentRoutes
+);
+
 // ✅ Add this BEFORE routes:
 app.use((req, res, next) => {
   res.locals.currentPath = req.path || '';
