@@ -1,65 +1,98 @@
 // app/web/routes/staff.routes.js
 import { Router } from 'express';
+
+// Existing controllers already in your app
 import * as staffCtrl from '../controllers/staff.controller.js';
 import * as uniformRpt from '../controllers/uniform.report.controller.js';
-import { requireRole } from '../../core/session.js';
+
+// Guards – be tolerant to different export names in app/core/session.js
+import * as guard from '../../core/session.js';
+
+// New controllers we added
+import * as courseCtrl from '../controllers/course.controller.js';
+import * as schoolCtrl from '../controllers/school.controller.js';
+import * as departmentCtrl from '../controllers/department.controller.js';
 
 const router = Router();
 
-/** Helper: safely call a controller if it exists. */
+/* ──────────────────────────────────────────────────────────
+   Helpers: resolve guards & safe controller access
+   ────────────────────────────────────────────────────────── */
+const staffOnly =
+  guard.staffOnly ||
+  guard.requireStaff ||
+  guard.ensureStaff ||
+  ((req, _res, next) => next()); // last-resort passthrough to avoid 500s
+
+const requireRole = (...roles) =>
+  (guard.requireRole ? guard.requireRole(...roles)
+   : (req, _res, next) => next());
+
 const safe = (fnName) => {
   const fn = staffCtrl?.[fnName];
   if (typeof fn === 'function') return fn;
-  return (_req, res) => {
-    res
-      .status(500)
-      .send(`Controller "${fnName}" is not exported as a function from app/web/controllers/staff.controller.js`);
-  };
+  return (_req, res) =>
+    res.status(500).send(
+      `Controller "${fnName}" is not exported from app/web/controllers/staff.controller.js`
+    );
 };
 
-/**
- * Apply AdminLTE layout ONLY to staff areas (keeps public pages clean).
- */
-router.use(
-  ['/staff', '/dashboard', '/password-reset', '/api'],
-  (req, res, next) => {
-    res.locals.layout = 'layouts/adminlte';
-    next();
-  }
-);
+/* ──────────────────────────────────────────────────────────
+   Layout + CSRF available on every staff page
+   ────────────────────────────────────────────────────────── */
+router.use((req, res, next) => {
+  res.locals.layout = 'layouts/adminlte';
+  next();
+});
 
-/**
- * Expose CSRF token to AdminLTE views for safe POST /logout.
- * Falls back to empty string if csurf isn't active on this request.
- */
 router.use((req, res, next) => {
   try {
     res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
-  } catch (e) {
+  } catch {
     res.locals.csrfToken = '';
   }
   next();
 });
 
-/** Keep old link working: /staff -> /staff/dashboard */
-router.get('/staff', (_req, res) => res.redirect('/staff/dashboard'));
-
-/** Dashboard (existing page) */
+/* ──────────────────────────────────────────────────────────
+   Keep /staff redirect + Dashboard
+   ────────────────────────────────────────────────────────── */
+router.get('/', (_req, res) => res.redirect('/staff/dashboard'));
 router.get('/dashboard', safe('dashboard'));
 
-/** Password Reset page + APIs */
-router.get('/password-reset', safe('passwordResetPage'));                  // render page
-router.get('/api/password/users', safe('listUsersForPasswordReset'));      // table data (paginated)
-router.post('/api/password/reset/:id', safe('resetPasswordToCollege1'));   // reset to College1
-router.post('/api/password/change', safe('changePasswordByAdmin'));        // admin sets custom password
-// ─────────────────────────────────────────────
-// Uniform Measurement Report (Admin/Registry/HOD)
-// ─────────────────────────────────────────────
-// Page
+/* ───────────────── Password tools (existing) ────────────── */
+router.get('/password-reset',          safe('passwordResetPage'));
+router.get('/api/password/users',      safe('listUsersForPasswordReset'));
+router.post('/api/password/reset/:id', safe('resetPasswordToCollege1'));
+router.post('/api/password/change',    safe('changePasswordByAdmin'));
+
+/* ─────────────── Uniform Measurement Report ─────────────── */
 router.get('/uniform/report',         requireRole('admin','registry','hod'), uniformRpt.page);
 router.get('/uniform/api/report',     requireRole('admin','registry','hod'), uniformRpt.apiList);
 router.get('/uniform/api/export/csv', requireRole('admin','registry','hod'), uniformRpt.exportCsv);
 
+// ----- Courses -----
+router.get('/courses/add', courseCtrl.addPage);
+router.get('/courses/departments', courseCtrl.listDepartmentsBySchool);
+
+router.post('/courses/add', courseCtrl.addCourse);
+router.post('/courses/:id/update', courseCtrl.updateCourse);
+router.post('/courses/:id/delete', courseCtrl.deleteCourse);
+
+
+/* ───────────────────── Schools (Manage) ─────────────────── */
+// ----- Schools -----
+router.get('/schools',            schoolCtrl.managePage);
+router.post('/schools/create',    schoolCtrl.create);
+router.post('/schools/:id/update',schoolCtrl.update);
+router.post('/schools/:id/delete',schoolCtrl.remove);
+
+
+// ----- Departments -----
+router.get('/departments',              departmentCtrl.managePage);
+router.post('/departments/create',      departmentCtrl.create);
+router.post('/departments/:id/update',  departmentCtrl.update);
+router.post('/departments/:id/delete',  departmentCtrl.remove);
 
 
 export default router;

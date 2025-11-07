@@ -159,9 +159,27 @@ const inAttendance = cur.startsWith('/staff/attendance');
         </a>
         <ul class="nav nav-treeview">
           <li class="nav-item"><a href="/staff/courses/assign"    class="nav-link <%= cur.startsWith('/staff/courses/assign') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Assign Course</p></a></li>
-          <li class="nav-item"><a href="/staff/courses/add"       class="nav-link <%= cur.startsWith('/staff/courses/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add New Course</p></a></li>
-          <li class="nav-item"><a href="/staff/school/manage"     class="nav-link <%= cur.startsWith('/staff/school/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add/Edit School</p></a></li>
-          <li class="nav-item"><a href="/staff/department/manage" class="nav-link <%= cur.startsWith('/staff/department/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add/Edit Department</p></a></li>
+          <li class="nav-item">
+            <a href="/staff/courses/add"
+              class="nav-link <%= cur.startsWith('/staff/courses/add') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Add New Course</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="/staff/schools"
+              class="nav-link <%= cur.startsWith('/staff/schools') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Add/Edit School</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="/staff/departments"
+              class="nav-link <%= cur.startsWith('/staff/departments') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Add/Edit Department</p>
+            </a>
+          </li>
+
         </ul>
       </li>
 

@@ -1,0 +1,251 @@
+<!-- app/web/views/courses/add.ejs -->
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <% if (success) { %>
+    <div class="alert alert-success"><%= success %></div>
+  <% } %>
+  <% if (error) { %>
+    <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+
+  <div class="alert alert-warning" style="border-left:4px solid #ffc107">
+    <strong>Warning:</strong> Fields below use interactive update. Be careful with your mouse and accidental typos.
+  </div>
+
+  <div class="card card-outline card-primary">
+    <div class="card-header"><h3 class="card-title">Add Course</h3></div>
+    <form method="post" action="/staff/courses/add">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label>Code</label>
+            <input name="code" class="form-control" autocomplete="off" required>
+          </div>
+          <div class="form-group col-md-5">
+            <label>Title</label>
+            <input name="title" class="form-control" required>
+          </div>
+          <div class="form-group col-md-2">
+            <label>Unit</label>
+            <input name="unit" type="number" min="0" class="form-control" value="0">
+          </div>
+          <div class="form-group col-md-2">
+            <label>Level</label>
+            <select name="level" class="form-control">
+              <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label>Semester</label>
+            <select name="semester" class="form-control">
+              <option>FIRST</option><option>SECOND</option>
+            </select>
+          </div>
+          <div class="form-group col-md-5">
+            <label>School</label>
+            <select name="school_id" id="course-school" class="form-control">
+              <option value="">-- select school --</option>
+              <% (schools||[]).forEach(s => { %>
+                <option value="<%= s.id %>"><%= s.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-4">
+            <label>Department</label>
+            <select name="department_id" id="course-dept" class="form-control">
+              <option value="">-- select department --</option>
+              <% (departments||[]).forEach(d => { %>
+                <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-primary">Add Course</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card card-outline card-secondary">
+    <div class="card-header d-flex align-items-center">
+      <h3 class="card-title">Existing Courses</h3>
+      <form class="form-inline ml-auto" method="get" action="/staff/courses/add">
+        <input name="q" class="form-control form-control-sm mr-2" placeholder="Search…" value="<%= q || '' %>">
+        <button class="btn btn-sm btn-outline-secondary">Search</button>
+      </form>
+    </div>
+
+    <div class="card-body p-0">
+      <table class="table table-striped table-hover mb-0">
+        <thead>
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Code</th>
+            <th>Title</th>
+            <th style="width:80px">Unit</th>
+            <th style="width:90px">Level</th>
+            <th style="width:120px">Semester</th>
+            <th>School</th>
+            <th>Department</th>
+            <th style="width:160px">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+        <% if (!(items||[]).length) { %>
+          <tr><td colspan="9" class="text-center text-muted p-4">No records.</td></tr>
+        <% } else { items.forEach((r,i)=>{ %>
+          <tr>
+            <td><%= (page-1)*pageSize + i + 1 %></td>
+            <td>
+              <form method="post" action="/staff/courses/<%= r.id %>/update" class="form-inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input name="code" class="form-control" style="min-width:110px" value="<%= r.code %>">
+            </td>
+            <td>
+                <input name="title" class="form-control" style="min-width:200px" value="<%= r.title %>">
+            </td>
+            <td>
+                <input name="unit" type="number" min="0" class="form-control" style="width:80px" value="<%= r.unit %>">
+            </td>
+            <td>
+              <select name="level" class="form-control">
+                <option <%= r.level==='ND1'?'selected':'' %>>ND1</option>
+                <option <%= r.level==='ND2'?'selected':'' %>>ND2</option>
+                <option <%= r.level==='HND1'?'selected':'' %>>HND1</option>
+                <option <%= r.level==='HND2'?'selected':'' %>>HND2</option>
+              </select>
+            </td>
+            <td>
+              <select name="semester" class="form-control">
+                <option <%= r.semester==='FIRST'?'selected':'' %>>FIRST</option>
+                <option <%= r.semester==='SECOND'?'selected':'' %>>SECOND</option>
+              </select>
+            </td>
+            <td>
+              <select name="school_id" class="form-control course-row-school" data-row="<%= r.id %>">
+                <option value="">--</option>
+                <% (schools||[]).forEach(s => { %>
+                  <option value="<%= s.id %>" <%= s.id===r.school_id?'selected':'' %>><%= s.name %></option>
+                <% }) %>
+              </select>
+            </td>
+            <td>
+              <select name="department_id" class="form-control course-row-dept" data-row="<%= r.id %>">
+                <option value="">--</option>
+                <% (departments||[]).forEach(d => { %>
+                  <option value="<%= d.id %>" data-school="<%= d.school_id %>" <%= d.id===r.department_id?'selected':'' %>><%= d.name %></option>
+                <% }) %>
+              </select>
+            </td>
+            <td class="text-right pr-2">
+                <button class="btn btn-sm btn-primary mr-2">Update</button>
+              </form>
+              <form method="post" action="/staff/courses/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Delete this course?');">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-sm btn-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) } %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-footer text-center">
+      <% const pages = Math.ceil((total||0) / pageSize); %>
+      <% if (pages > 1) { %>
+        <nav>
+          <ul class="pagination justify-content-center">
+            <li class="page-item <%= page===1?'disabled':'' %>">
+              <a class="page-link" href="?q=<%= encodeURIComponent(q||'') %>&page=<%= page-1 %>">Prev</a>
+            </li>
+            <% for (let p=1; p<=pages; p++) { %>
+              <li class="page-item <%= p===page?'active':'' %>">
+                <a class="page-link" href="?q=<%= encodeURIComponent(q||'') %>&page=<%= p %>"><%= p %></a>
+              </li>
+            <% } %>
+            <li class="page-item <%= page===pages?'disabled':'' %>">
+              <a class="page-link" href="?q=<%= encodeURIComponent(q||'') %>&page=<%= page+1 %>">Next</a>
+            </li>
+          </ul>
+        </nav>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<!-- Confirm Override Modal (shown only when confirm exists) -->
+<% if (confirm) { %>
+<div class="modal fade show" id="overrideModal" style="display:block;background:rgba(0,0,0,.4);" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Override</h5>
+      </div>
+      <div class="modal-body">
+        <p><%= confirm.message %></p>
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="/staff/courses/add" class="mr-auto">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="override" value="yes">
+          <input type="hidden" name="code" value="<%= confirm.payload.code %>">
+          <input type="hidden" name="title" value="<%= confirm.payload.title %>">
+          <input type="hidden" name="unit" value="<%= confirm.payload.unit %>">
+          <input type="hidden" name="level" value="<%= confirm.payload.level %>">
+          <input type="hidden" name="semester" value="<%= confirm.payload.semester %>">
+          <input type="hidden" name="school_id" value="<%= confirm.payload.school_id %>">
+          <input type="hidden" name="department_id" value="<%= confirm.payload.department_id %>">
+          <button class="btn btn-primary">Yes, Override</button>
+        </form>
+        <a href="/staff/courses/add" class="btn btn-secondary">No, Cancel</a>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<script>
+  // simple client filter: when a school is chosen, show only its departments
+  (function(){
+    const schoolSel = document.getElementById('course-school');
+    const deptSel   = document.getElementById('course-dept');
+    function filterDept(select, schoolId){
+      const opts = Array.from(select.options);
+      opts.forEach(o=>{
+        if (!o.value) return;
+        const s = o.getAttribute('data-school');
+        o.style.display = (schoolId && s !== String(schoolId)) ? 'none' : '';
+      });
+      // reset if current hidden
+      if (select.options[select.selectedIndex] && select.options[select.selectedIndex].style.display==='none'){
+        select.value = '';
+      }
+    }
+    if (schoolSel && deptSel){
+      schoolSel.addEventListener('change', e => filterDept(deptSel, e.target.value));
+      filterDept(deptSel, schoolSel.value);
+    }
+
+    // in rows: keep dept list synced with chosen school
+    document.querySelectorAll('.course-row-school').forEach(sel=>{
+      sel.addEventListener('change', e=>{
+        const row = e.target.getAttribute('data-row');
+        const dep = document.querySelector('.course-row-dept[data-row="'+row+'"]');
+        if (dep) filterDept(dep, e.target.value);
+      });
+      const row = sel.getAttribute('data-row');
+      const dep = document.querySelector('.course-row-dept[data-row="'+row+'"]');
+      if (dep) filterDept(dep, sel.value);
+    });
+  })();
+</script>
