@@ -1,134 +1,186 @@
-<div class="row">
-  <div class="col-md-8">
-    <div class="card card-success">
-      <div class="card-header"><h3 class="card-title">Add User / Role</h3></div>
-      <form action="/staff/users/add" method="POST">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="card-body">
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
 
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Full Name</label>
-              <input type="text" class="form-control" name="name" required>
+<section class="content">
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card card-success">
+        <div class="card-header"><h3 class="card-title">Add User / Role</h3></div>
+        <form action="/staff/users/add" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="card-body">
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label>Full Name</label>
+                <input type="text" class="form-control" name="name" required>
+              </div>
+              <div class="form-group col-md-6">
+                <label>Username</label>
+                <input type="text" class="form-control" name="username" placeholder="optional">
+              </div>
             </div>
-            <div class="form-group col-md-6">
-              <label>Username</label>
-              <input type="text" class="form-control" name="username" placeholder="optional">
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label>Email</label>
+                <input type="email" class="form-control" name="email" required>
+              </div>
+              <div class="form-group col-md-3">
+                <label>Phone</label>
+                <input type="text" class="form-control" name="phone">
+              </div>
+              <div class="form-group col-md-3">
+                <label>Level</label>
+                <input type="text" class="form-control" name="level">
+              </div>
             </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-4">
+                <label>Staff Number</label>
+                <input type="text" class="form-control" name="staffNumber" required>
+              </div>
+              <div class="form-group col-md-4">
+                <label>Role</label>
+                <select name="role" class="form-control" required>
+                  <option value="">-- choose --</option>
+                  <option>admin</option>
+                  <option>hod</option>
+                  <option>lecturer</option>
+                  <option>student</option>
+                  <option>dean</option>
+                  <option>ict</option>
+                  <option>student union</option>
+                  <option>bursary</option>
+                  <option>registry</option>
+                  <option>admission officer</option>
+                  <option>auditor</option>
+                  <option>health center</option>
+                  <option>works</option>
+                  <option>library</option>
+                  <option>provost</option>
+                </select>
+              </div>
+              <div class="form-group col-md-4">
+                <label>Highest Qualification</label>
+                <input type="text" class="form-control" name="highestQualification">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label>School</label>
+                <!-- Post NAME, keep data-id for filtering -->
+                <select class="form-control" name="school" id="schoolSelect" required>
+                  <option value="">-- select school --</option>
+                  <% (schools || []).forEach(function(s){ %>
+                    <option value="<%= s.name %>" data-id="<%= s.id %>"><%= s.name %></option>
+                  <% }); %>
+                </select>
+              </div>
+              <div class="form-group col-md-6">
+                <label>Department</label>
+                <select class="form-control" name="department" id="deptSelect" required>
+                  <option value="">-- select department --</option>
+                  <% (departments || []).forEach(function(d){ %>
+                    <option value="<%= d.name %>" data-school="<%= d.school_id %>"><%= d.name %></option>
+                  <% }); %>
+                </select>
+                <small class="text-muted">Filtered by School.</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label>Password</label>
+                <input type="text" class="form-control" name="password" value="College1">
+                <small class="text-muted">Default is College1</small>
+              </div>
+            </div>
+
           </div>
-
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Email</label>
-              <input type="email" class="form-control" name="email">
-            </div>
-            <div class="form-group col-md-3">
-              <label>Phone</label>
-              <input type="text" class="form-control" name="phone">
-            </div>
-            <div class="form-group col-md-3">
-              <label>Level</label>
-              <input type="text" class="form-control" name="level">
-            </div>
+          <div class="card-footer text-right">
+            <button class="btn btn-success">Add User</button>
           </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
 
-          <div class="form-row">
-            <div class="form-group col-md-4">
-              <label>Staff Number</label>
-              <input type="text" class="form-control" name="staffNumber">
-            </div>
-            <div class="form-group col-md-4">
-              <label>Role</label>
-              <select name="role" class="form-control" required>
-                <option value="">-- choose --</option>
-                <option>admin</option>
-                <option>hod</option>
-                <option>lecturer</option>
-                <option>student</option>
-                <option>dean</option>
-                <option>ict</option>
-                <option>student union</option>
-                <option>bursary</option>
-                <option>registry</option>
-                <option>admission officer</option>
-                <option>auditor</option>
-                <option>health center</option>
-                <option>works</option>
-                <option>library</option>
-                <option>provost</option>
-              </select>
-            </div>
-            <div class="form-group col-md-4">
-              <label>Highest Qualification</label>
-              <input type="text" class="form-control" name="highestQualification">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>School</label>
-              <select class="form-control" name="school" id="schoolSelect" required>
-                <option value="">-- select school --</option>
-                <% (schools || []).forEach(function(s){ %>
-                  <option value="<%= s.id %>"><%= s.name %></option>
-                <% }); %>
-              </select>
-            </div>
-            <div class="form-group col-md-6">
-              <label>Department</label>
-              <select class="form-control" name="department" id="deptSelect" required>
-                <option value="">-- select department --</option>
-                <% (departments || []).forEach(function(d){ %>
-                  <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
-                <% }); %>
-              </select>
-              <small class="text-muted">Filtered by School.</small>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Password</label>
-              <input type="text" class="form-control" name="password" value="College1">
-              <small class="text-muted">Default is College1</small>
-            </div>
-          </div>
-
-        </div>
-        <div class="card-footer text-right">
-          <button class="btn btn-success">Add User</button>
-        </div>
-      </form>
-
-      <% if (messages && messages.error) { %>
-        <div class="alert alert-danger m-3"><%= messages.error %></div>
-      <% } %>
-      <% if (messages && messages.success) { %>
-        <div class="alert alert-success m-3"><%= messages.success %></div>
-      <% } %>
+<!-- success / error modals (SAME STYLE AS MODIFY STAFF) -->
+<div class="modal fade" id="okModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-success">
+      <div class="modal-header py-2">
+        <h5 class="modal-title">Success</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body" id="okMsg">Done</div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="errModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header py-2">
+        <h5 class="modal-title">Failed</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body" id="errMsg">Error</div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
+  // Filter departments by selected school (same as before)
   (function(){
     var schoolSel = document.getElementById('schoolSelect');
     var deptSel   = document.getElementById('deptSelect');
     if (!schoolSel || !deptSel) return;
 
     function filterDepartments() {
-      var sid = schoolSel.value;
+      var sid = schoolSel.options[schoolSel.selectedIndex]?.getAttribute('data-id') || '';
       Array.prototype.forEach.call(deptSel.options, function(opt){
-        if (!opt.value) return; // keep placeholder
+        if (!opt.value) return;
         var show = !sid || (opt.getAttribute('data-school') === sid);
         opt.hidden = !show;
       });
-      // reset selection if current is hidden
       if (deptSel.selectedOptions.length && deptSel.selectedOptions[0].hidden) {
         deptSel.value = '';
       }
     }
     schoolSel.addEventListener('change', filterDepartments);
     filterDepartments();
+  })();
+
+  // Show flash messages in modals (exact behavior like Modify Staff)
+  (function(){
+    var successMsg = <%- JSON.stringify(messages && messages.success ? messages.success : '') %>;
+    var errorMsg   = <%- JSON.stringify(messages && messages.error   ? messages.error   : '') %>;
+
+    function openOk(msg){
+      var el = document.getElementById('okMsg'); if (el) el.textContent = msg || 'Done';
+      if (window.Modal && Modal.success) Modal.success(msg || 'Done');
+      else if (window.$) $('#okModal').modal('show');
+      else document.getElementById('okModal').style.display = 'block';
+    }
+    function openErr(msg){
+      var el = document.getElementById('errMsg'); if (el) el.textContent = msg || 'Error';
+      if (window.Modal && Modal.error) Modal.error(msg || 'Error');
+      else if (window.$) $('#errModal').modal('show');
+      else document.getElementById('errModal').style.display = 'block';
+    }
+
+    if (errorMsg) openErr(errorMsg);
+    else if (successMsg) openOk(successMsg);
   })();
 </script>

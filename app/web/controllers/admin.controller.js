@@ -1,29 +1,52 @@
 // app/web/controllers/admin.controller.js
-//
-// Controllers for Action Staff + Manage Staff (clean, parameterized).
-
 import * as users from '../../services/user.service.js';
 import * as sessions from '../../services/session.service.js';
-import { resolveSchoolId, resolveDepartmentId } from '../../services/user.service.js';
 import { pool } from '../../core/db.js';
 
+/* ---------- Helpers: normalize School/Department to NAMES ---------- */
+async function normalizeSchoolName(input) {
+  const val = String(input || '').trim();
+  if (!val) return '';
+  if (/^\d+$/.test(val)) {
+    const [[row]] = await pool.query('SELECT name FROM schools WHERE id=? LIMIT 1', [Number(val)]);
+    return row?.name || '';
+  }
+  return val;
+}
+async function normalizeDepartmentName(input) {
+  const val = String(input || '').trim();
+  if (!val) return '';
+  if (/^\d+$/.test(val)) {
+    const [[row]] = await pool.query('SELECT name FROM departments WHERE id=? LIMIT 1', [Number(val)]);
+    return row?.name || '';
+  }
+  return val;
+}
+
 /* ---------- Add User (page) ---------- */
-export const showAddUser = async (_req, res) => {
+export const showAddUser = async (req, res) => {
   try {
     const [schools] = await pool.query('SELECT id, name FROM schools ORDER BY name');
     const [departments] = await pool.query('SELECT id, school_id, name FROM departments ORDER BY name');
 
+    // read flash *from req*
+    const success = req.flash('success')[0] || '';
+    const error   = req.flash('error')[0] || '';
+
     res.render('staff/admin-add-user', {
       title: 'Add User / Role',
       pageTitle: 'Add User / Role',
+      csrfToken: res.locals.csrfToken,
       schools,
-      departments
+      departments,
+      messages: { success, error }
     });
   } catch (e) {
     console.error('showAddUser error:', e);
     res.render('staff/admin-add-user', {
       title: 'Add User / Role',
       pageTitle: 'Add User / Role',
+      csrfToken: res.locals.csrfToken,
       schools: [],
       departments: [],
       messages: { error: 'Failed to load schools/departments' }
@@ -35,36 +58,51 @@ export const showAddUser = async (_req, res) => {
 export const addUser = async (req, res) => {
   try {
     const {
-      // form field names from admin-add-user.ejs
       name: fullName,
       username,
       email,
-      phone,                 // currently unused, kept for future
-      level,                 // currently unused, kept for future
+      phone,
+      level,
       staffNumber,
       school,
       department,
-      highestQualification,  // currently unused, kept for future
+      highestQualification,
       password,
       role
     } = req.body || {};
+
+    if (!email || !staffNumber) {
+      req.flash('error', 'Email and Staff Number are required.');
+      return res.redirect('/staff/users/add');
+    }
+
+    const schoolName = await normalizeSchoolName(school);
+    const deptName   = await normalizeDepartmentName(department);
 
     await users.createUser({
       fullName,
       username,
       email,
       staffNumber,
-      school,          // may be id or name; service handles both
-      department,      // may be id or name; service handles both
+      school: schoolName,
+      department: deptName,
       highestQualification,
       password: password || 'College1',
       role
     });
 
-    req.flash('success', 'User created successfully!');
+    req.flash('success', 'User created successfully.');
   } catch (e) {
+    let msg = e?.message || 'Could not create user.';
+    if (e?.code === 'ER_DUP_ENTRY') {
+      const m = (e.sqlMessage || '').toLowerCase();
+      if (m.includes('uq_staff_username')) msg = 'Username already exists.';
+      else if (m.includes('uq_staff_email')) msg = 'Email already exists.';
+      else if (m.includes('uq_staff_no'))     msg = 'Staff Number already exists.';
+      else msg = 'Duplicate value. Please use different credentials.';
+    }
     console.error('addUser error:', e);
-    req.flash('error', e.message || 'Could not create user');
+    req.flash('error', msg);
   }
   return res.redirect('/staff/users/add');
 };
@@ -73,7 +111,6 @@ export const addUser = async (req, res) => {
 export const showPasswordReset = async (_req, res) => {
   res.render('staff/admin-password-reset', { title: 'Password Reset', pageTitle: 'Password Reset' });
 };
-
 export const doPasswordReset = async (req, res) => {
   try {
     const { username } = req.body;
@@ -84,7 +121,7 @@ export const doPasswordReset = async (req, res) => {
   }
 };
 
-/* ---------- Session (legacy admin page still useful) ---------- */
+/* ---------- Manage Session ---------- */
 export const showManageSession = async (_req, res) => {
   const data = await sessions.getAll();
   res.render('staff/session-current', {
@@ -94,7 +131,6 @@ export const showManageSession = async (_req, res) => {
     currentSession: data.current
   });
 };
-
 export const setSession = async (req, res) => {
   try {
     await sessions.setCurrent(req.body.session);
@@ -104,17 +140,15 @@ export const setSession = async (req, res) => {
   }
   res.redirect('/staff/session/current');
 };
-
 export const switchBackSession = (_req, res) => res.redirect('/staff/session/current');
 
-/* ---------- Manage Staff: pages ---------- */
+/* ---------- Manage Staff (pages) ---------- */
 export async function showAssignRole(_req, res) {
   res.render('staff/assign-role', {
     title: 'Assign Role to Staff',
     pageTitle: 'Assign Role to Staff'
   });
 }
-
 export async function showModifyStaff(_req, res) {
   res.render('staff/modify-staff', {
     title: 'Modify Staff',
@@ -122,7 +156,7 @@ export async function showModifyStaff(_req, res) {
   });
 }
 
-/* ---------- Shared API: list + filters (used by both pages) ---------- */
+/* ---------- Shared API ---------- */
 export const listUsers = async (req, res) => {
   try {
     const {
@@ -150,28 +184,32 @@ export const listUsers = async (req, res) => {
   }
 };
 
-/* ---------- API: update / delete staff (Modify Staff) ---------- */
 export const updateStaff = async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ success: false, message: 'Invalid staff id' });
 
     const b = req.body || {};
-
-    // Resolve school/department ids if text names were posted
-    let school_id = null, department_id = null;
-    if (b.school)      school_id = await resolveSchoolId(b.school);
-    if (b.department)  department_id = await resolveDepartmentId(b.department);
+    let schoolName = undefined, deptName = undefined;
+    if (b.school !== undefined)     schoolName = await normalizeSchoolName(b.school);
+    if (b.department !== undefined) deptName   = await normalizeDepartmentName(b.department);
 
     const sets = [], vals = [];
-    if (b.fullName !== undefined)   { sets.push('full_name = ?');  vals.push(b.fullName || null); }
-    if (b.email !== undefined)      { sets.push('email = ?');      vals.push(b.email || null); }
-    if (b.username !== undefined)   { sets.push('username = ?');   vals.push(b.username || null); }
-    if (b.staffNumber !== undefined){ sets.push('staff_no = ?');   vals.push(b.staffNumber || null); }
-    if (b.phone !== undefined)      { sets.push('phone = ?');      vals.push(b.phone || null); }
-    if (b.status !== undefined)     { sets.push('status = ?');     vals.push(b.status || null); }
-    if (school_id)                  { sets.push('school_id = ?');  vals.push(school_id); }
-    if (department_id)              { sets.push('department_id = ?'); vals.push(department_id); }
+    if (b.fullName !== undefined)    { sets.push('full_name = ?');  vals.push(b.fullName || null); }
+    if (b.email !== undefined)       { sets.push('email = ?');      vals.push(b.email || null); }
+    if (b.username !== undefined)    { sets.push('username = ?');   vals.push(b.username || null); }
+    if (b.staffNumber !== undefined) { sets.push('staff_no = ?');   vals.push(b.staffNumber || null); }
+    if (b.phone !== undefined)       { sets.push('phone = ?');      vals.push(b.phone || null); }
+    if (b.status !== undefined)      { sets.push('status = ?');     vals.push(b.status || null); }
+
+    if (schoolName !== undefined) {
+      const [[sch]] = await pool.query('SELECT id FROM schools WHERE name=? LIMIT 1', [schoolName || '']);
+      if (sch?.id) { sets.push('school_id = ?'); vals.push(sch.id); }
+    }
+    if (deptName !== undefined) {
+      const [[dep]] = await pool.query('SELECT id FROM departments WHERE name=? LIMIT 1', [deptName || '']);
+      if (dep?.id) { sets.push('department_id = ?'); vals.push(dep.id); }
+    }
 
     if (!sets.length) return res.json({ success: true, message: 'No changes' });
 
@@ -196,16 +234,12 @@ export const deleteStaff = async (req, res) => {
   }
 };
 
-/* ---------- API: assign roles (Assign Role page) ---------- */
 export const assignExtraRoles = async (req, res) => {
   try {
     const username = String(req.body?.username || '').trim();
     const rolesRaw = req.body?.roles;
     const roles = Array.isArray(rolesRaw) ? rolesRaw : (rolesRaw ? [rolesRaw] : []);
-
-    if (!username) {
-      return res.status(400).json({ success: false, message: 'Username is required' });
-    }
+    if (!username) return res.status(400).json({ success: false, message: 'Username is required' });
 
     await users.setRoles({ username, roles });
     return res.json({ success: true });
@@ -214,5 +248,4 @@ export const assignExtraRoles = async (req, res) => {
   }
 };
 
-/* Legacy alias (kept for router compatibility) */
 export const searchStaff = listUsers;
