@@ -9,7 +9,7 @@ export async function addPage(req, res) {
   const offset = (page - 1) * pageSize;
 
   // dropdowns
-  let schools = [], departments = [];
+  let schools = [], departments = [], programmes = [];
   try {
     const [s] = await pool.query('SELECT id, name FROM schools ORDER BY name');
     schools = s;
@@ -20,7 +20,12 @@ export async function addPage(req, res) {
     departments = d;
   } catch {}
 
-  // list courses (simple example: join school/department names)
+  try {
+    const [p] = await pool.query('SELECT id, name, department_id FROM programmes ORDER BY name');
+    programmes = p;
+  } catch {}
+
+  // list courses (join school/department/programme + lecturer name)
   const where = [];
   const params = [];
   if (q) {
@@ -36,12 +41,16 @@ export async function addPage(req, res) {
   `;
   const listSql = `
     SELECT c.id, c.code, c.title, c.unit, c.level, c.semester,
-           c.school_id, c.department_id,
+           c.school_id, c.department_id, c.programme_id, c.lecturer_id,
            s.name  AS school_name,
-           d.name  AS department_name
+           d.name  AS department_name,
+           p.name  AS programme_name,
+           COALESCE(st.full_name, st.first_name, st.username, 'Not Assigned') AS lecturer_name
     FROM courses c
     LEFT JOIN schools s     ON s.id = c.school_id
     LEFT JOIN departments d ON d.id = c.department_id
+    LEFT JOIN programmes p  ON p.id = c.programme_id
+    LEFT JOIN staff st      ON st.id = c.lecturer_id
     ${whereSql}
     ORDER BY c.id DESC
     LIMIT ? OFFSET ?
@@ -57,10 +66,10 @@ export async function addPage(req, res) {
     console.error('course addPage:', e);
   }
 
-  // flash support (success / error / confirm)
+  // flash support
   const success = req.flash('success')[0] || '';
   const error   = req.flash('error')[0] || '';
-  const confirmData = req.flash('confirmData')[0]; // stringified JSON if any
+  const confirmData = req.flash('confirmData')[0];
   let confirm = null;
   try { confirm = confirmData ? JSON.parse(confirmData) : null; } catch {}
 
@@ -68,13 +77,13 @@ export async function addPage(req, res) {
     title: 'Add Course',
     pageTitle: 'Add Course',
     csrfToken: res.locals.csrfToken,
-    schools, departments,
+    schools, departments, programmes,
     q, page, pageSize, total, items,
     success, error, confirm
   });
 }
 
-/* ---------- POST: Add Course (with confirm-override) ---------- */
+/* ---------- POST: Add Course (programme optional) ---------- */
 export async function addCourse(req, res) {
   const body = req.body || {};
   const payload = {
@@ -84,7 +93,8 @@ export async function addCourse(req, res) {
     level: (body.level || 'ND1').trim(),
     semester: (body.semester || 'FIRST').trim(),
     school_id: body.school_id ? parseInt(body.school_id, 10) : null,
-    department_id: body.department_id ? parseInt(body.department_id, 10) : null
+    department_id: body.department_id ? parseInt(body.department_id, 10) : null,
+    programme_id: body.programme_id ? parseInt(body.programme_id, 10) : null // <-- optional
   };
   const override = String(body.override || '').toLowerCase() === 'yes';
 
@@ -100,7 +110,6 @@ export async function addCourse(req, res) {
     );
 
     if (existRows.length && !override) {
-      // ask for confirmation first (show modal on page)
       req.flash('confirmData', JSON.stringify({
         message: `Course Code "${payload.code}" already exists. Do you want to override the existing details?`,
         payload
@@ -112,16 +121,18 @@ export async function addCourse(req, res) {
       const id = existRows[0].id;
       await pool.query(
         `UPDATE courses
-           SET title=?, unit=?, level=?, semester=?, school_id=?, department_id=?
+           SET title=?, unit=?, level=?, semester=?, school_id=?, department_id=?, programme_id=?
          WHERE id=?`,
-        [payload.title, payload.unit, payload.level, payload.semester, payload.school_id, payload.department_id, id]
+        [payload.title, payload.unit, payload.level, payload.semester,
+         payload.school_id, payload.department_id, payload.programme_id, id]
       );
       req.flash('success', `Course "${payload.code}" updated successfully.`);
     } else {
       await pool.query(
-        `INSERT INTO courses (code, title, unit, level, semester, school_id, department_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [payload.code, payload.title, payload.unit, payload.level, payload.semester, payload.school_id, payload.department_id]
+        `INSERT INTO courses (code, title, unit, level, semester, school_id, department_id, programme_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [payload.code, payload.title, payload.unit, payload.level, payload.semester,
+         payload.school_id, payload.department_id, payload.programme_id]
       );
       req.flash('success', `Course "${payload.code}" added successfully.`);
     }
@@ -133,7 +144,7 @@ export async function addCourse(req, res) {
   res.redirect('/staff/courses/add');
 }
 
-/* ---------- POST: Update an existing course inline ---------- */
+/* ---------- POST: Update a course inline ---------- */
 export async function updateCourse(req, res) {
   const id = parseInt(req.params.id || '0', 10);
   const b = req.body || {};
@@ -142,7 +153,7 @@ export async function updateCourse(req, res) {
   try {
     await pool.query(
       `UPDATE courses SET code=?, title=?, unit=?, level=?, semester=?,
-                          school_id=?, department_id=?
+                          school_id=?, department_id=?, programme_id=?
        WHERE id=?`,
       [
         (b.code || '').trim(),
@@ -152,6 +163,7 @@ export async function updateCourse(req, res) {
         (b.semester || 'FIRST').trim(),
         b.school_id ? parseInt(b.school_id, 10) : null,
         b.department_id ? parseInt(b.department_id, 10) : null,
+        b.programme_id ? parseInt(b.programme_id, 10) : null,
         id
       ]
     );
@@ -187,6 +199,21 @@ export async function listDepartmentsBySchool(req, res) {
     res.json({ ok: true, items: rows });
   } catch (e) {
     console.error('listDepartmentsBySchool:', e);
+    res.json({ ok: false, items: [] });
+  }
+}
+
+/* ---------- NEW AJAX: programmes by department ---------- */
+export async function listProgrammesByDepartment(req, res) {
+  const departmentId = parseInt(req.query.department_id || '0', 10);
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, name FROM programmes WHERE department_id=? ORDER BY name',
+      [departmentId || 0]
+    );
+    res.json({ ok: true, items: rows });
+  } catch (e) {
+    console.error('listProgrammesByDepartment:', e);
     res.json({ ok: false, items: [] });
   }
 }

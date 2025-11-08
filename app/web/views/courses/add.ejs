@@ -43,13 +43,13 @@
         </div>
 
         <div class="form-row">
-          <div class="form-group col-md-3">
+          <div class="form-group col-md-2">
             <label>Semester</label>
             <select name="semester" class="form-control">
               <option>FIRST</option><option>SECOND</option>
             </select>
           </div>
-          <div class="form-group col-md-5">
+          <div class="form-group col-md-4">
             <label>School</label>
             <select name="school_id" id="course-school" class="form-control">
               <option value="">-- select school --</option>
@@ -58,12 +58,21 @@
               <% }) %>
             </select>
           </div>
-          <div class="form-group col-md-4">
+          <div class="form-group col-md-3">
             <label>Department</label>
             <select name="department_id" id="course-dept" class="form-control">
               <option value="">-- select department --</option>
               <% (departments||[]).forEach(d => { %>
                 <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group col-md-3">
+            <label>Programme (optional)</label>
+            <select name="programme_id" id="course-prog" class="form-control">
+              <option value="">-- none --</option>
+              <% (programmes||[]).forEach(p => { %>
+                <option value="<%= p.id %>" data-dept="<%= p.department_id %>"><%= p.name %></option>
               <% }) %>
             </select>
           </div>
@@ -96,12 +105,14 @@
             <th style="width:120px">Semester</th>
             <th>School</th>
             <th>Department</th>
-            <th style="width:160px">Action</th>
+            <th>Programme</th>
+            <th>Lecturer in charge</th>
+            <th style="width:190px">Action</th>
           </tr>
         </thead>
         <tbody>
         <% if (!(items||[]).length) { %>
-          <tr><td colspan="9" class="text-center text-muted p-4">No records.</td></tr>
+          <tr><td colspan="11" class="text-center text-muted p-4">No records.</td></tr>
         <% } else { items.forEach((r,i)=>{ %>
           <tr>
             <td><%= (page-1)*pageSize + i + 1 %></td>
@@ -146,6 +157,15 @@
                 <% }) %>
               </select>
             </td>
+            <td>
+              <select name="programme_id" class="form-control course-row-prog" data-row="<%= r.id %>">
+                <option value="">-- none --</option>
+                <% (programmes||[]).forEach(p => { %>
+                  <option value="<%= p.id %>" data-dept="<%= p.department_id %>" <%= p.id===r.programme_id?'selected':'' %>><%= p.name %></option>
+                <% }) %>
+              </select>
+            </td>
+            <td><span class="text-muted"><%= r.lecturer_name || 'Not Assigned' %></span></td>
             <td class="text-right pr-2">
                 <button class="btn btn-sm btn-primary mr-2">Update</button>
               </form>
@@ -183,7 +203,7 @@
   </div>
 </section>
 
-<!-- Confirm Override Modal (shown only when confirm exists) -->
+<!-- Confirm Override Modal -->
 <% if (confirm) { %>
 <div class="modal fade show" id="overrideModal" style="display:block;background:rgba(0,0,0,.4);" tabindex="-1" role="dialog" aria-modal="true">
   <div class="modal-dialog" role="document">
@@ -205,6 +225,7 @@
           <input type="hidden" name="semester" value="<%= confirm.payload.semester %>">
           <input type="hidden" name="school_id" value="<%= confirm.payload.school_id %>">
           <input type="hidden" name="department_id" value="<%= confirm.payload.department_id %>">
+          <input type="hidden" name="programme_id" value="<%= confirm.payload.programme_id %>">
           <button class="btn btn-primary">Yes, Override</button>
         </form>
         <a href="/staff/courses/add" class="btn btn-secondary">No, Cancel</a>
@@ -215,37 +236,75 @@
 <% } %>
 
 <script>
-  // simple client filter: when a school is chosen, show only its departments
+  // Dependent selects:
   (function(){
     const schoolSel = document.getElementById('course-school');
     const deptSel   = document.getElementById('course-dept');
-    function filterDept(select, schoolId){
+    const progSel   = document.getElementById('course-prog');
+
+    function filterByAttr(select, attr, val){
       const opts = Array.from(select.options);
       opts.forEach(o=>{
         if (!o.value) return;
-        const s = o.getAttribute('data-school');
-        o.style.display = (schoolId && s !== String(schoolId)) ? 'none' : '';
+        const a = o.getAttribute(attr);
+        o.style.display = (val && a !== String(val)) ? 'none' : '';
       });
-      // reset if current hidden
       if (select.options[select.selectedIndex] && select.options[select.selectedIndex].style.display==='none'){
         select.value = '';
       }
     }
-    if (schoolSel && deptSel){
-      schoolSel.addEventListener('change', e => filterDept(deptSel, e.target.value));
-      filterDept(deptSel, schoolSel.value);
+
+    function onSchoolChange(){
+      filterByAttr(deptSel, 'data-school', schoolSel.value);
+      filterByAttr(progSel, 'data-dept', deptSel.value); // reset programme when dept changes via school filter
+    }
+    function onDeptChange(){
+      filterByAttr(progSel, 'data-dept', deptSel.value);
     }
 
-    // in rows: keep dept list synced with chosen school
+    if (schoolSel && deptSel && progSel){
+      schoolSel.addEventListener('change', onSchoolChange);
+      deptSel.addEventListener('change', onDeptChange);
+      onSchoolChange();
+      onDeptChange();
+    }
+
+    // In table rows keep dependencies aligned
     document.querySelectorAll('.course-row-school').forEach(sel=>{
       sel.addEventListener('change', e=>{
         const row = e.target.getAttribute('data-row');
         const dep = document.querySelector('.course-row-dept[data-row="'+row+'"]');
-        if (dep) filterDept(dep, e.target.value);
+        const pro = document.querySelector('.course-row-prog[data-row="'+row+'"]');
+        const filter = (select, attr, val) => {
+          const opts = Array.from(select.options);
+          opts.forEach(o=>{
+            if (!o.value) return;
+            const a = o.getAttribute(attr);
+            o.style.display = (val && a !== String(val)) ? 'none' : '';
+          });
+          if (select.options[select.selectedIndex] && select.options[select.selectedIndex].style.display==='none'){
+            select.value = '';
+          }
+        };
+        if (dep) filter(dep, 'data-school', e.target.value);
+        if (pro) filter(pro, 'data-dept', dep ? dep.value : '');
       });
       const row = sel.getAttribute('data-row');
       const dep = document.querySelector('.course-row-dept[data-row="'+row+'"]');
-      if (dep) filterDept(dep, sel.value);
+      const pro = document.querySelector('.course-row-prog[data-row="'+row+'"]');
+      const filter = (select, attr, val) => {
+        const opts = Array.from(select.options);
+        opts.forEach(o=>{
+          if (!o.value) return;
+          const a = o.getAttribute(attr);
+          o.style.display = (val && a !== String(val)) ? 'none' : '';
+        });
+        if (select.options[select.selectedIndex] && select.options[select.selectedIndex].style.display==='none'){
+          select.value = '';
+        }
+      };
+      if (dep) filter(dep, 'data-school', sel.value);
+      if (pro) filter(pro, 'data-dept', dep ? dep.value : '');
     });
   })();
 </script>
