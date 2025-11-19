@@ -1,0 +1,388 @@
+<!-- ======================================================================
+     ASSIGN COURSE — FINAL VERSION (AdminLTE 3 + Bootstrap 4 + Vanilla JS)
+     ====================================================================== -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <!-- SUCCESS -->
+  <% if (success) { %>
+    <div class="alert alert-success alert-dismissible fade show">
+      <strong><i class="fas fa-check-circle"></i> Success: </strong> <%= success %>
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+  <% } %>
+
+  <!-- ERROR -->
+  <% if (error) { %>
+    <div class="alert alert-danger alert-dismissible fade show">
+      <strong><i class="fas fa-exclamation-triangle"></i> Error: </strong> <%= error %>
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+  <% } %>
+
+
+  <!-- ================================================================
+       OVERRIDE MODAL (Bootstrap 4, Vanilla JS)
+       ================================================================ -->
+  <% if (confirm && confirm.needConfirm) { %>
+
+    <div class="modal fade" id="overrideModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+
+          <div class="modal-header bg-warning">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-circle"></i> Already Assigned
+            </h5>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+
+          <div class="modal-body">
+            <p>
+              This course is already assigned to:
+              <strong><%= confirm.existingLecturerName %></strong>.
+            </p>
+            <p>
+              Reassign to:
+              <strong><%= confirm.newLecturerName %></strong>?
+            </p>
+          </div>
+
+          <div class="modal-footer">
+            <form method="POST"
+                  action="/staff/courses/assign?override=1"
+                  class="d-inline-block">
+
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="course_id" value="<%= confirm.course_id %>">
+              <input type="hidden" name="session_id" value="<%= confirm.session_id %>">
+              <input type="hidden" name="semester"   value="<%= confirm.semester %>">
+              <input type="hidden" name="staff_id"   value="<%= confirm.staff_id_new %>">
+
+              <button class="btn btn-warning">Yes, Reassign</button>
+            </form>
+
+            <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const el = document.getElementById("overrideModal");
+      if (el) {
+        try {
+          $(el).modal("show"); // ensures bootstrap 4 compatibility
+        } catch {}
+      }
+    });
+    </script>
+
+
+  <% } %>
+
+
+  <!-- ================================================================
+       ASSIGN COURSE FORM
+       ================================================================ -->
+
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">Assign Course</h3>
+    </div>
+
+    <form method="POST" action="/staff/courses/assign">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="card-body row">
+
+        <!-- SEARCH COURSE -->
+        <div class="form-group col-md-3">
+          <label>Search Course (by code)</label>
+          <div class="input-group">
+            <input type="text" id="code" class="form-control" placeholder="CSC101" autocomplete="off">
+            <div class="input-group-append">
+              <button type="button" class="btn btn-info" id="btnFetchCourse">
+                <i class="fas fa-search"></i> Fetch
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DETAILS -->
+        <div class="form-group col-md-3">
+          <label>Course Details</label>
+          <input type="text" id="course_details" class="form-control" readonly>
+          <input type="hidden" name="course_id" id="course_id">
+        </div>
+
+        <!-- SESSION -->
+        <div class="form-group col-md-3">
+          <label>Academic Session</label>
+          <select name="session_id" class="form-control" required>
+            <% sessions.forEach(s => { %>
+              <option value="<%= s.id %>"><%= s.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- SEMESTER (dynamic) -->
+        <div class="form-group col-md-3">
+          <label>Semester</label>
+          <select name="semester" class="form-control" required>
+            <% semesters.forEach(s => {
+                 const nm = s.name.toLowerCase();
+                 if (nm.startsWith('first')) { %>
+                   <option value="FIRST">First</option>
+            <%   } else if (nm.startsWith('second')) { %>
+                   <option value="SECOND">Second</option>
+            <%   } }); %>
+          </select>
+        </div>
+
+        <!-- LECTURER SEARCH -->
+        <div class="form-group col-md-6 position-relative">
+          <label>Search Lecturer</label>
+          <input type="text" id="lecturer_input" class="form-control" placeholder="Type name…" autocomplete="off">
+          <input type="hidden" name="staff_id" id="staff_id">
+
+          <ul id="lecturer_dropdown"
+              class="dropdown-menu show"
+              style="display:none; width:100%; max-height:200px; overflow-y:auto; position:absolute; top:100%; left:0;">
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="card-footer">
+        <button type="submit" class="btn btn-primary">
+          Assign Course
+        </button>
+      </div>
+    </form>
+  </div>
+
+
+  <!-- ================================================================
+       SUMMARY CARDS
+       ================================================================ -->
+
+  <div class="row mb-3">
+
+    <div class="col-md-3">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3><%= summary.total_courses %></h3>
+          <p>Total Courses</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3><%= summary.total_assigned %></h3>
+          <p>Assigned Courses</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3><%= summary.total_unassigned %></h3>
+          <p>Unassigned Courses</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="small-box bg-danger">
+        <div class="inner">
+          <h3><%= summary.total_lecturers %></h3>
+          <p>Total Lecturers</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ================================================================
+       RECENT ASSIGNMENTS
+       ================================================================ -->
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between">
+      <h3 class="card-title">Recent Course Assignments</h3>
+
+      <form method="GET" class="form-inline">
+        <input name="q" class="form-control form-control-sm mr-2"
+               placeholder="Search..." value="<%= q %>">
+        <button class="btn btn-sm btn-secondary">Search</button>
+      </form>
+    </div>
+
+    <div class="card-body table-responsive p-0">
+      <table class="table table-bordered table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Title</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Lecturer</th>
+            <th>Department</th>
+            <th>School</th>
+            <th style="width:120px;">Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% if (!assignments.length) { %>
+            <tr><td colspan="8" class="text-center py-3">No assignments found.</td></tr>
+          <% } else { assignments.forEach(row => { %>
+            <tr>
+              <td><%= row.code %></td>
+              <td><%= row.title %></td>
+              <td><%= row.session_name %></td>
+              <td><%= row.semester %></td>
+              <td><%= row.lecturer_name %></td>
+              <td><%= row.department %></td>
+              <td><%= row.school %></td>
+
+              <td>
+                <form method="POST"
+                      action="/staff/courses/unassign/<%= row.id %>"
+                      onsubmit="return confirm('Unassign this course?')"
+                      class="d-inline-block">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-danger btn-sm">Unassign</button>
+                </form>
+              </td>
+            </tr>
+          <% }); } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer text-center">
+      <% const pages = Math.ceil(total / pageSize); %>
+      <% if (pages > 1) { %>
+        <ul class="pagination pagination-sm justify-content-center">
+          <% for (let i=1;i<=pages;i++){ %>
+            <li class="page-item <%= page===i?'active':'' %>">
+              <a class="page-link" href="?page=<%= i %>&q=<%= q %>"><%= i %></a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ================================================================
+     WORKING VANILLA JS FOR FETCH + AUTOCOMPLETE
+     ================================================================ -->
+<script>
+/* ------------------------------ FETCH COURSE ---------------------------- */
+document.getElementById("btnFetchCourse").addEventListener("click", fetchCourse);
+
+document.getElementById("code").addEventListener("keydown", function(e){
+  if (e.key === "Tab") {
+    e.preventDefault();
+    fetchCourse();
+  }
+});
+
+function fetchCourse() {
+  const code = document.getElementById("code").value.trim();
+  if (!code) return;
+
+  fetch(`/staff/courses/api/fetch-course?code=${encodeURIComponent(code)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) {
+        alert("Course not found.");
+        return;
+      }
+      const c = d.course;
+      document.getElementById("course_id").value = c.id;
+      document.getElementById("course_details").value = `${c.title} (${c.unit} units)`;
+    });
+}
+
+/* --------------------------- AUTOCOMPLETE ----------------------------- */
+const lecInput = document.getElementById("lecturer_input");
+const dropdown = document.getElementById("lecturer_dropdown");
+const hiddenId = document.getElementById("staff_id");
+
+lecInput.addEventListener("input", function () {
+  const q = lecInput.value.trim();
+  if (!q) {
+    dropdown.style.display = "none";
+    return;
+  }
+
+  fetch(`/staff/courses/api/fetch-staff?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(d => {
+      dropdown.innerHTML = "";
+      if (!d.ok || d.items.length === 0) {
+        dropdown.innerHTML = `<li class="px-3 py-2 text-muted">No matching records</li>`;
+        dropdown.style.display = "block";
+        return;
+      }
+
+      d.items.forEach(item => {
+        const li = document.createElement("li");
+        li.className = "dropdown-item";
+        li.textContent = `${item.full_name} — ${item.dept}`;
+        li.onclick = function () {
+          lecInput.value = item.full_name;
+          hiddenId.value = item.id;
+          dropdown.style.display = "none";
+        };
+        dropdown.appendChild(li);
+      });
+
+      dropdown.style.display = "block";
+    });
+});
+
+// Hide when clicking outside
+document.addEventListener("click", function(e){
+  if (!lecInput.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.style.display = "none";
+  }
+});
+</script>
+<script>
+document.querySelector("form").addEventListener("submit", function(e){
+
+  const cid = document.getElementById("course_id").value.trim();
+  const sid = document.getElementById("staff_id").value.trim();
+
+  if (!cid) {
+    e.preventDefault();
+    alert("Please fetch/select a course first.");
+    return false;
+  }
+
+  if (!sid) {
+    e.preventDefault();
+    alert("Please select a lecturer.");
+    return false;
+  }
+
+});
+</script>

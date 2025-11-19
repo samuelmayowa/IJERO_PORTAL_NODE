@@ -36,6 +36,8 @@ import watchlistRoutes from './app/web/routes/watchlist.routes.js';
 import * as feesRoutesMod from './app/web/routes/staff/fees.js';
 import paymentRoutes from './app/web/routes/payment.routes.js';
 import roleRoutes from './app/web/routes/roles.routes.js';
+import assignCourseRoutes from './app/web/routes/assign-course.routes.js';
+
 
 
 
@@ -167,6 +169,16 @@ function ensureUserForViews(req, res, next) {
 app.get('/', (_req, res) => res.render('pages/landing'));
 app.use('/', authRoutes);
 
+// =======================================================
+// ASSIGN COURSE ROUTES — MUST COME BEFORE GENERIC /staff
+// =======================================================
+app.use(
+  '/staff/courses',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  assignCourseRoutes
+);
+
+
 // Applicant (AdminLTE layout + correct sidebar role)
 app.use(
   '/applicant',
@@ -214,6 +226,7 @@ app.use(watchlistRoutes);
 app.use('/staff/fees', feesRoutes);
 
 app.use('/', paymentRoutes);
+
 
 // ✅ Staff routes
 app.use(

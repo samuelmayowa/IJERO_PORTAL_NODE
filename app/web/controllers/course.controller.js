@@ -50,7 +50,13 @@ export async function addPage(req, res) {
     LEFT JOIN schools s     ON s.id = c.school_id
     LEFT JOIN departments d ON d.id = c.department_id
     LEFT JOIN programmes p  ON p.id = c.programme_id
-    LEFT JOIN staff st      ON st.id = c.lecturer_id
+    LEFT JOIN (
+        SELECT course_id, staff_id 
+        FROM course_assignments 
+        ORDER BY assigned_at DESC
+    ) AS ca ON ca.course_id = c.id
+    LEFT JOIN staff st ON st.id = ca.staff_id
+
     ${whereSql}
     ORDER BY c.id DESC
     LIMIT ? OFFSET ?
