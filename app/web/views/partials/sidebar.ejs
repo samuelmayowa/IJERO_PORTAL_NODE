@@ -165,6 +165,13 @@ const inAttendance = cur.startsWith('/staff/attendance');
               <i class="far fa-circle nav-icon"></i><p>Add New Course</p>
             </a>
           </li>
+           <li class="nav-item"><a href="/staff/courses/assigned"    class="nav-link <%= cur.startsWith('/staff/courses/assigned') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>View Assigned Course(s)</p></a></li>
+          <li class="nav-item">
+            <a href="/staff/courses/add"
+              class="nav-link <%= cur.startsWith('/staff/courses/add') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Add New Course</p>
+            </a>
+          </li>
 
           <li class="nav-item">
             <a href="/staff/schools"

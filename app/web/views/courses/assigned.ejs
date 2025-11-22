@@ -1,0 +1,108 @@
+<!-- app/web/views/courses/assigned.ejs -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <!-- ===================== SUMMARY CARDS ===================== -->
+  <div class="row mb-3">
+
+    <div class="col-md-4">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3><%= summary.total_assignments %></h3>
+          <p>Total Assignments (in your scope)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3><%= summary.distinct_courses %></h3>
+          <p>Distinct Courses</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-danger">
+        <div class="inner">
+          <h3><%= summary.distinct_lecturers %></h3>
+          <p>Lecturers Involved</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== ASSIGNED COURSES TABLE ===================== -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between">
+      <h3 class="card-title">Assigned Courses</h3>
+
+      <form method="GET" class="form-inline">
+        <input name="q"
+               class="form-control form-control-sm mr-2"
+               placeholder="Search by code, title, lecturer…"
+               value="<%= q %>">
+        <button class="btn btn-sm btn-secondary">Search</button>
+      </form>
+    </div>
+
+    <div class="card-body table-responsive p-0">
+      <table class="table table-bordered table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Course Code</th>
+            <th>Title</th>
+            <th>Level</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Lecturer</th>
+            <th>Department</th>
+            <th>School</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% if (!assignments.length) { %>
+            <tr>
+              <td colspan="8" class="text-center py-3">
+                No assigned courses found for your scope.
+              </td>
+            </tr>
+          <% } else { assignments.forEach(row => { %>
+            <tr>
+              <td><%= row.code %></td>
+              <td><%= row.title %></td>
+              <td><%= row.level %></td>
+              <td><%= row.session_name %></td>
+              <td><%= row.semester %></td>
+              <td><%= row.lecturer_name %></td>
+              <td><%= row.department %></td>
+              <td><%= row.school %></td>
+            </tr>
+          <% }); } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer text-center">
+      <% const pages = Math.ceil(total / pageSize); %>
+      <% if (pages > 1) { %>
+        <ul class="pagination pagination-sm justify-content-center">
+          <% for (let i = 1; i <= pages; i++) { %>
+            <li class="page-item <%= page === i ? 'active' : '' %>">
+              <a class="page-link" href="?page=<%= i %>&q=<%= q %>"><%= i %></a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+
+</section>

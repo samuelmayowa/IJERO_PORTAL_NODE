@@ -37,9 +37,7 @@ import * as feesRoutesMod from './app/web/routes/staff/fees.js';
 import paymentRoutes from './app/web/routes/payment.routes.js';
 import roleRoutes from './app/web/routes/roles.routes.js';
 import assignCourseRoutes from './app/web/routes/assign-course.routes.js';
-
-
-
+import viewAssignedCoursesRoutes from './app/web/routes/view-assigned-courses.routes.js';
 
 // -------------------------------------------------------------
 // INITIALIZATION
@@ -177,7 +175,7 @@ app.use(
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
   assignCourseRoutes
 );
-
+app.use('/staff/courses', viewAssignedCoursesRoutes);
 
 // Applicant (AdminLTE layout + correct sidebar role)
 app.use(
@@ -232,7 +230,7 @@ app.use('/', paymentRoutes);
 app.use(
   '/staff',
   ensureUserForViews,
-  requireRole('staff', 'admin', 'registry', 'hod'),
+  requireRole('staff', 'admin', 'registry', 'hod', 'lecturer', 'staff'),
   requireMenuPermission({
     base: '/staff',
     allowIfNoConfig: true,
@@ -247,7 +245,7 @@ app.use(
   '/staff',
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
   (req, res, next) => { try { res.locals.csrfToken = req.csrfToken?.() || null; } catch {} next(); },
-  requireRole('staff','admin','hod','registry'),
+  requireRole('staff','admin','hod','registry', 'lecturer', 'staff'),
   requireMenuPermission({
     base: '/staff',
     allowIfNoConfig: true,
