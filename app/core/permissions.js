@@ -20,7 +20,7 @@ export function requireMenuPermission({
 } = {}) {
   const baseNorm = normalizePath(base);
 
-  return (req, res, next) => {
+    return (req, res, next) => {
     // Only enforce under the base path
     const pathNorm = normalizePath(req.path);
     if (!pathNorm.startsWith(baseNorm)) return next();
@@ -55,4 +55,5 @@ export function requireMenuPermission({
       homeHref: '/',
     });
   };
+
 }

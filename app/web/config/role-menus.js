@@ -49,6 +49,17 @@ export const ROLE_MENUS = {
     '/staff/exams/clearance/print',
     '/staff/signature/upload',
   ],
+  lecturer: [
+  '/staff/attendance/mark',
+  '/staff/courses/assigned',   // ✅ Allow viewing assigned courses
+  // other lecturer paths...
+  ],
+  staff: [
+  '/staff/attendance/mark',
+  '/staff/courses/assigned',   // ✅ Allow viewing assigned courses
+  // other lecturer paths...
+  ],
+
 
   // Others can keep full access for now (same as your current config)
   lecturer: null,

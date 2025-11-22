@@ -11,7 +11,12 @@ import pool from '../../core/db.js';
  * - lecturer / others => only courses assigned to them
  */
 export async function viewAssignedCoursesPage(req, res) {
-  const user = req.session?.staff || null;
+//   const user = req.session?.staff || null;
+  // Use the same session pattern as other modules (attendance, etc.)
+  const user =
+    (req.session && (req.session.user || req.session.staff || req.session.account)) ||
+    req.user ||
+    null;
   const role = (user?.role || '').toLowerCase();
   const userId = user?.id || null;
 

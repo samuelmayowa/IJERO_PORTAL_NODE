@@ -48,13 +48,29 @@ export function requireAuth(req, res, next) {
 // Role gate (simple primary role check)
 export function requireRole(...allowed) {
   const allow = allowed.map((r) => String(r).toLowerCase());
+
   return (req, res, next) => {
     const u =
       (req.session && (req.session.user || req.session.staff || req.session.account)) ||
       req.user ||
       null;
+
     if (!u) return res.redirect('/login');
+
     const role = String(u.role || '').toLowerCase();
+
+    // Build a normalized full path like "/staff/courses/assigned"
+    const fullPath =
+      String((req.baseUrl || '') + (req.path || '')).replace(/\/+$/, '') || '/';
+
+    // 🔓 SPECIAL CASE:
+    // Always allow lecturers to hit "View Assigned Course(s)" page,
+    // even if some old route was defined with requireRole('admin','hod',...)
+    if (fullPath.toLowerCase() === '/staff/courses/assigned' && role === 'lecturer') {
+      req.user = u;
+      return next();
+    }
+
     if (!allow.includes(role)) {
       return res.status(403).render('pages/access-denied', {
         title: 'Access Denied',
@@ -62,10 +78,12 @@ export function requireRole(...allowed) {
         message: 'ACCESS DENIED: YOU DO NOT HAVE PERMISSION TO ACCESS THE REQUESTED PAGE',
       });
     }
+
     req.user = u;
     next();
   };
 }
+
 
 // Global status enforcement (MUST be mounted before routes)
 export async function enforceStatusGlobally(req, res, next) {
@@ -171,7 +189,7 @@ export function redirectByRole(userOrRole) {
   const staffRoles = new Set([
     'admin', 'administrator', 'superadmin',
     'staff',
-    'lecturer',
+    'lecturer', 'lecturer', 'teaching',
     'h.o.d', 'hod', 'head of department',
     'dean',
     'registrary', 'registry', 'registrar',
