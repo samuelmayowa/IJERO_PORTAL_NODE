@@ -38,6 +38,8 @@ import paymentRoutes from './app/web/routes/payment.routes.js';
 import roleRoutes from './app/web/routes/roles.routes.js';
 import assignCourseRoutes from './app/web/routes/assign-course.routes.js';
 import viewAssignedCoursesRoutes from './app/web/routes/view-assigned-courses.routes.js';
+import lectureTimeRoutes from './app/web/routes/lecture-time.routes.js';
+
 
 // -------------------------------------------------------------
 // INITIALIZATION
@@ -166,6 +168,16 @@ function ensureUserForViews(req, res, next) {
 // -------------------------------------------------------------
 app.get('/', (_req, res) => res.render('pages/landing'));
 app.use('/', authRoutes);
+
+// Set Lecture Time (same guard style as attendance)
+app.use(
+  '/staff/lecture-time',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'bursary'),
+  lectureTimeRoutes
+);
+
+
 
 // =======================================================
 // ASSIGN COURSE ROUTES — MUST COME BEFORE GENERIC /staff

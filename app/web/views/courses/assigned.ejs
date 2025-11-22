@@ -64,13 +64,14 @@
             <th>Lecturer</th>
             <th>Department</th>
             <th>School</th>
+            <th style="width: 210px;">Actions</th>
           </tr>
         </thead>
 
         <tbody>
           <% if (!assignments.length) { %>
             <tr>
-              <td colspan="8" class="text-center py-3">
+              <td colspan="9" class="text-center py-3">
                 No assigned courses found for your scope.
               </td>
             </tr>
@@ -84,6 +85,16 @@
               <td><%= row.lecturer_name %></td>
               <td><%= row.department %></td>
               <td><%= row.school %></td>
+              <td>
+                <a href="/staff/exam/set-date/<%= row.id %>"
+                   class="btn btn-sm btn-primary mr-1">
+                  Set Exam Date
+                </a>
+                <a href="/staff/lecture-time/set/<%= row.id %>"
+                  class="btn btn-sm btn-warning">
+                  Set Lecturer Time
+                </a>
+              </td>
             </tr>
           <% }); } %>
         </tbody>
