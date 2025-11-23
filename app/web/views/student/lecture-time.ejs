@@ -1,0 +1,261 @@
+<!-- app/web/views/student/lecture-time.ejs -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <!-- ===================== SUMMARY CARDS ===================== -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3><%= (summary && summary.total_assigned) || 0 %></h3>
+          <p>Total Courses (selected filters)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3><%= (summary && summary.lecture_set) || 0 %></h3>
+          <p>Courses With Lecture Time</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3><%= (summary && summary.remaining) || 0 %></h3>
+          <p>Courses Without Lecture Time</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== FILTERS ===================== -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">Filter By Session, Semester, School &amp; Department</h3>
+    </div>
+    <div class="card-body">
+      <form method="GET" class="form-row">
+
+        <div class="form-group col-md-3">
+          <label>Academic Session</label>
+          <select name="session_id" class="form-control">
+            <% (sessions || []).forEach(function(s) { %>
+              <option value="<%= s.id %>" <%= String(s.id) === String(selectedSessionId || '') ? 'selected' : '' %>>
+                <%= s.name %> <%= Number(s.is_current) === 1 ? '(Current)' : '' %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group col-md-2">
+          <label>Semester</label>
+          <select name="semester" class="form-control">
+            <option value="FIRST"  <%= selectedSemester === 'FIRST'  ? 'selected' : '' %>>First</option>
+            <option value="SECOND" <%= selectedSemester === 'SECOND' ? 'selected' : '' %>>Second</option>
+          </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label>School</label>
+          <select name="school_id" id="school_id" class="form-control">
+            <option value="">-- Select School --</option>
+            <% (schools || []).forEach(function(sc) { %>
+              <option value="<%= sc.id %>" <%= String(sc.id) === String(selectedSchoolId || '') ? 'selected' : '' %>>
+                <%= sc.name %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label>Department</label>
+          <select name="department_id" id="department_id" class="form-control">
+            <option value="">-- Select Department --</option>
+            <% (departments || []).forEach(function(d) { %>
+              <% if (!selectedSchoolId || String(d.school_id) === String(selectedSchoolId)) { %>
+                <option value="<%= d.id %>" <%= String(d.id) === String(selectedDepartmentId || '') ? 'selected' : '' %>>
+                  <%= d.name %>
+                </option>
+              <% } %>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group col-md-1 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary btn-block">Apply</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== UPCOMING LECTURES ===================== -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">Upcoming Lectures</h3>
+    </div>
+    <div class="card-body p-0">
+      <% if (!upcomingLectures || !upcomingLectures.length) { %>
+        <p class="text-muted text-center my-3">
+          No upcoming lectures found for the selected filters.
+        </p>
+      <% } else { %>
+        <table class="table table-striped table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Venue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% upcomingLectures.forEach(function(row) { %>
+              <tr>
+                <td><strong><%= row.code %></strong> - <%= row.title %></td>
+                <td><%= row.lecture_date %></td>
+                <td>
+                  <span class="text-danger font-weight-bold">
+                    <%= (row.start_time || '') + (row.end_time ? ' - ' + row.end_time : '') %>
+                  </span>
+                </td>
+                <td><%= row.venue %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ===================== LECTURE TIMES TABLE ===================== -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Your Lecture Times</h3>
+
+      <!-- Search respects current filters -->
+      <form method="GET" class="form-inline">
+        <input type="hidden" name="session_id" value="<%= selectedSessionId %>">
+        <input type="hidden" name="semester" value="<%= selectedSemester %>">
+        <input type="hidden" name="school_id" value="<%= selectedSchoolId || '' %>">
+        <input type="hidden" name="department_id" value="<%= selectedDepartmentId || '' %>">
+        <input name="q"
+               class="form-control form-control-sm mr-2"
+               style="min-width: 220px"
+               placeholder="Search by code, title, venue..."
+               value="<%= q || '' %>">
+        <button class="btn btn-sm btn-secondary">Search</button>
+      </form>
+    </div>
+
+    <div class="card-body table-responsive p-0">
+      <table class="table table-bordered table-striped mb-0">
+        <thead>
+          <tr>
+            <th style="width: 150px;">Action</th>
+            <th>Course Code</th>
+            <th>Title</th>
+            <th>Level</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Venue</th>
+            <th>Student Dept.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!lectures || !lectures.length) { %>
+            <tr>
+              <td colspan="10" class="text-center py-3 text-muted">
+                No lecture time found for the selected filters.
+              </td>
+            </tr>
+          <% } else { lectures.forEach(function(row) { %>
+            <tr>
+              <!-- Mark Attendance button in front of each row -->
+              <td>
+                <!-- Uses whatever student attendance route you already have -->
+                <a href="/student/attendance/mark/<%= row.id %>"
+                   class="btn btn-sm btn-primary">
+                  Mark Attendance
+                </a>
+              </td>
+
+              <td><%= row.code %></td>
+              <td><%= row.title %></td>
+              <td><%= row.level %></td>
+              <td><%= row.session_name %></td>
+              <td><%= row.semester %></td>
+              <td><%= row.lecture_date %></td>
+              <td><%= (row.start_time || '') + (row.end_time ? ' - ' + row.end_time : '') %></td>
+              <td><%= row.venue %></td>
+              <td><%= row.student_department || '-' %></td>
+            </tr>
+          <% }); } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer text-center">
+      <% const totalPages = Math.ceil((total || 0) / (pageSize || 10)); %>
+      <% if (totalPages > 1) { %>
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+          <% for (let i = 1; i <= totalPages; i++) { %>
+            <li class="page-item <%= page === i ? 'active' : '' %>">
+              <a class="page-link"
+                 href="?page=<%= i %>&session_id=<%= selectedSessionId %>&semester=<%= selectedSemester %>&school_id=<%= selectedSchoolId || '' %>&department_id=<%= selectedDepartmentId || '' %>&q=<%= encodeURIComponent(q || '') %>">
+                <%= i %>
+              </a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+
+</section>
+
+<script>
+  // School -> Department dependent dropdown
+  (function () {
+    const allDepartments = <%- JSON.stringify(departments || []) %>;
+    const schoolSelect = document.getElementById('school_id');
+    const deptSelect   = document.getElementById('department_id');
+    if (!schoolSelect || !deptSelect) return;
+
+    function populateDepartments() {
+      const schoolId = schoolSelect.value;
+      const selectedDept = '<%= String(selectedDepartmentId || '') %>';
+      deptSelect.innerHTML = '<option value="">-- Select Department --</option>';
+
+      allDepartments.forEach(function (d) {
+        if (!schoolId || String(d.school_id) === String(schoolId)) {
+          const opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = d.name;
+          if (String(d.id) === selectedDept) opt.selected = true;
+          deptSelect.appendChild(opt);
+        }
+      });
+    }
+
+    schoolSelect.addEventListener('change', function () {
+      // clear department on school change
+      deptSelect.value = '';
+      populateDepartments();
+    });
+
+    // initial population
+    populateDepartments();
+  })();
+</script>

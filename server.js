@@ -39,6 +39,9 @@ import roleRoutes from './app/web/routes/roles.routes.js';
 import assignCourseRoutes from './app/web/routes/assign-course.routes.js';
 import viewAssignedCoursesRoutes from './app/web/routes/view-assigned-courses.routes.js';
 import lectureTimeRoutes from './app/web/routes/lecture-time.routes.js';
+import examDateRoutes from './app/web/routes/exam-date.routes.js';
+import studentLectureTimeRoutes from './app/web/routes/student-lecture-time.routes.js';
+
 
 
 // -------------------------------------------------------------
@@ -177,7 +180,20 @@ app.use(
   lectureTimeRoutes
 );
 
-
+// Set Exam Date (visible to all staff, same pattern as lecture time)
+app.use(
+  '/staff/exams/date',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'bursary'),
+  examDateRoutes
+);
+// ✅ Alias so old URLs like /staff/exam/set-date/9 also work
+app.use(
+  '/staff/exam',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'bursary'),
+  examDateRoutes
+);
 
 // =======================================================
 // ASSIGN COURSE ROUTES — MUST COME BEFORE GENERIC /staff
@@ -200,6 +216,20 @@ app.use(
   },
   applicantRoutes
 );
+
+// Student lecture time (view-only page)
+app.use(
+  '/student/lecture-time',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  (req, res, next) => {
+    // mimic the /student block so sidebar + role work correctly
+    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
+    else res.locals.user.role = 'student';
+    next();
+  },
+  studentLectureTimeRoutes
+);
+
 
 // Student (AdminLTE layout + correct sidebar role)
 app.use(

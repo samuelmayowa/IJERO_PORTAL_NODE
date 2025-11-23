@@ -16,6 +16,26 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-clipboard-list"></i><p>Course Registration</p>
       </a>
     </li>
+    <li class="nav-item">
+      <a href="/student/lecture-time"
+        class="nav-link <%= path.startsWith('/student/lecture-time') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-calendar-alt"></i>
+        <p>Exam Time Table</p>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/student/lecture-time"
+        class="nav-link <%= path.startsWith('/student/lecture-time') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-calendar-alt"></i><p>View Lecture Times</p>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/student/uniform" class="nav-link <%= path.startsWith('/student/uniform') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p>
+      </a>
+    </li>
+
 
     <li class="nav-item has-treeview <%= path.startsWith('/student/payments') ? 'menu-open' : '' %>">
       <a href="#" class="nav-link <%= path.startsWith('/student/payments') ? 'active' : '' %>">
@@ -59,6 +79,7 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-folder-open"></i><p>My Academic Records<i class="right fas fa-angle-left"></i></p>
       </a>
       <ul class="nav nav-treeview">
+         <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Raw Score (Not Final)</p></a></li>
         <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Result</p></a></li>
         <li class="nav-item"><a href="/student/records/graduating-list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Graduating List</p></a></li>
         <li class="nav-item"><a href="/student/records/transcript-draft" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transcript (Draft)</p></a></li>
@@ -73,11 +94,6 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <li class="nav-item"><a href="/student/exams/clearance/print" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Print Exam Clearance</p></a></li>
         <li class="nav-item"><a href="/student/exams/clearance/exception" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Request Exception</p></a></li>
       </ul>
-    </li>
-    <li class="nav-item">
-      <a href="/student/uniform" class="nav-link <%= path.startsWith('/student/uniform') ? 'active' : '' %>">
-        <i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p>
-      </a>
     </li>
 
   </ul>

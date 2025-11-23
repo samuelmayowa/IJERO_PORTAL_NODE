@@ -1,0 +1,290 @@
+<!-- app/web/views/courses/exam-date.ejs -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <% 
+    const msgError = error || (messages && messages.error);
+    const msgSuccess = success || (messages && messages.success);
+  %>
+
+  <% if (msgError) { %>
+    <div class="alert alert-danger"><%= msgError %></div>
+  <% } %>
+
+  <% if (msgSuccess) { %>
+    <div class="alert alert-success"><%= msgSuccess %></div>
+  <% } %>
+
+  <!-- ===================== SUMMARY CARDS ===================== -->
+  <div class="row mb-3">
+
+    <div class="col-md-4">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3><%= (summary && summary.total_assigned) || 0 %></h3>
+          <p>Total Courses Assigned to You</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3><%= (summary && summary.exam_set) || 0 %></h3>
+          <p>Exam Dates Already Set</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3><%= (summary && summary.remaining) || 0 %></h3>
+          <p>Courses Without Exam Date</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== SET / UPDATE EXAM DATE ===================== -->
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">Set / Update Exam Date</h3>
+    </div>
+    <div class="card-body">
+
+      <form method="POST" action="/staff/exams/date/save">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" id="assignment_id" name="assignment_id">
+
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label>Academic Session</label>
+            <select class="form-control" id="session_id" name="session_id">
+              <option value="">-- Select Session --</option>
+              <% (sessions || []).forEach(function(s) { %>
+                <option value="<%= s.id %>" <%= String(selectedSessionId) === String(s.id) ? 'selected' : '' %>>
+                  <%= s.name %> <%= Number(s.is_current) === 1 ? '(Current)' : '' %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="form-group col-md-3">
+            <label>Semester</label>
+            <select class="form-control" id="semester" name="semester">
+              <option value="">-- Select Semester --</option>
+              <option value="FIRST"  <%= selectedSemester === 'FIRST'  ? 'selected' : '' %>>First</option>
+              <option value="SECOND" <%= selectedSemester === 'SECOND' ? 'selected' : '' %>>Second</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-6">
+            <label>Search Assigned Course</label>
+            <input type="text"
+                   class="form-control"
+                   id="courseSearch"
+                   placeholder="Type course code or title…">
+            <datalist id="assignedCourses"></datalist>
+            <small class="form-text text-muted">
+              Start typing and pick one of your assigned courses, then set exam date & time.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label>Exam Date</label>
+            <input type="date" class="form-control" name="exam_date" required>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>Start Time</label>
+            <input type="time" class="form-control" name="start_time" required>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>End Time</label>
+            <input type="time" class="form-control" name="end_time" required>
+          </div>
+
+          <div class="form-group col-md-3">
+            <label>Venue</label>
+            <input type="text"
+                   class="form-control"
+                   name="venue"
+                   placeholder="e.g. LT1, Exam Hall 3"
+                   required>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label>Student Department for this Exam</label>
+            <select class="form-control" name="student_department_id">
+              <option value="">-- All Departments --</option>
+              <% (departments || []).forEach(function(d) { %>
+                <option value="<%= d.id %>"><%= d.name %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          Save Exam Date
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ===================== YOUR EXAM DATES TABLE ===================== -->
+  <div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Your Exam Dates</h3>
+
+      <form method="GET" class="form-inline">
+        <input name="q"
+               class="form-control form-control-sm mr-2"
+               placeholder="Search by code, title, session…"
+               value="<%= q %>">
+        <button class="btn btn-sm btn-secondary">Search</button>
+      </form>
+    </div>
+
+    <div class="card-body table-responsive p-0">
+      <table class="table table-bordered table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Course Code</th>
+            <th>Title</th>
+            <th>Level</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Venue</th>
+            <th>Student Dept.</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% if (!exams || !exams.length) { %>
+            <tr>
+              <td colspan="9" class="text-center py-3">
+                No exam dates set yet.
+              </td>
+            </tr>
+          <% } else { %>
+            <% exams.forEach(function(row) { %>
+              <tr>
+                <td><%= row.code %></td>
+                <td><%= row.title %></td>
+                <td><%= row.level %></td>
+                <td><%= row.session_name %></td>
+                <td><%= row.semester %></td>
+                <td><%= row.exam_date %></td>
+                <td><%= (row.start_time || '') + (row.end_time ? ' - ' + row.end_time : '') %></td>
+                <td><%= row.venue %></td>
+                <td><%= row.student_department || '-' %></td>
+              </tr>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer text-center">
+      <% const pages = Math.ceil((total || 0) / (pageSize || 10)); %>
+      <% if (pages > 1) { %>
+        <ul class="pagination pagination-sm justify-content-center">
+          <% for (let i = 1; i <= pages; i++) { %>
+            <li class="page-item <%= page === i ? 'active' : '' %>">
+              <a class="page-link" href="?page=<%= i %>&q=<%= q %>"><%= i %></a>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+
+</section>
+
+<script>
+  (function() {
+    const sessionSelect   = document.getElementById('session_id');
+    const semesterSelect  = document.getElementById('semester');
+    const courseInput     = document.getElementById('courseSearch');
+    const datalist        = document.getElementById('assignedCourses');
+    const assignmentInput = document.getElementById('assignment_id');
+
+    if (!sessionSelect || !semesterSelect || !courseInput || !datalist || !assignmentInput) {
+      return;
+    }
+
+    const cache = {};
+    let items = [];
+
+    function buildLabel(item) {
+      return `${item.code} - ${item.title} (${item.session_name} / ${item.semester})`;
+    }
+
+    function populate(list) {
+      items = list || [];
+      datalist.innerHTML = '';
+      items.forEach(function(item) {
+        const opt = document.createElement('option');
+        opt.value = buildLabel(item);
+        datalist.appendChild(opt);
+      });
+    }
+
+    function fetchCourses() {
+      const sessionId = sessionSelect.value || '';
+      const semester  = semesterSelect.value || '';
+      const key = sessionId + '|' + semester;
+
+      if (cache[key]) {
+        populate(cache[key]);
+        return;
+      }
+
+      const params = new URLSearchParams();
+      if (sessionId) params.append('session_id', sessionId);
+      if (semester)  params.append('semester', semester);
+
+      fetch('/staff/exams/date/api/my-courses?' + params.toString(), {
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data || !data.ok) return;
+          cache[key] = data.items || [];
+          populate(cache[key]);
+        })
+        .catch(err => {
+          console.error('Failed to load assigned courses for exams:', err);
+        });
+    }
+
+    function resolveAssignmentId(label) {
+      const found = items.find(it => buildLabel(it) === label);
+      return found ? found.assignment_id : '';
+    }
+
+    sessionSelect.addEventListener('change', fetchCourses);
+    semesterSelect.addEventListener('change', fetchCourses);
+    courseInput.setAttribute('list', 'assignedCourses');
+
+    courseInput.addEventListener('change', function() {
+      assignmentInput.value = resolveAssignmentId(courseInput.value) || '';
+    });
+
+    // initial load
+    fetchCourses();
+  })();
+</script>
