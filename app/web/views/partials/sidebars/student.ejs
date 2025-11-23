@@ -17,12 +17,13 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
       </a>
     </li>
     <li class="nav-item">
-      <a href="/student/lecture-time"
-        class="nav-link <%= path.startsWith('/student/lecture-time') ? 'active' : '' %>">
+      <a href="/student/exam-time-table"
+        class="nav-link <%= currentPath.startsWith('/student/exam-time-table') ? 'active' : '' %>">
         <i class="nav-icon fas fa-calendar-alt"></i>
         <p>Exam Time Table</p>
       </a>
     </li>
+
 
     <li class="nav-item">
       <a href="/student/lecture-time"

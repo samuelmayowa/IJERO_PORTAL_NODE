@@ -41,6 +41,7 @@ import viewAssignedCoursesRoutes from './app/web/routes/view-assigned-courses.ro
 import lectureTimeRoutes from './app/web/routes/lecture-time.routes.js';
 import examDateRoutes from './app/web/routes/exam-date.routes.js';
 import studentLectureTimeRoutes from './app/web/routes/student-lecture-time.routes.js';
+import studentExamTimeRoutes from './app/web/routes/student-exam-time.routes.js';
 
 
 
@@ -228,6 +229,18 @@ app.use(
     next();
   },
   studentLectureTimeRoutes
+);
+
+// Student exam time table (view + PDF)
+app.use(
+  '/student/exam-time-table',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  (req, res, next) => {
+    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
+    else res.locals.user.role = 'student';
+    next();
+  },
+  studentExamTimeRoutes
 );
 
 
