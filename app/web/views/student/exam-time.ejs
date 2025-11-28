@@ -1,166 +1,219 @@
 <!-- app/web/views/student/exam-time.ejs -->
 
-<section class="content-header">
-  <h1><%= pageTitle %></h1>
-</section>
-
 <section class="content">
+  <div class="container-fluid">
 
-  <!-- ===================== SUMMARY CARDS ===================== -->
-  <div class="row mb-3">
-    <div class="col-md-4">
-      <div class="small-box bg-primary">
-        <div class="inner">
-          <h3><%= (summary && summary.total_assigned) || 0 %></h3>
-          <p>Total Courses (selected filters)</p>
+    <div class="row mb-3">
+      <div class="col-12">
+        <h3>Exam Time Table</h3>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <div class="card text-white bg-primary">
+          <div class="card-body">
+            <h4 class="card-title"><%= summary.total_assigned || 0 %></h4>
+            <p class="card-text mb-0">Total Courses (selected filters)</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-white bg-success">
+          <div class="card-body">
+            <h4 class="card-title"><%= summary.exam_set || 0 %></h4>
+            <p class="card-text mb-0">Courses With Exam Date</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-white bg-danger">
+          <div class="card-body">
+            <h4 class="card-title"><%= summary.remaining || 0 %></h4>
+            <p class="card-text mb-0">Courses Without Exam Date</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="col-md-4">
-      <div class="small-box bg-success">
-        <div class="inner">
-          <h3><%= (summary && summary.exam_set) || 0 %></h3>
-          <p>Courses With Exam Date</p>
-        </div>
+    <!-- Filters -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title">Filter By Session, Semester, School &amp; Department</h3>
       </div>
-    </div>
+      <div class="card-body">
+        <form method="GET" class="form-row">
+          <div class="form-group col-md-3">
+            <label for="session_id">Academic Session</label>
+            <select name="session_id" id="session_id" class="form-control">
+              <% (sessions || []).forEach(function(s) { %>
+                <option value="<%= s.id %>"
+                  <%= String(selectedSessionId) === String(s.id) ? 'selected' : '' %>>
+                  <%= s.name %>
+                  <% if (Number(s.is_current) === 1) { %> (Current) <% } %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
 
-    <div class="col-md-4">
-      <div class="small-box bg-danger">
-        <div class="inner">
-          <h3><%= (summary && summary.remaining) || 0 %></h3>
-          <p>Courses Without Exam Date</p>
-        </div>
-      </div>
-    </div>
-  </div>
+          <div class="form-group col-md-3">
+            <label for="semester">Semester</label>
+            <select name="semester" id="semester" class="form-control">
+              <option value="FIRST" <%= selectedSemester === 'FIRST' ? 'selected' : '' %>>First</option>
+              <option value="SECOND" <%= selectedSemester === 'SECOND' ? 'selected' : '' %>>Second</option>
+            </select>
+          </div>
 
-  <!-- ===================== FILTER ===================== -->
-  <div class="card mb-3">
-    <div class="card-header">
-      <h3 class="card-title">Filter By Session &amp; Semester</h3>
-    </div>
-    <div class="card-body">
-      <form method="GET" class="form-inline">
-        <div class="form-group mr-3 mb-2">
-          <label class="mr-2">Academic Session</label>
-          <select name="session_id" class="form-control">
-            <% (sessions || []).forEach(function(s) { %>
-              <option value="<%= s.id %>"
-                <%= String(s.id) === String(selectedSessionId || '') ? 'selected' : '' %>>
-                <%= s.name %> <%= Number(s.is_current) === 1 ? '(Current)' : '' %>
-              </option>
-            <% }); %>
-          </select>
-        </div>
+          <div class="form-group col-md-3">
+            <label for="school_id">School</label>
+            <select name="school_id" id="school_id" class="form-control">
+              <% (schools || []).forEach(function(s) { %>
+                <option value="<%= s.id %>"
+                  <%= String(selectedSchoolId) === String(s.id) ? 'selected' : '' %>>
+                  <%= s.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
 
-        <div class="form-group mr-3 mb-2">
-          <label class="mr-2">Semester</label>
-          <select name="semester" class="form-control">
-            <option value="FIRST"  <%= selectedSemester === 'FIRST'  ? 'selected' : '' %>>First</option>
-            <option value="SECOND" <%= selectedSemester === 'SECOND' ? 'selected' : '' %>>Second</option>
-          </select>
-        </div>
+          <div class="form-group col-md-2">
+            <label for="department_id">Department</label>
+            <select name="department_id" id="department_id" class="form-control">
+              <option value="">-- Select Department --</option>
+              <% (departments || []).forEach(function(d) { %>
+                <option value="<%= d.id %>"
+                  <%= String(selectedDepartmentId || '') === String(d.id) ? 'selected' : '' %>>
+                  <%= d.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
 
-        <button type="submit" class="btn btn-primary mb-2">Apply Filter</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ===================== EXAM TIME TABLE ===================== -->
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h3 class="card-title mb-0">Exam Time Table</h3>
-
-      <div class="d-flex align-items-center">
-        <!-- search -->
-        <form method="GET" class="form-inline mr-2">
-          <input type="hidden" name="session_id" value="<%= selectedSessionId || '' %>">
-          <input type="hidden" name="semester" value="<%= selectedSemester || '' %>">
-          <input name="q"
-                 class="form-control form-control-sm mr-2"
-                 placeholder="Search by code, title, venue…"
-                 value="<%= q || '' %>">
-          <button class="btn btn-sm btn-secondary">Search</button>
+          <div class="form-group col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary btn-block">Apply</button>
+          </div>
         </form>
-
-        <!-- PDF download -->
-        <a href="/student/exam-time-table/print?session_id=<%= selectedSessionId || '' %>&semester=<%= selectedSemester || '' %>&q=<%= encodeURIComponent ? encodeURIComponent(q || '') : (q || '') %>"
-           class="btn btn-sm btn-outline-primary">
-          <i class="fas fa-file-pdf"></i> View / Download
-        </a>
       </div>
     </div>
 
-    <div class="card-body table-responsive p-0">
-      <table class="table table-bordered table-striped mb-0">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Course Code</th>
-            <th>Title</th>
-            <th>Level</th>
-            <th>Session</th>
-            <th>Semester</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Venue</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% if (!exams || !exams.length) { %>
-            <tr>
-              <td colspan="9" class="text-center py-3">
-                No exam dates found for the selected filters.
-              </td>
-            </tr>
-          <% } else { %>
-            <% exams.forEach(function(row, idx) { %>
+    <!-- Exam timetable -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">Exam Time Table</h3>
+
+        <div class="d-flex">
+          <form method="GET" class="form-inline mr-2">
+            <!-- keep current filters when searching -->
+            <input type="hidden" name="session_id" value="<%= selectedSessionId || '' %>">
+            <input type="hidden" name="semester" value="<%= selectedSemester || '' %>">
+            <input type="hidden" name="school_id" value="<%= selectedSchoolId || '' %>">
+            <input type="hidden" name="department_id" value="<%= selectedDepartmentId || '' %>">
+
+            <div class="input-group input-group-sm">
+              <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Search by code, title, venue..."
+                value="<%= q || '' %>"
+              >
+              <span class="input-group-append">
+                <button class="btn btn-secondary" type="submit">Search</button>
+              </span>
+            </div>
+          </form>
+
+          <form method="GET" action="/student/exam-time-table/print" target="_blank">
+            <!-- keep current filters for PDF -->
+            <input type="hidden" name="session_id" value="<%= selectedSessionId || '' %>">
+            <input type="hidden" name="semester" value="<%= selectedSemester || '' %>">
+            <input type="hidden" name="school_id" value="<%= selectedSchoolId || '' %>">
+            <input type="hidden" name="department_id" value="<%= selectedDepartmentId || '' %>">
+            <input type="hidden" name="q" value="<%= q || '' %>">
+
+            <button type="submit" class="btn btn-outline-primary btn-sm">
+              View / Download PDF
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered mb-0">
+            <thead class="thead-light">
               <tr>
-                <td><%= (page - 1) * pageSize + idx + 1 %></td>
-                <td><%= row.code %></td>
-                <td><%= row.title %></td>
-                <td><%= row.level %></td>
-                <td><%= row.session_name %></td>
-                <td><%= row.semester %></td>
-                <td>
-                  <% if (row.exam_date) { %>
-                    <%= row.exam_date.toISOString
-                        ? row.exam_date.toISOString().slice(0,10)
-                        : String(row.exam_date).slice(0,10) %>
-                  <% } %>
-                </td>
-                <td>
-                  <%= row.start_time ? row.start_time.toString().slice(0,5) : '' %>
-                  -
-                  <%= row.end_time ? row.end_time.toString().slice(0,5) : '' %>
-                </td>
-                <td><%= row.venue %></td>
+                <th style="width: 40px;">#</th>
+                <th>Course Code</th>
+                <th>Title</th>
+                <th>Level</th>
+                <th>Session</th>
+                <th>Semester</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Venue</th>
               </tr>
-            <% }); %>
-          <% } %>
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              <% if (!exams || !exams.length) { %>
+                <tr>
+                  <td colspan="9" class="text-center text-muted">
+                    No exam dates found for the selected filters.
+                  </td>
+                </tr>
+              <% } else { %>
+                <% exams.forEach(function(exam, index) { %>
+                  <tr>
+                    <td><%= (page - 1) * pageSize + index + 1 %></td>
+                    <td><%= exam.code %></td>
+                    <td><%= exam.title %></td>
+                    <td><%= exam.level %></td>
+                    <td><%= exam.session_name %></td>
+                    <td><%= exam.semester %></td>
+                    <td><%= exam.exam_date ? exam.exam_date.toISOString ? exam.exam_date.toISOString().slice(0,10) : String(exam.exam_date).slice(0,10) : '' %></td>
+                    <td>
+                      <%= String(exam.start_time || '').slice(0,5) %> -
+                      <%= String(exam.end_time || '').slice(0,5) %>
+                    </td>
+                    <td><%= exam.venue %></td>
+                  </tr>
+                <% }); %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <div class="d-flex justify-content-between">
+          <div>
+            Showing
+            <strong><%= exams && exams.length ? (page - 1) * pageSize + 1 : 0 %></strong>
+            to
+            <strong><%= (page - 1) * pageSize + (exams ? exams.length : 0) %></strong>
+            of
+            <strong><%= total || 0 %></strong>
+            exams.
+          </div>
+
+          <div>
+            <% if (totalPages > 1) { %>
+              <ul class="pagination pagination-sm mb-0">
+                <% for (var p = 1; p <= totalPages; p++) { %>
+                  <li class="page-item <%= p === page ? 'active' : '' %>">
+                    <a
+                      class="page-link"
+                      href="?session_id=<%= selectedSessionId || '' %>&semester=<%= selectedSemester || '' %>&school_id=<%= selectedSchoolId || '' %>&department_id=<%= selectedDepartmentId || '' %>&q=<%= encodeURIComponent(q || '') %>&page=<%= p %>"
+                    ><%= p %></a>
+                  </li>
+                <% } %>
+              </ul>
+            <% } %>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- pagination -->
-    <div class="card-footer clearfix">
-      <% if (totalPages > 1) { %>
-        <ul class="pagination pagination-sm m-0 float-right">
-          <% for (let i = 1; i <= totalPages; i++) { %>
-            <li class="page-item <%= i === page ? 'active' : '' %>">
-              <a class="page-link"
-                 href="?page=<%= i %>&session_id=<%= selectedSessionId || '' %>&semester=<%= selectedSemester || '' %>&q=<%= encodeURIComponent ? encodeURIComponent(q || '') : (q || '') %>">
-                <%= i %>
-              </a>
-            </li>
-          <% } %>
-        </ul>
-      <% } %>
-      <span class="text-muted">
-        Showing <%= exams.length %> of <%= total %> exams.
-      </span>
-    </div>
   </div>
 </section>

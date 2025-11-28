@@ -42,6 +42,7 @@ import lectureTimeRoutes from './app/web/routes/lecture-time.routes.js';
 import examDateRoutes from './app/web/routes/exam-date.routes.js';
 import studentLectureTimeRoutes from './app/web/routes/student-lecture-time.routes.js';
 import studentExamTimeRoutes from './app/web/routes/student-exam-time.routes.js';
+import studentProfileRoutes from './app/web/routes/student-profile.routes.js';
 
 
 
@@ -107,11 +108,21 @@ app.get('/favicon.ico', (_req, res) =>
 );
 
 // CSRF
+// const csrfProtection = csrf({ cookie: false });
+// app.use((req, res, next) => {
+//   if (req.path === '/login') return next();
+//   return csrfProtection(req, res, next);
+// });
 const csrfProtection = csrf({ cookie: false });
+
+// Global CSRF, but skip some paths where we handle CSRF at route level
+const csrfSkipPaths = ['/login', '/student/profile'];
+
 app.use((req, res, next) => {
-  if (req.path === '/login') return next();
+  if (csrfSkipPaths.includes(req.path)) return next();
   return csrfProtection(req, res, next);
 });
+
 
 app.use('/', roleRoutes);  // put above any “catch-all” redirects
 
@@ -241,6 +252,19 @@ app.use(
     next();
   },
   studentExamTimeRoutes
+);
+
+// Student profile (photo + emergency contact etc.)
+app.use(
+  '/student/profile',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  ensureUserForViews,
+  (req, res, next) => {
+    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
+    else res.locals.user.role = 'student';
+    next();
+  },
+  studentProfileRoutes
 );
 
 

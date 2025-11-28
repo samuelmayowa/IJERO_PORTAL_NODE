@@ -10,6 +10,12 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
       </a>
     </li>
+    <li class="nav-item">
+      <a href="/student/profile"
+         class="nav-link <%= path.startsWith('/student/profile') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-user-circle"></i><p>My Profile</p>
+      </a>
+    </li>
 
     <li class="nav-item">
       <a href="/student/registration" class="nav-link <%= path.startsWith('/student/registration') ? 'active' : '' %>">
