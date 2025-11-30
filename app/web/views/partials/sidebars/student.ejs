@@ -42,6 +42,12 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p>
       </a>
     </li>
+     </li>
+     <li class="nav-item">
+      <a href="/student/attendance" class="nav-link <%= path.startsWith('/student/attendance') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-clock"></i><p>Mark Attendance</p>
+      </a>
+    </li>
 
 
     <li class="nav-item has-treeview <%= path.startsWith('/student/payments') ? 'menu-open' : '' %>">

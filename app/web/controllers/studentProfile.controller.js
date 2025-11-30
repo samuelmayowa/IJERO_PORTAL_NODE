@@ -151,24 +151,35 @@ export async function updateStudentProfile(req, res, next) {
     let photoPath = currentProfile.photo_path || null;
 
     // Handle passport upload
-    if (req.file) {
-      // delete old file if any
-      if (currentProfile.photo_path) {
-        const oldFsPath = path.join(
-          publicRoot,
-          currentProfile.photo_path.replace(/^\//, '')
-        );
-        if (fs.existsSync(oldFsPath)) {
-          try {
-            fs.unlinkSync(oldFsPath);
-          } catch {
-            // ignore unlink errors
-          }
-        }
+    // Handle passport upload (save file + DB reference)
+if (req.file) {
+  // multer stored file under app/web/public/uploads/students
+  photoPath = `/uploads/students/${req.file.filename}`;
+
+  // Save or update record in student_photos table
+  await pool.query(
+    `INSERT INTO student_photos (student_id, photo_type, file_path)
+     VALUES (?, 'PROFILE', ?)
+     ON DUPLICATE KEY UPDATE file_path = VALUES(file_path), uploaded_at = NOW()`,
+    [student.id, photoPath]
+  );
+
+  // delete old file from disk only if changed
+  if (currentProfile.photo_path && currentProfile.photo_path !== photoPath) {
+    const oldFsPath = path.join(
+      publicRoot,
+      currentProfile.photo_path.replace(/^\//, '')
+    );
+    if (fs.existsSync(oldFsPath)) {
+      try {
+        fs.unlinkSync(oldFsPath);
+      } catch {
+        // ignore unlink errors
       }
-      // multer stored file under app/web/public/uploads/students
-      photoPath = `/uploads/students/${req.file.filename}`;
     }
+  }
+}
+
 
     // Load public user to know existing email (via username)
     const publicUser = await getPublicUserWithEmail(student.id);
@@ -247,7 +258,17 @@ export async function updateStudentProfile(req, res, next) {
     if (!req.session.publicUser) {
       req.session.publicUser = {};
     }
-    req.session.publicUser.photo_path = photoPath;
+    // Refresh latest photo from DB (ensures session always has it)
+    const [photoRows] = await pool.query(
+      `SELECT file_path FROM student_photos
+      WHERE student_id = ? AND photo_type = 'PROFILE'
+      ORDER BY uploaded_at DESC LIMIT 1`,
+      [student.id]
+    );
+
+    const latestPhoto = photoRows.length ? photoRows[0].file_path : photoPath;
+    req.session.publicUser.photo_path = latestPhoto;
+
     if (effectiveEmail) {
       req.session.publicUser.email = effectiveEmail;
       req.session.publicUser.username = effectiveEmail;

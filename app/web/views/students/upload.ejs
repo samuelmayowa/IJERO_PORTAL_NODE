@@ -1,0 +1,90 @@
+<!-- app/web/views/students/upload.ejs -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <!-- SUCCESS -->
+  <% if (success) { %>
+    <div class="alert alert-success alert-dismissible fade show">
+      <strong><i class="fas fa-check-circle"></i> Success: </strong> <%= success %>
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+  <% } %>
+
+  <!-- ERROR -->
+  <% if (error) { %>
+    <div class="alert alert-danger alert-dismissible fade show">
+      <strong><i class="fas fa-exclamation-triangle"></i> Error: </strong> <%= error %>
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+  <% } %>
+
+  <!-- ================== UPLOAD FORM (Assign-course style) ================== -->
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">Upload Student Data (Excel)</h3>
+    </div>
+
+    <form method="POST"
+          action="/staff/students/upload?_csrf=<%= encodeURIComponent(csrfToken || '') %>"
+          enctype="multipart/form-data">
+      <!-- Hidden token is fine to keep; main fix is token in query string above -->
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="card-body">
+        <div class="form-group">
+          <label>Excel File (.xlsx)</label>
+          <input type="file"
+                 name="studentFile"
+                 class="form-control"
+                 accept=".xlsx,.xls"
+                 required>
+          <p class="help-block small text-muted mt-1">
+            Expected column headers (row 1):
+            <code>accessCode</code>,
+            <code>studentEmail</code>,
+            <code>matricNumber</code>,
+            <code>firstName</code>,
+            <code>middleName</code>,
+            <code>lastName</code>,
+            <code>yearOfEntry</code>,
+            <code>School</code>,
+            <code>department</code>,
+            <code>programme</code>,
+            <code>studentLevel</code>,
+            <code>stateOfOrigin</code>,
+            <code>LGA</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-upload"></i> Import Students
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ================== LAST IMPORT SUMMARY ================== -->
+  <% if (stats) { %>
+    <div class="card card-outline card-info">
+      <div class="card-header">
+        <h3 class="card-title">Last Import Summary</h3>
+      </div>
+      <div class="card-body">
+        <ul class="mb-0">
+          <li>Total rows in file: <strong><%= stats.totalRows %></strong></li>
+          <li>Rows imported to <code>student_imports</code>: <strong><%= stats.importedRows %></strong></li>
+          <li>Rows skipped (missing core fields): <strong><%= stats.skippedRows %></strong></li>
+          <li>New records created in <code>public_users</code>: <strong><%= stats.createdUsers %></strong></li>
+          <li>Existing <code>public_users</code> updated: <strong><%= stats.updatedUsers %></strong></li>
+        </ul>
+      </div>
+    </div>
+  <% } %>
+
+</section>

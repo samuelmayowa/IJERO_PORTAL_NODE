@@ -110,7 +110,10 @@
               (typeof user !== 'undefined' && user && user) ? user :
               (typeof publicUser !== 'undefined' && publicUser && publicUser) ? publicUser :
               ((typeof locals !== 'undefined' && (locals.user || locals.publicUser)) ? (locals.user || locals.publicUser) : null);
-            const __displayName = (__user && (__user.name || __user.username)) ? (__user.name || __user.username) : 'User';
+            const __displayName =
+              __user && (__user.first_name || __user.name || __user.username)
+                ? (__user.first_name || __user.name || __user.username)
+                : 'User';
           %>
           <a href="#" class="d-block"><%= __displayName %></a>
         </div>
@@ -162,8 +165,11 @@
     <% 
       // Build display name for the header (also uses __user so it works for public users)
       const _displayName =
-        (__user && (__user.username || __user.name)) ? (__user.username || __user.name) : 'User';
+        (__user && (__user.first_name || __user.name || __user.username))
+          ? (__user.first_name || __user.name || __user.username)
+          : 'User';
     %>
+
     <% if (typeof readOnly !== 'undefined' && readOnly) { %>
       <div class="alert alert-warning mx-3 mt-3">
         <strong>Read-only mode:</strong>

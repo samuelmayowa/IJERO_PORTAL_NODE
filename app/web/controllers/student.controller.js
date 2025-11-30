@@ -1,8 +1,34 @@
 import { pool } from '../../core/db.js';
 
 // Student dashboard -> render your AdminLTE student page
-export function dashboard(req, res) {
-  res.render('pages/student', { title: 'Student Dashboard', pageTitle: 'Dashboard' });
+// Student dashboard -> render your AdminLTE student page
+export async function dashboard(req, res) {
+  const publicUser = req.session?.publicUser || {};
+  const studentId = publicUser?.id || null;
+  let photo_path = publicUser.photo_path || null;
+
+  // Fetch latest profile photo from DB if available
+  if (studentId) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT file_path FROM student_photos
+         WHERE student_id = ? AND photo_type = 'PROFILE'
+         ORDER BY uploaded_at DESC LIMIT 1`,
+        [studentId]
+      );
+      if (rows.length) photo_path = rows[0].file_path;
+    } catch (err) {
+      console.error('Error fetching student photo:', err);
+    }
+  }
+
+  res.render('pages/student', {
+    title: 'Student Dashboard',
+    pageTitle: 'Dashboard',
+    publicUser,
+    photo_path,
+    currentPage: 'dashboard'
+  });
 }
 
 // GET /student/uniform

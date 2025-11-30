@@ -43,6 +43,8 @@ import examDateRoutes from './app/web/routes/exam-date.routes.js';
 import studentLectureTimeRoutes from './app/web/routes/student-lecture-time.routes.js';
 import studentExamTimeRoutes from './app/web/routes/student-exam-time.routes.js';
 import studentProfileRoutes from './app/web/routes/student-profile.routes.js';
+import studentUploadRoutes from './app/web/routes/student-upload.routes.js';
+
 
 
 
@@ -265,6 +267,16 @@ app.use(
     next();
   },
   studentProfileRoutes
+);
+
+// Upload Student Data (Admin-only)
+app.use(
+  '/staff/students',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  ensureUserForViews,
+  // only admin-level roles can access
+  requireRole('admin', 'superadmin', 'administrator'),
+  studentUploadRoutes
 );
 
 

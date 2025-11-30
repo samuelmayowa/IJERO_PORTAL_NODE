@@ -1,17 +1,16 @@
 <%
-/* ---------- tolerant defaults ---------- */
 const sess = (typeof currentSession !== 'undefined' && currentSession) ? currentSession : { name: '2025/2026' };
 const sem  = (typeof currentSemester !== 'undefined' && currentSemester) ? currentSemester : { name: 'First' };
 const paid = Number(typeof totalPaid !== 'undefined' ? totalPaid : 0);
 const totalCourses = Number(typeof totalRegisteredCourses !== 'undefined' ? totalRegisteredCourses : 0);
 const pb = (typeof paymentsBreakdown !== 'undefined' && paymentsBreakdown) ? paymentsBreakdown : { school:0, faculty:0, application:0 };
 
-/* course regs + payments are optional; fallback to empty arrays */
+
 const recentRegs = (typeof recentRegistrations !== 'undefined' && Array.isArray(recentRegistrations)) ? recentRegistrations : [];
 const recentPaysRaw = (typeof recentPayments !== 'undefined' && Array.isArray(recentPayments)) ? recentPayments : [];
 const recentPays = recentPaysRaw.slice(0,4); // compact widget: show up to 4 rows
 
-/* ---------- demo student attendance rows (no On-Leave) ---------- */
+
 const attRows = (typeof studentAttendance !== 'undefined' && Array.isArray(studentAttendance) && studentAttendance.length)
   ? studentAttendance.slice(0,4)
   : [
@@ -21,15 +20,12 @@ const attRows = (typeof studentAttendance !== 'undefined' && Array.isArray(stude
       { matric:'IJR/24/1060', name:'Classmate',    status:'Online', time:'09:30' }
     ];
 
-/* footer mini metrics from the 4 visible rows */
+
 const toMin = t => { try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch(_){ return 0; } };
 const recentThreshold = 9*60; // ≥ 09:00
 const RECENTLY_LOGIN = attRows.filter(r => toMin(r.time) >= recentThreshold).length;
 const ONLINE_COUNT   = attRows.filter(r => String(r.status||'').toLowerCase() === 'online').length;
 
-
-
-/* ---------- avatar handling ---------- */
 /* Prefer studentProfile.photo_path if controller provided it, otherwise use user/_user, then fallback */
 let avatarUrl = '/public/img/avatar.png'; // logo always exists, avoids 404
 
@@ -37,6 +33,10 @@ let avatarSource = null;
 // Attach session photo if controller passed it
 if (typeof photo_path !== 'undefined' && photo_path) {
   avatarSource = photo_path;
+}
+// Fallback: try to get photo from publicUser if controller passed that instead
+if ((!avatarSource || !avatarSource.length) && typeof publicUser !== 'undefined' && publicUser && publicUser.photo_path) {
+  avatarSource = publicUser.photo_path;
 }
 
 if (typeof studentProfile !== 'undefined' && studentProfile && studentProfile.photo_path) {
