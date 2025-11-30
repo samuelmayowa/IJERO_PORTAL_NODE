@@ -33,6 +33,43 @@
     .preview{ background:#f5f7fa; border:1px dashed #ccd; padding:12px; border-radius:8px; }
     .muted{color:#6b7280}
     .small-link{font-size:.9rem}
+
+    /* simple modal for register errors */
+    .simple-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .simple-modal.active {
+      display: flex;
+    }
+    .simple-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+    }
+    .simple-modal-dialog {
+      position: relative;
+      background: #ffffff;
+      padding: 16px 18px;
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
+      max-width: 420px;
+      width: 90%;
+    }
+    .simple-modal-dialog h5 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .form-control[readonly],
+    .form-control.disabled-like {
+      background:#f5f5f5;
+      cursor:not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -62,6 +99,12 @@
         <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
         <input type="hidden" name="_preview" id="_preview" value="0" />
 
+        <!-- student specific hidden helpers -->
+        <input type="hidden" id="student_id" name="student_id" value="">
+        <input type="hidden" id="student_verified" name="student_verified" value="0">
+        <input type="hidden" id="orig_dob" name="orig_dob" value="">
+        <input type="hidden" id="orig_phone" name="orig_phone" value="">
+
         <div class="form-row-grid">
           <div class="form-group">
             <label>Registering As</label>
@@ -73,44 +116,45 @@
             <small class="muted">Student requires a valid Access Code.</small>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>Date of Birth</label>
-            <input type="date" name="dob" class="form-control" required>
+            <input id="dob" type="date" name="dob" class="form-control" required>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>First Name</label>
             <input name="first_name" class="form-control" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>Middle Name (optional)</label>
             <input name="middle_name" class="form-control">
           </div>
 
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>Surname</label>
             <input name="last_name" class="form-control" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>Phone</label>
-            <input name="phone" class="form-control" required>
+            <input id="phone" name="phone" class="form-control" required>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>State of Origin</label>
             <select id="state" name="state_of_origin" class="form-control" required></select>
           </div>
-          <div class="form-group">
+          <div class="form-group" data-student-step="after-lookup">
             <label>Local Government (LGA)</label>
             <select id="lga" name="lga" class="form-control" required></select>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" data-student-step="lookup">
             <label>Email</label>
             <input id="email" type="email" name="email" class="form-control" placeholder="name@example.com" required>
             <small class="muted">We’ll use this as your portal username.</small>
           </div>
-          <div class="form-group">
+
+          <div class="form-group" data-student-step="after-lookup">
             <label>Username</label>
             <div class="input-group">
               <input id="username" name="username" class="form-control" readonly>
@@ -120,13 +164,22 @@
             </div>
           </div>
 
-          <div class="form-group" id="accessWrap" style="display:none">
-            <label>Access Code (Student)</label>
-            <input id="access_code" name="access_code" maxlength="16" class="form-control" placeholder="16-character code">
-            <small class="muted">Required only for Student registration.</small>
+          <div class="form-group" data-student-step="after-lookup">
+            <label>Matriculation Number</label>
+            <input id="matric_number" name="matric_number" class="form-control" readonly>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="accessWrap" data-student-step="lookup" style="display:none">
+            <label>Access Code (Student)</label>
+            <input id="access_code" name="access_code" maxlength="32" class="form-control" placeholder="16-character code">
+            <small class="muted">Required only for Student registration.</small>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="verifyStudentBtn">
+              Verify &amp; Load Details
+            </button>
+            <small id="lookupStatus" class="muted d-block mt-1"></small>
+          </div>
+
+          <div class="form-group" data-student-step="after-lookup">
             <label>Password</label>
             <div class="input-group">
               <input id="password" name="password" type="password" class="form-control" placeholder="Choose a strong password" required>
@@ -163,6 +216,16 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- simple modal -->
+  <div id="simpleModal" class="simple-modal">
+    <div class="simple-modal-backdrop"></div>
+    <div class="simple-modal-dialog">
+      <h5><i class="fa fa-exclamation-circle"></i> Notice</h5>
+      <p id="simpleModalMessage"></p>
+      <button type="button" class="btn btn-success btn-sm" id="simpleModalClose">OK</button>
     </div>
   </div>
 </div>
@@ -209,83 +272,429 @@ const NG_LGAS = {
   "Zamfara":["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"]
 };
 
-/* populate states + LGAs */
-(function(){
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('regForm');
+  const roleSel = document.getElementById('role');
   const stateSel = document.getElementById('state');
   const lgaSel = document.getElementById('lga');
-  const states = Object.keys(NG_LGAS).sort();
-  stateSel.innerHTML = '<option value="">-- select state --</option>' + states.map(s=>`<option>${s}</option>`).join('');
-  function fillLgas(st){
-    const arr = NG_LGAS[st] || [];
-    lgaSel.innerHTML = '<option value="">-- select LGA --</option>' + arr.map(n=>`<option>${n}</option>`).join('');
-  }
-  stateSel.addEventListener('change', e=>fillLgas(e.target.value));
-})();
-
-/* email => username (readonly unless Edit) + show access code when role=student */
-(function(){
-  const email = document.getElementById('email');
-  const user = document.getElementById('username');
-  const edit = document.getElementById('editUsername');
-  const role = document.getElementById('role');
-  const access = document.getElementById('accessWrap');
-
-  function sync(){ user.value = email.value.trim().toLowerCase(); }
-  email.addEventListener('input', sync);
-  edit.addEventListener('click', ()=>{ user.readOnly = !user.readOnly; edit.textContent = user.readOnly ? 'Edit' : 'Lock'; });
-  role.addEventListener('change', ()=>{ access.style.display = (role.value==='student') ? 'block' : 'none'; });
-})();
-
-/* password strength + eye toggle */
-(function(){
-  const p = document.getElementById('password');
-  const bar = document.getElementById('meter');
-  const txt = document.getElementById('meterText');
-  const eye = document.getElementById('togglePw');
-  function score(s){ let n=0; if(s.length>=8)n++; if(/[A-Z]/.test(s))n++; if(/[a-z]/.test(s))n++; if(/[0-9]/.test(s))n++; if(/[^A-Za-z0-9]/.test(s))n++; return n; }
-  function paint(n){ const w = Math.min(100, (n/5)*100); bar.style.width = w+'%'; bar.style.background = ['#ddd','#f66','#f90','#cc3','#6c6'][Math.min(n,4)]; txt.textContent='Strength: '+(['—','Very Weak','Weak','Average','Good','Strong'][n]||'—'); }
-  p.addEventListener('input', ()=>paint(score(p.value||'')));
-  eye.addEventListener('click', ()=>{
-    const is = p.type === 'password';
-    p.type = is ? 'text' : 'password';
-    eye.innerHTML = `<i class="fa ${is?'fa-eye-slash':'fa-eye'}"></i>`;
-  });
-})();
-
-/* preview step */
-(function(){
-  const form = document.getElementById('regForm');
+  const emailInput = document.getElementById('email');
+  const usernameInput = document.getElementById('username');
+  const editUsernameBtn = document.getElementById('editUsername');
+  const accessWrap = document.getElementById('accessWrap');
+  const accessInput = document.getElementById('access_code');
+  const passwordInput = document.getElementById('password');
+  const meterBar = document.getElementById('meter');
+  const meterText = document.getElementById('meterText');
+  const togglePwBtn = document.getElementById('togglePw');
   const previewBtn = document.getElementById('previewBtn');
   const confirmBtn = document.getElementById('confirmSubmit');
   const editBtn = document.getElementById('editBtn');
-  const box = document.getElementById('previewBox');
-  const content = document.getElementById('previewContent');
+  const previewBox = document.getElementById('previewBox');
+  const previewContent = document.getElementById('previewContent');
+  const _previewInput = document.getElementById('_preview');
+  const termsCheckbox = document.getElementById('terms');
+  const studentIdInput = document.getElementById('student_id');
+  const studentVerifiedInput = document.getElementById('student_verified');
+  const origDobInput = document.getElementById('orig_dob');
+  const origPhoneInput = document.getElementById('orig_phone');
+  const dobInput = document.getElementById('dob');
+  const phoneInput = document.getElementById('phone');
+  const verifyStudentBtn = document.getElementById('verifyStudentBtn');
+  const lookupStatus = document.getElementById('lookupStatus');
+  const matricInput = document.getElementById('matric_number');
 
-  previewBtn.addEventListener('click', ()=>{
-    if(!form.reportValidity()) return;
-    const fd = new FormData(form); const o = Object.fromEntries(fd.entries());
-    const safe = k => (o[k]||'').toString();
-    content.innerHTML = `
-      <ul class="mb-0" style="line-height:1.9">
-        <li><b>Registering As:</b> ${safe('role')}</li>
-        <li><b>Name:</b> ${safe('first_name')} ${safe('middle_name')} ${safe('last_name')}</li>
-        <li><b>Date of Birth:</b> ${safe('dob')}</li>
-        <li><b>State/LGA:</b> ${safe('state_of_origin')} / ${safe('lga')}</li>
-        <li><b>Phone:</b> ${safe('phone')}</li>
-        <li><b>Email/Username:</b> ${safe('email')}</li>
-        ${safe('role')==='student' ? `<li><b>Access Code:</b> ${safe('access_code')}</li>` : ``}
-      </ul>`;
-    document.getElementById('_preview').value = '1';
-    box.style.display = 'block';
-    window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
+  const modal = document.getElementById('simpleModal');
+  const modalMsg = document.getElementById('simpleModalMessage');
+  const modalClose = document.getElementById('simpleModalClose');
+
+  function showModal(msg) {
+    if (!modal || !modalMsg) {
+      alert(msg);
+      return;
+    }
+    modalMsg.textContent = msg;
+    modal.classList.add('active');
+  }
+
+  function hideModal() {
+    if (modal) modal.classList.remove('active');
+  }
+
+  if (modalClose) {
+    modalClose.addEventListener('click', hideModal);
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal || e.target.classList.contains('simple-modal-backdrop')) {
+        hideModal();
+      }
+    });
+  }
+
+  /* populate states + LGAs */
+  if (stateSel && lgaSel) {
+    const states = Object.keys(NG_LGAS).sort();
+    stateSel.innerHTML =
+      '<option value="">-- select state --</option>' +
+      states.map(function (s) { return '<option>' + s + '</option>'; }).join('');
+
+    function fillLgas(st) {
+      const arr = NG_LGAS[st] || [];
+      lgaSel.innerHTML =
+        '<option value="">-- select LGA --</option>' +
+        arr.map(function (n) { return '<option>' + n + '</option>'; }).join('');
+    }
+
+    stateSel.addEventListener('change', function (e) {
+      fillLgas(e.target.value);
+    });
+  }
+
+  /* email => username (readonly unless Edit) */
+  function syncUsername() {
+    if (!usernameInput) return;
+    usernameInput.value = (emailInput.value || '').trim().toLowerCase();
+  }
+  if (emailInput && usernameInput) {
+    emailInput.addEventListener('input', syncUsername);
+    syncUsername();
+  }
+
+  if (editUsernameBtn && usernameInput) {
+    editUsernameBtn.addEventListener('click', function () {
+      if (roleSel.value === 'student' && studentVerifiedInput.value === '1') {
+        // for verified students, username stays locked
+        return;
+      }
+      usernameInput.readOnly = !usernameInput.readOnly;
+      editUsernameBtn.textContent = usernameInput.readOnly ? 'Edit' : 'Lock';
+    });
+  }
+
+  /* password strength + eye toggle */
+  function scorePassword(s) {
+    let n = 0;
+    if (s.length >= 8) n++;
+    if (/[A-Z]/.test(s)) n++;
+    if (/[a-z]/.test(s)) n++;
+    if (/[0-9]/.test(s)) n++;
+    if (/[^A-Za-z0-9]/.test(s)) n++;
+    return n;
+  }
+  function paintStrength() {
+    const s = passwordInput.value || '';
+    const n = scorePassword(s);
+    const w = Math.min(100, (n / 5) * 100);
+    meterBar.style.width = w + '%';
+    meterBar.style.background = ['#ddd', '#f66', '#f90', '#cc3', '#6c6'][Math.min(n, 4)];
+    meterText.textContent =
+      'Strength: ' +
+      (['—', 'Very Weak', 'Weak', 'Average', 'Good', 'Strong'][n] || '—');
+  }
+  if (passwordInput) {
+    passwordInput.addEventListener('input', paintStrength);
+  }
+  if (togglePwBtn && passwordInput) {
+    togglePwBtn.addEventListener('click', function () {
+      const is = passwordInput.type === 'password';
+      passwordInput.type = is ? 'text' : 'password';
+      togglePwBtn.innerHTML =
+        '<i class="fa ' + (is ? 'fa-eye-slash' : 'fa-eye') + '"></i>';
+    });
+  }
+
+  let studentOriginalDob = '';
+  let studentOriginalPhone = '';
+
+  function refreshStudentVisibility() {
+    const isStudent = roleSel.value === 'student';
+    const isVerified = studentVerifiedInput.value === '1';
+
+    var groups = document.querySelectorAll('[data-student-step]');
+    groups.forEach(function (el) {
+      const step = el.getAttribute('data-student-step');
+
+      if (!isStudent) {
+        // Applicant: show everything except the access-code block
+        if (el.id === 'accessWrap') {
+          el.style.display = 'none';
+        } else {
+          el.style.display = '';
+        }
+        return;
+      }
+
+      if (step === 'lookup') {
+        if (el.id === 'accessWrap') {
+          el.style.display = isVerified ? 'none' : '';
+        } else {
+          el.style.display = '';
+        }
+      } else if (step === 'after-lookup') {
+        el.style.display = isVerified ? '' : 'none';
+      } else {
+        el.style.display = '';
+      }
+    });
+  }
+
+  function applyStudentLocks() {
+    const isStudent = roleSel.value === 'student';
+    const isVerified = studentVerifiedInput.value === '1';
+    if (!isStudent || !isVerified) return;
+
+    ['first_name', 'middle_name', 'last_name'].forEach(function (name) {
+      const input = form.elements[name];
+      if (input) {
+        input.readOnly = true;
+        input.classList.add('disabled-like');
+      }
+    });
+
+    if (usernameInput) {
+      usernameInput.readOnly = true;
+      usernameInput.classList.add('disabled-like');
+    }
+    if (editUsernameBtn) {
+      editUsernameBtn.disabled = true;
+    }
+
+    if (stateSel) {
+      stateSel.disabled = true;
+      stateSel.classList.add('disabled-like');
+    }
+    if (lgaSel) {
+      lgaSel.disabled = true;
+      lgaSel.classList.add('disabled-like');
+    }
+    if (matricInput) {
+      matricInput.readOnly = true;
+      matricInput.classList.add('disabled-like');
+    }
+
+    if (emailInput) {
+      emailInput.readOnly = true;
+      emailInput.classList.add('disabled-like');
+    }
+  }
+
+  roleSel.addEventListener('change', function () {
+    // reset student-specific state when switching away
+    if (roleSel.value !== 'student') {
+      studentIdInput.value = '';
+      studentVerifiedInput.value = '0';
+      studentOriginalDob = '';
+      studentOriginalPhone = '';
+      origDobInput.value = '';
+      origPhoneInput.value = '';
+      if (lookupStatus) lookupStatus.textContent = '';
+      if (emailInput) {
+        emailInput.readOnly = false;
+        emailInput.classList.remove('disabled-like');
+      }
+      if (usernameInput) {
+        usernameInput.readOnly = true;
+        usernameInput.classList.remove('disabled-like');
+      }
+      if (editUsernameBtn) {
+        editUsernameBtn.disabled = false;
+        editUsernameBtn.textContent = 'Edit';
+      }
+      if (stateSel) stateSel.disabled = false;
+      if (lgaSel) lgaSel.disabled = false;
+    }
+    refreshStudentVisibility();
   });
 
-  confirmBtn.addEventListener('click', ()=> form.submit());
-  editBtn.addEventListener('click', ()=>{
-    document.getElementById('_preview').value = '0';
-    box.style.display = 'none';
+  refreshStudentVisibility();
+
+  /* Verify & Load student details from /register/student-lookup */
+  if (verifyStudentBtn) {
+    verifyStudentBtn.addEventListener('click', async function () {
+      if (roleSel.value !== 'student') {
+        showModal('Student lookup is only for Student registrations.');
+        return;
+      }
+
+      const emailVal = (emailInput.value || '').trim();
+      const codeVal = (accessInput.value || '').trim();
+      const csrfVal = form.querySelector('input[name="_csrf"]').value;
+
+      if (!emailVal || !codeVal) {
+        showModal('Please enter both Email and Access Code.');
+        return;
+      }
+
+      try {
+        if (lookupStatus) lookupStatus.textContent = 'Checking...';
+
+        const resp = await fetch('/register/student-lookup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          },
+          body: new URLSearchParams({
+            email: emailVal,
+            access_code: codeVal,
+            _csrf: csrfVal,
+          }).toString(),
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+          studentVerifiedInput.value = '0';
+          studentIdInput.value = '';
+          if (lookupStatus) lookupStatus.textContent = '';
+          showModal(
+            data.message ||
+              'Email and Access Code do not match any student record.'
+          );
+          refreshStudentVisibility();
+          return;
+        }
+
+        const stu = data.student || {};
+
+        if (form.elements['first_name'])
+          form.elements['first_name'].value = stu.first_name || '';
+        if (form.elements['middle_name'])
+          form.elements['middle_name'].value = stu.middle_name || '';
+        if (form.elements['last_name'])
+          form.elements['last_name'].value = stu.last_name || '';
+
+        if (usernameInput) {
+          usernameInput.value = stu.email || emailVal;
+        }
+        if (matricInput) {
+          matricInput.value = stu.matric_number || '';
+        }
+
+        if (emailInput) {
+          emailInput.value = stu.email || emailVal;
+          emailInput.readOnly = true;
+          emailInput.classList.add('disabled-like');
+        }
+
+        // State / LGA
+        if (stateSel && stu.state_of_origin) {
+          stateSel.value = stu.state_of_origin;
+          stateSel.dispatchEvent(new Event('change'));
+        }
+        if (lgaSel && stu.lga) {
+          setTimeout(function () {
+            lgaSel.value = stu.lga;
+          }, 100);
+        }
+
+        if (dobInput) dobInput.value = stu.dob || '';
+        if (phoneInput) phoneInput.value = stu.phone || '';
+
+        studentOriginalDob = stu.dob || '';
+        studentOriginalPhone = stu.phone || '';
+        origDobInput.value = studentOriginalDob;
+        origPhoneInput.value = studentOriginalPhone;
+
+        studentIdInput.value = stu.id;
+        studentVerifiedInput.value = '1';
+
+        if (lookupStatus) {
+          lookupStatus.textContent =
+            'Student details loaded. Please update your Date of Birth, Phone and Password, then preview.';
+        }
+
+        refreshStudentVisibility();
+        applyStudentLocks();
+      } catch (err) {
+        console.error('student lookup failed', err);
+        studentVerifiedInput.value = '0';
+        studentIdInput.value = '';
+        if (lookupStatus) lookupStatus.textContent = '';
+        showModal(
+          'Could not verify your details at the moment. Please try again.'
+        );
+      }
+    });
+  }
+
+  /* preview step */
+  previewBtn.addEventListener('click', function () {
+    const isStudent = roleSel.value === 'student';
+    const isVerified = studentVerifiedInput.value === '1';
+
+    if (isStudent && !isVerified) {
+      showModal('Please verify your Email and Access Code first.');
+      return;
+    }
+
+    if (isStudent) {
+      const mustFix = [];
+      const dobVal = (dobInput && dobInput.value || '').trim();
+      const phoneVal = (phoneInput && phoneInput.value || '').trim();
+      const pwdVal = (passwordInput && passwordInput.value || '').trim();
+
+      if (!dobVal || dobVal === (studentOriginalDob || '').trim()) {
+        mustFix.push('date of birth');
+      }
+      if (!phoneVal || phoneVal === (studentOriginalPhone || '').trim()) {
+        mustFix.push('phone number');
+      }
+      if (!pwdVal || pwdVal.toLowerCase() === 'college1') {
+        mustFix.push('password');
+      }
+
+      if (mustFix.length) {
+        showModal(
+          'You MUST update ' + mustFix.join(', ') + ' before you continue.'
+        );
+        return;
+      }
+    }
+
+    // Normal browser validation (for visible fields)
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const fd = new FormData(form);
+    const o = Object.fromEntries(fd.entries());
+    const safe = function (k) {
+      return (o[k] || '').toString();
+    };
+
+    const roleText = safe('role');
+    const nameText =
+      safe('first_name') +
+      ' ' +
+      safe('middle_name') +
+      ' ' +
+      safe('last_name');
+
+    previewContent.innerHTML =
+      '<ul class="mb-0" style="line-height:1.9">' +
+      '<li><b>Registering As:</b> ' + roleText + '</li>' +
+      '<li><b>Name:</b> ' + nameText + '</li>' +
+      '<li><b>Date of Birth:</b> ' + safe('dob') + '</li>' +
+      '<li><b>State/LGA:</b> ' + safe('state_of_origin') + ' / ' + safe('lga') + '</li>' +
+      '<li><b>Phone:</b> ' + safe('phone') + '</li>' +
+      '<li><b>Email/Username:</b> ' + safe('email') + '</li>' +
+      (roleText === 'student'
+        ? '<li><b>Matric Number:</b> ' + safe('matric_number') + '</li>'
+        : '') +
+      '</ul>';
+
+    _previewInput.value = '1';
+    previewBox.style.display = 'block';
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   });
-})();
+
+  confirmBtn.addEventListener('click', function () {
+    form.submit();
+  });
+  editBtn.addEventListener('click', function () {
+    _previewInput.value = '0';
+    previewBox.style.display = 'none';
+  });
+});
 </script>
 </body>
 </html>

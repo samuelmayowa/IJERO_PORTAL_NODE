@@ -2,12 +2,16 @@
 import { Router } from 'express';
 import { getLogin, postLogin, logout } from '../controllers/auth.controller.js';
 import {
-  showRegister, postRegister,
-  showStudentReset, postStudentReset,
-  studentDashboard, applicantDashboard,
-  requireStudent, requireApplicant
+  showRegister,
+  postRegister,
+  showStudentReset,
+  postStudentReset,
+  studentDashboard,
+  applicantDashboard,
+  requireStudent,
+  requireApplicant,
+  studentLookup, // NEW: AJAX student lookup
 } from '../controllers/auth.controller.js';
-
 
 const router = Router();
 
@@ -23,12 +27,14 @@ router.post('/logout', logout);
 router.get('/register', showRegister);
 router.post('/register', postRegister);
 
+// AJAX lookup for student details (email + access code from public_users)
+router.post('/register/student-lookup', studentLookup);
+
 router.get('/student/reset', showStudentReset);
 router.post('/student/reset', postStudentReset);
 
 // Public dashboards (protected by public session, not staff guard)
 router.get('/student/dashboard', requireStudent, studentDashboard);
 router.get('/applicant/dashboard', requireApplicant, applicantDashboard);
-
 
 export default router;
