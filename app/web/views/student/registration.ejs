@@ -196,9 +196,7 @@
   </div>
 </section>
 
-<!-- =========================================================
-     PROFILE NOT COMPLETE MODAL
-     ========================================================= -->
+<!-- (Profile modal left in place but UNUSED now) -->
 <div class="modal fade" id="crProfileIncompleteModal" tabindex="-1">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
@@ -211,14 +209,8 @@
         </h4>
       </div>
       <div class="modal-body">
-        <p>
-          Your student profile is not yet marked as <strong>COMPLETE</strong>.
-        </p>
-        <p>
-          Please visit the <strong>ICT Directorate</strong> and <strong>Bursary</strong>
-          to confirm that your payments and biodata are fully updated before
-          registering courses on this portal.
-        </p>
+        <p>Your student profile is not yet marked as <strong>COMPLETE</strong>.</p>
+        <p>Please visit the ICT Directorate and Bursary to confirm that your payments and biodata are fully updated before registering courses on this portal.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-default" data-dismiss="modal">Okay, got it</button>
@@ -227,9 +219,7 @@
   </div>
 </div>
 
-<!-- =========================================================
-     SUBMIT CONFIRMATION MODAL
-     ========================================================= -->
+<!-- SUBMIT CONFIRMATION MODAL -->
 <div class="modal fade" id="crFinishModal" tabindex="-1">
   <div class="modal-dialog modal-md">
     <div class="modal-content">
@@ -249,9 +239,7 @@
           <strong><span id="cr-finish-total-units">0</span></strong>
           unit(s).
         </p>
-        <p>
-          Are you sure you want to submit this registration?
-        </p>
+        <p>Are you sure you want to submit this registration?</p>
         <p>
           IMPORTANT: Once submitted for this session/semester, changes can no longer be made.
           Please confirm your courses carefully.
@@ -270,9 +258,6 @@
 <script>
   (function () {
     const csrfToken = '<%= csrfToken %>';
-
-    <% const _profileComplete = (typeof profileComplete !== 'undefined' ? profileComplete : true); %>
-    const profileComplete = <%= _profileComplete ? 'true' : 'false' %> === 'true';
 
     const $session   = document.getElementById('cr-session');
     const $semester  = document.getElementById('cr-semester');
@@ -293,7 +278,6 @@
     const $submitBtn = document.getElementById('cr-submit-btn');
     const $printBtn  = document.getElementById('cr-print-btn');
 
-    const $finishModal    = document.getElementById('crFinishModal');
     const $finishTotalCoursesSpan = document.getElementById('cr-finish-total-courses');
     const $finishTotalUnitsSpan   = document.getElementById('cr-finish-total-units');
     const $finishConfirmBtn       = document.getElementById('cr-finish-confirm-btn');
@@ -370,7 +354,6 @@
         });
       });
 
-      // enable/disable submit & show/hide print based on locked state
       $submitBtn.disabled = !items.length || isLocked;
       $printBtn.style.display = isLocked ? 'inline-block' : 'none';
     }
@@ -437,18 +420,6 @@
         .finally(() => {
           $findBtn.disabled = false;
         });
-    }
-
-    function showProfileIncompleteModal() {
-      try {
-        $('#crProfileIncompleteModal').modal('show');
-      } catch (e) {
-        alert(
-          'Your profile is not yet marked as COMPLETE.\n\n' +
-          'Please visit the ICT Directorate and Bursary to make sure your ' +
-          'payments and biodata are fully updated before registering courses.'
-        );
-      }
     }
 
     function addCourse() {
@@ -529,7 +500,6 @@
         });
     }
 
-    // Core finish/submit function
     function finishRegistration(openPrintWindow) {
       if (!ensureFilterOrAlert()) return;
 
@@ -607,36 +577,26 @@
 
     $findBtn.addEventListener('click', findCourse);
 
-    $addBtn.addEventListener('click', function () {
-      if (!profileComplete) {
-        showProfileIncompleteModal();
-        return;
-      }
-      addCourse();
-    });
+    // No profile check anymore – just add
+    $addBtn.addEventListener('click', addCourse);
 
-    // Submit button -> confirmation modal
     $submitBtn.addEventListener('click', openFinishModal);
 
-    // Confirm submit inside modal
     if ($finishConfirmBtn) {
       $finishConfirmBtn.addEventListener('click', function () {
         try { $('#crFinishModal').modal('hide'); } catch (e) {}
-        finishRegistration(false); // submit only; user can print with blue button
+        finishRegistration(false);
       });
     }
 
-    // Print / Download button
     $printBtn.addEventListener('click', function () {
       if (lastDownloadUrl) {
         window.open(lastDownloadUrl, '_blank');
         return;
       }
-      // If we don't have a cached URL (e.g., page reloaded), ask server again.
       finishRegistration(true);
     });
 
-    // Auto-load if defaults are present
     if ($session.value && $semester.value) {
       fetchList();
     }

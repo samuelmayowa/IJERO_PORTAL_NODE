@@ -1,157 +1,421 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title><%= title %></title>
-    <link rel="stylesheet" href="/public/bootstrap/css/bootstrap.min.css">
+  <meta charset="utf-8">
+  <title><%= title || 'Course Registration Form' %></title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
 
-    <style>
-        body { font-size: 13px; }
+    body {
+      font-size: 12px;
+      color: #222;
+      margin: 15px;
+    }
 
-        .header-logo img {
-            width: 65px;
-            height: 65px;
-        }
+    .container {
+      width: 100%;
+      margin: 0 auto;
+    }
 
-        .student-photo {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid #ccc;
-        }
+    .row {
+      width: 100%;
+      display: table;
+      table-layout: fixed;
+    }
 
-        .biodata-box {
-            border: 1px solid #999;
-            padding: 10px;
-            margin-top: 10px;
-            background: #f9f9f9;
-        }
+    .col-xs-2, .col-xs-4, .col-xs-8 {
+      display: table-cell;
+      vertical-align: top;
+    }
 
-        .title-head {
-            text-align: center;
-            margin-top: -60px;
-        }
+    .col-xs-2 { width: 20%; }
+    .col-xs-4 { width: 40%; }
+    .col-xs-8 { width: 60%; }
 
-        .title-head h3 {
-            margin: 0;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
 
-        .qr-bottom {
-            text-align: right;
-            margin-top: 20px;
-        }
+    .printed-at {
+      font-size: 10px;
+      text-align: right;
+      margin-bottom: 5px;
+      color: #555;
+    }
 
-        .signatures {
-            margin-top: 35px;
-        }
-    </style>
+    .header-logo img {
+      width: 65px;
+      height: 65px;
+      object-fit: contain;
+    }
+
+    .college-name {
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .college-sub {
+      font-size: 11px;
+      margin-top: 1px;
+    }
+
+    .form-title {
+      margin-top: 5px;
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      text-decoration: underline;
+    }
+
+    .student-photo {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #4a90e2;
+    }
+
+    .photo-caption {
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    .biodata-box {
+      margin-top: 10px;
+      border: 1px solid #d4d9ff;
+      background: #f5f5ff;
+      padding: 8px 10px;
+      border-radius: 4px;
+    }
+
+    .biodata-heading {
+      font-weight: 700;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #2a3f8f;
+    }
+
+    .biodata-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .biodata-table td {
+      padding: 2px 4px;
+      vertical-align: middle;
+    }
+
+    .label-cell {
+      width: 22%;
+      font-weight: 600;
+      color: #333;
+      white-space: nowrap;
+    }
+
+    /* COURSE TABLE */
+    .course-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 11px;
+    }
+
+    .course-table th,
+    .course-table td {
+      border: 1px solid #aaa;
+      padding: 4px;
+      text-align: center;
+    }
+
+    .course-table th {
+      background: #e6ecff;
+      font-weight: 600;
+    }
+
+    .course-table td.text-left {
+      text-align: left;
+    }
+
+    .totals-row td {
+      font-weight: 600;
+    }
+
+    /* SIGNATURES + QR */
+    .signatures {
+      margin-top: 25px;
+      font-size: 11px;
+    }
+
+    .signature-line {
+      margin-bottom: 6px;
+    }
+
+    .signature-label {
+      display: inline-block;
+      width: 200px;
+      border-bottom: 1px solid #000;
+      margin-right: 8px;
+    }
+
+    .signature-text {
+      font-size: 10px;
+    }
+
+    .qr-wrapper {
+      margin-top: 10px;
+      text-align: right;
+    }
+
+    .qr-wrapper img {
+      border: 1px solid #ddd;
+      padding: 4px;
+      background: #fff;
+    }
+
+    .qr-caption {
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .footer-text {
+      margin-top: 14px;
+      font-size: 10px;
+      text-align: center;
+      color: #777;
+    }
+  </style>
 </head>
-
 <body>
+<%
+  const semesterLabelFull =
+    semester === 'FIRST'
+      ? 'First Semester'
+      : (semester === 'SECOND' ? 'Second Semester' : (semester || ''));
+
+  const _now = new Date();
+  const printedDateTime = _now.toLocaleString('en-GB'); // e.g. 30/11/2025, 22:04:41
+
+  const fullName = [
+    student.first_name,
+    student.middle_name,
+    student.last_name
+  ].filter(Boolean).join(' ');
+%>
 
 <div class="container">
 
-    <div class="row">
+  <!-- TOP PRINTED DATE -->
+  <div class="printed-at">
+    Date Printed: <%= printedDateTime %>
+  </div>
 
-        <!-- LOGO -->
-        <div class="col-xs-2 header-logo">
-            <img src="/public/logo.png" alt="School Logo">
-        </div>
-
-        <!-- TITLE -->
-        <div class="col-xs-8 title-head">
-            <h3>EKITI STATE COLLEGE OF HEALTH SCIENCES & TECHNOLOGY</h3>
-            <h4 style="margin-top:5px;">Course Registration Form</h4>
-        </div>
-
-        <!-- PHOTO -->
-        <div class="col-xs-2 text-right">
-            <% if (profile && profile.photo_path) { %>
-                <img src="<%= profile.photo_path %>" class="student-photo"/>
-            <% } else { %>
-                <img src="/public/default-avatar.png" class="student-photo"/>
-            <% } %>
-        </div>
+  <!-- HEADER -->
+  <div class="row">
+    <div class="col-xs-2 header-logo">
+      <img src="/public/img/logo.png" alt="College Logo">
     </div>
 
-    <!-- STUDENT BIO DATA -->
-    <div class="biodata-box">
-        <strong>Student Name:</strong> <%= student.first_name %> <%= student.last_name %><br>
-        <strong>Matric Number:</strong> <%= student.matric_number %><br>
-        <strong>Department:</strong> <%= profile.department_id %><br>
-        <strong>Programme:</strong> <%= profile.programme_id %><br>
-        <strong>Level:</strong> <%= profile.level %><br>
-        <strong>Phone:</strong> <%= student.phone %><br>
-        <strong>Email:</strong> <%= student.username %><br>
-        <strong>Academic Session:</strong> <%= session.name %><br>
-        <strong>Semester:</strong> <%= semester %>
+    <div class="col-xs-8 text-center">
+      <div class="college-name">
+        EKITI STATE COLLEGE OF HEALTH, <br> SCIENCES &amp; TECHNOLOGY
+      </div>
+      <div class="college-sub">
+        P.M.B 316, EPE ARA ROAD, IJERO EKITI, EKITI STATE, NIGERIA
+      </div> <br>
+      <div class="form-title">
+        <%= session.name %> <%= semesterLabelFull.toUpperCase() %> STUDENT COURSE FORM
+      </div>
     </div>
 
-    <br>
+    <div class="col-xs-2 text-right">
+      <% if (photoUrl) { %>
+        <img src="<%- photoUrl %>" class="student-photo" alt="Student Photo">
+      <% } else { %>
+        <img src="/public/default-avatar.png" class="student-photo" alt="Student Photo">
+      <% } %>
+      <div class="photo-caption">Student Photo</div>
+    </div>
+  </div>
 
-    <!-- COURSE TABLE -->
-    <table class="table table-bordered table-striped">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Code</th>
-                <th>Title</th>
-                <th>Unit</th>
-                <th>Level</th>
-                <th>Semester</th>
-                <th>Type</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% rows.forEach(function(row, idx) { %>
-                <tr>
-                    <td><%= idx + 1 %></td>
-                    <td><%= row.code %></td>
-                    <td><%= row.title %></td>
-                    <td><%= row.unit %></td>
-                    <td><%= row.level %></td>
-                    <td><%= row.semester %></td>
-                    <td><%= row.reg_type %></td>
-                </tr>
-            <% }) %>
-        </tbody>
+  <!-- STUDENT BIO DATA -->
+  <div class="biodata-box">
+    <div class="biodata-heading">Student Bio Data</div>
+    <table class="biodata-table">
+      <tr>
+        <td class="label-cell">Matric Number:</td>
+        <td><%= student.matric_number || '' %></td>
+        <td class="label-cell">Department:</td>
+        <td><%= departmentName || '' %></td>
+      </tr>
+      <tr>
+        <td class="label-cell">Programme:</td>
+        <td><%= programmeName || '' %></td>
+        <td class="label-cell">Student Level:</td>
+        <td><%= studentLevel || '' %></td>
+      </tr>
+      <tr>
+        <td class="label-cell">Student Phone:</td>
+        <td><%= profilePhone || student.phone || '' %></td>
+        <td class="label-cell">Student Email:</td>
+        <td><%= student.username || '' %></td>
+      </tr>
+      <tr>
+        <td class="label-cell">Full Name:</td>
+        <td><%= fullName %></td>
+        <td class="label-cell">Academic Session:</td>
+        <td><%= session.name %></td>
+      </tr>
+      <tr>
+        <td class="label-cell">Semester:</td>
+        <td><%= semesterLabelFull %></td>
+        <td class="label-cell">Date Printed:</td>
+        <td><%= printedDateTime.split(',')[0] %></td>
+      </tr>
     </table>
+  </div>
 
-    <strong>Total Courses:</strong> <%= totalCourses %><br>
-    <strong>Total Units:</strong> <%= totalUnits %>
+  <!-- COURSES TABLE -->
+  <table class="course-table">
+    <thead>
+      <tr>
+        <th style="width: 25px;">#</th>
+        <th style="width: 90px;">Academic Session</th>
+        <th style="width: 80px;">Course Code</th>
+        <th>Course Title</th>
+        <th style="width: 50px;">Course Units</th>
+        <th style="width: 80px;">Registered As</th>
+      </tr>
+    </thead>
+    <tbody>
+    <% rows.forEach(function(row, idx) { %>
+      <tr>
+        <td><%= idx + 1 %></td>
+        <td><%= session.name %></td>
+        <td><%= row.code %></td>
+        <td class="text-left"><%= row.title %></td>
+        <td><%= row.unit %></td>
+        <td><%= row.reg_type === 'M' ? 'M' : row.reg_type %></td>
+      </tr>
+    <% }); %>
+      <tr class="totals-row">
+        <td colspan="4" class="text-left">
+          Total Units Registered for this <%= semesterLabelFull %>:
+        </td>
+        <td colspan="2"><%= totalUnits %></td>
+      </tr>
+    </tbody>
+  </table>
 
-    <!-- QR CODE -->
-    <div class="qr-bottom">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=<%= encodeURIComponent(qrTargetUrl) %>" />
-        <div><small>Scan to verify</small></div>
+  <!-- SIGNATURES + QR -->
+  <div class="row" style="margin-top: 20px;">
+    <div class="col-xs-8">
+      <div class="signatures">
+        <div class="signature-line">
+          <span class="signature-label"></span>
+          <span class="signature-text">Student's Signature / Date</span>
+        </div>
+        <div class="signature-line">
+          <span class="signature-label"></span>
+          <span class="signature-text">HOD's Sign / Date</span>
+        </div>
+        <div class="signature-line">
+          <span class="signature-label"></span>
+          <span class="signature-text">Bursar's Sign / Date</span>
+        </div>
+      </div>
     </div>
-
-    <!-- SIGNATURES -->
-    <div class="signatures row text-center">
-        <div class="col-xs-4">
-            _______________________________<br>
-            Student's Signature / Date
-        </div>
-
-        <div class="col-xs-4">
-            _______________________________<br>
-            HOD / Date
-        </div>
-
-        <div class="col-xs-4">
-            _______________________________<br>
-            Registrar / Date
-        </div>
+    <div class="col-xs-4">
+      <div class="qr-wrapper">
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<%- encodeURIComponent(qrTargetUrl) %>"
+          alt="QR Code"
+        >
+        <div class="qr-caption">Scan to verify this course form</div>
+      </div>
     </div>
+  </div>
 
+  <!-- FOOTER -->
+  <div class="footer-text">
+    Contact Us (Admin / Tech Support): admin@escohsti-edu.ng | Phone: +(234) 08068430751<br>
+    All Rights Reserved ESCOHSTI, Copyright © <%= session.name %> |
+    Powered by Ekiti State College of Health Sciences and Technology — ICT Unit
+  </div>
 </div>
-
 <script>
+  window.onload = function () {
     window.print();
+  };
 </script>
+<style>
+  /* Watermark container */
+  .watermark-wrapper {
+    position: fixed;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.08; /* VERY faint */
+    z-index: -1;   /* Behind all content */
+    text-align: center;
+    pointer-events: none;
+  }
 
+  .watermark-img {
+    width: 350px;
+    height: auto;
+    opacity: 0.12; /* adjust logo faintness */
+  }
+
+  .watermark-text {
+    margin-top: 10px;
+    font-size: 28px;
+    font-weight: 1700;
+    color: red;
+    opacity: 0.55; /* faint red */
+    letter-spacing: 2px;
+  }
+</style>
+
+<div class="watermark-wrapper">
+  <img src="/public/img/logo.png" class="watermark-img" alt="Watermark Logo">
+  <div class="watermark-text">2025/2026 FIRST SEMESTER STUDENT COURSE FORM</div>
+</div>
+<style>
+  .watermark-wrapper {
+    position: fixed;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .watermark-img {
+    width: 420px;
+    opacity: 0.92;   /* MUCH more visible */
+    filter: grayscale(100%);
+  }
+
+  .watermark-text {
+    margin-top: 10px;
+    font-size: 38px;
+    font-weight: 800;
+    color: rgba(255, 0, 0, 12.28); /* Visible faint red */
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+</style>
+
+<div class="watermark-wrapper">
+  <img src="/public/img/logo.png" class="watermark-img" alt="Watermark Logo">
+  <div class="watermark-text">
+    2025/2026 FIRST SEMESTER STUDENT COURSE FORM
+  </div>
+</div>
 </body>
 </html>

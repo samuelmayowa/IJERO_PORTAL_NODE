@@ -21,10 +21,8 @@ async function getCurrentStudent(req) {
 
 /**
  * Helper: list sessions (or academic sessions).
- * Adapt query to match your sessions table.
  */
 async function getSessions() {
-  // If your table name/columns differ, adjust here.
   const [rows] = await pool.query(
     'SELECT id, name, is_current FROM sessions ORDER BY id DESC',
   );
@@ -66,32 +64,47 @@ async function getRegistrationSummary(studentId, sessionId, semester) {
 }
 
 /**
- * NEW: Helper – read student profile status
- * We use this to gate course registration until profile is COMPLETE.
+ * Fetch extended student profile details for printing.
+ * Data source: student_profiles joined to schools/departments/programmes.
  */
-async function getProfileStatus(userId) {
-  const [rows] = await pool.query(
-    'SELECT status FROM student_profiles WHERE user_id = ? LIMIT 1',
-    [userId],
-  );
-  return rows[0]?.status || null;
+// ---------------------------------------------------------------------
+// Load student's profile (with school / department / programme names)
+// ---------------------------------------------------------------------
+async function getStudentProfile(userId) {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT
+        sp.*,
+        sc.name AS school_name,
+        d.name AS department_name,
+        p.name AS programme_name
+      FROM student_profiles sp
+      LEFT JOIN schools sc
+        ON sc.id = sp.school_id
+      LEFT JOIN departments d
+        ON d.id = sp.department_id
+      LEFT JOIN programmes p
+        ON p.id = sp.programme_id
+      WHERE sp.user_id = ?
+      ORDER BY sp.id DESC
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    return rows[0] || null;
+  } catch (err) {
+    console.error('getStudentProfile error:', err);
+    return null;
+  }
 }
+
 
 /**
  * GET /student/registration
  * Main course registration page
  */
-
-// NEW: Fetch extended student profile details
-async function getStudentProfile(userId) {
-  const [rows] = await pool.query(
-    `SELECT department_id, programme_id, level, photo_path 
-     FROM student_profiles WHERE user_id = ? LIMIT 1`,
-    [userId]
-  );
-  return rows[0] || null;
-}
-
 export async function showCourseRegistrationPage(req, res) {
   try {
     const student = await getCurrentStudent(req);
@@ -111,8 +124,9 @@ export async function showCourseRegistrationPage(req, res) {
       { value: 'SECOND', label: 'Second Semester' },
     ];
 
-    const profileStatus = await getProfileStatus(student.id);
-    const profileComplete = profileStatus === 'COMPLETE';
+    // profile gating removed – everyone can register
+    const profileStatus = 'IGNORED';
+    const profileComplete = true;
 
     return res.render('student/registration', {
       title: 'Course Registration',
@@ -133,7 +147,6 @@ export async function showCourseRegistrationPage(req, res) {
 
 /**
  * GET /student/registration/api/course?code=...&semester=...
- * Look up course for given code & semester.
  */
 export async function apiFindCourseByCode(req, res) {
   try {
@@ -212,7 +225,6 @@ export async function apiFindCourseByCode(req, res) {
 
 /**
  * GET /student/registration/api/list?sessionId=...&semester=...
- * List registered courses for that session/semester.
  */
 export async function apiListRegistrations(req, res) {
   try {
@@ -257,17 +269,7 @@ export async function apiAddCourse(req, res) {
       return res.status(401).json({ ok: false, message: 'Not authenticated.' });
     }
 
-    // --- PROFILE GATE -------------------------------------------------------
-    const profileStatus = await getProfileStatus(student.id);
-    if (profileStatus !== 'COMPLETE') {
-      return res.status(400).json({
-        ok: false,
-        code: 'PROFILE_INCOMPLETE',
-        message:
-          'Your student profile is not yet marked as COMPLETE. Please visit the Bursary with your previous school fee receipts and the Directorate of ICT to regularise your records before registering courses.',
-      });
-    }
-    // -----------------------------------------------------------------------
+    // profile gate REMOVED – everyone allowed to add courses
 
     const { sessionId, semester, courseCode, regType } = req.body;
     if (!sessionId || !semester || !courseCode || !regType) {
@@ -379,7 +381,6 @@ export async function apiAddCourse(req, res) {
 
 /**
  * POST /student/registration/api/remove
- * Body: { sessionId, semester, regId }
  */
 export async function apiRemoveCourse(req, res) {
   try {
@@ -436,7 +437,6 @@ export async function apiRemoveCourse(req, res) {
 
 /**
  * POST /student/registration/api/finish
- * Body: { sessionId, semester }
  */
 export async function apiFinishRegistration(req, res) {
   try {
@@ -527,83 +527,113 @@ export async function apiFinishRegistration(req, res) {
 
 /**
  * GET /student/registration/print?sessionId=...&semester=...&token=...
- * Simple printable HTML page (browser can "Save as PDF")
- * Includes QR code pointing to /verify/course-form/:token (to be implemented later).
+ * Printable HTML page (browser can "Save as PDF")
+ */
+/**
+ * GET /student/registration/print?sessionId=...&semester=...&token=...
+ * Printable HTML page (browser can "Save as PDF")
  */
 export async function showCourseFormPrint(req, res) {
   try {
     const student = await getCurrentStudent(req);
+
     if (!student) {
-      req.flash('error', 'You must be logged in as a student.');
-      return res.redirect('/login');
+      req.flash("error", "Please login.");
+      return res.redirect("/login");
     }
 
     const { sessionId, semester, token } = req.query;
-    if (!sessionId || !semester || !token) {
-      req.flash('error', 'Invalid course form link.');
-      return res.redirect('/student/registration');
-    }
 
-    // NEW: Load extra profile info
+    // Load student profile
     const profile = await getStudentProfile(student.id);
 
-    const [sessionRows] = await pool.query(
-      'SELECT id, name FROM sessions WHERE id = ? LIMIT 1',
-      [Number(sessionId)]
+    // Load import data (REAL programme/department/level)
+    const [importRows] = await pool.query(
+      "SELECT * FROM student_imports WHERE student_email = ? LIMIT 1",
+      [student.username]
     );
+    const importData = importRows[0] || {};
 
-    const session = sessionRows[0] || { name: '' };
+    // Values we need
+    const departmentName =
+      importData.department ||
+      profile?.department_name ||
+      "";
 
+    const programmeName =
+      importData.programme ||
+      profile?.programme_name ||
+      "";
+
+    const studentLevel =
+      importData.student_level ||
+      profile?.level ||
+      "";
+
+    const profilePhone =
+      profile?.phone ||
+      importData.phone ||
+      student.phone ||
+      "";
+
+    // FIX PHOTO URL
+    let photoUrl = null;
+    if (profile?.photo_path) {
+      photoUrl = profile.photo_path.startsWith("/public")
+        ? profile.photo_path
+        : "/public" + profile.photo_path;
+    }
+
+    // Session
+    const [sessionRows] = await pool.query(
+      "SELECT * FROM sessions WHERE id = ? LIMIT 1",
+      [sessionId]
+    );
+    const session = sessionRows[0];
+
+    // Load courses
     const [rows] = await pool.query(
       `
-      SELECT
-        c.code,
-        c.title,
-        c.unit,
-        c.level,
-        c.semester,
-        r.reg_type
+      SELECT c.code, c.title, c.unit, r.reg_type
       FROM student_course_regs r
       JOIN courses c ON c.id = r.course_id
-      WHERE
-        r.student_id = ?
+      WHERE r.student_id = ?
         AND r.session_id = ?
         AND r.semester = ?
         AND r.form_token = ?
         AND r.status = 'SUBMITTED'
-      ORDER BY c.code
-      `,
-      [student.id, Number(sessionId), semester, token]
+      ORDER BY c.code ASC
+    `,
+      [student.id, sessionId, semester, token]
     );
 
-    if (!rows.length) {
-      req.flash('error', 'No submitted course form found for this reference.');
-      return res.redirect('/student/registration');
-    }
+    const totalUnits = rows.reduce((a, r) => a + r.unit, 0);
 
-    const totalUnits = rows.reduce((sum, row) => sum + (row.unit || 0), 0);
-    const totalCourses = rows.length;
-
+    // QR CODE
     const qrTargetUrl = `${req.protocol}://${req.get(
-      'host'
+      "host"
     )}/verify/course-form/${token}`;
 
-    return res.render('student/registration-print', {
-      title: 'Course Registration Form',
+    return res.render("student/registration-print", {
+      layout: false,
+      title: "Course Form",
       student,
       session,
       semester,
       rows,
       totalUnits,
-      totalCourses,
       qrTargetUrl,
 
-      // NEW: extra student info
-      profile
+      // FIXED FIELDS
+      departmentName,
+      programmeName,
+      studentLevel,
+      profilePhone,
+      photoUrl,
     });
   } catch (err) {
-    console.error('showCourseFormPrint error:', err);
-    req.flash('error', 'Error loading course form.');
-    return res.redirect('/student/registration');
+    console.log("PRINT ERROR:", err);
+    res.redirect("/student/registration");
   }
 }
+
