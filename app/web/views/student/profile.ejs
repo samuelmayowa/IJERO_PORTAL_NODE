@@ -1,3 +1,4 @@
+
 <section class="content-header">
   <h1>My Profile</h1>
 </section>
@@ -64,8 +65,13 @@
           </div>
 
           <div class="form-group">
-            <label>Username (Matric / Portal Username)</label>
+            <label>Username (Portal Username / Email)</label>
             <input type="text" class="form-control" value="<%= publicUser.username %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Matriculation Number</label>
+            <input type="text" class="form-control" value="<%= publicUser.matric_number || '' %>" readonly>
           </div>
 
           <div class="form-group">
@@ -90,6 +96,26 @@
           <div class="form-group">
             <label>Email</label>
             <input type="text" class="form-control" value="<%= publicUser.email || '' %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>School</label>
+            <input type="text" class="form-control" value="<%= publicUser.schoolName || '' %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Department</label>
+            <input type="text" class="form-control" value="<%= publicUser.departmentName || '' %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Programme</label>
+            <input type="text" class="form-control" value="<%= publicUser.programmeName || '' %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Level</label>
+            <input type="text" class="form-control" value="<%= publicUser.levelName || '' %>" readonly>
           </div>
         </div>
       </div>
@@ -125,78 +151,6 @@
               <p class="help-block">Recommended: clear passport, max couple of MB.</p>
             </div>
 
-            <!-- School / Department / Programme / Level -->
-            <div class="row">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label>School</label>
-                  <select name="school_id" id="school-select" class="form-control" <%= isComplete ? 'disabled' : '' %>>
-                    <option value="">-- Select School --</option>
-                    <% schools.forEach(function (s) { %>
-                      <option
-                        value="<%= s.id %>"
-                        <%= profile.school_id && profile.school_id === s.id ? 'selected' : '' %>>
-                        <%= s.name %>
-                      </option>
-                    <% }); %>
-                  </select>
-                </div>
-              </div>
-
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label>Department</label>
-                  <select name="department_id" id="department-select" class="form-control" <%= isComplete ? 'disabled' : '' %>>
-                    <option value="">-- Select Department --</option>
-                    <% departments.forEach(function (d) { %>
-                      <option
-                        value="<%= d.id %>"
-                        data-school-id="<%= d.school_id %>"
-                        <%= profile.department_id && profile.department_id === d.id ? 'selected' : '' %>>
-                        <%= d.name %>
-                      </option>
-                    <% }); %>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label>Programme</label>
-                  <select name="programme_id" id="programme-select" class="form-control" <%= isComplete ? 'disabled' : '' %>>
-                    <option value="">-- Select Programme --</option>
-                    <% programmes.forEach(function (p) { %>
-                      <option
-                        value="<%= p.id %>"
-                        data-school-id="<%= p.school_id %>"
-                        data-dept-id="<%= p.department_id %>"
-                        <%= profile.programme_id && profile.programme_id === p.id ? 'selected' : '' %>>
-                        <%= p.name %>
-                      </option>
-                    <% }); %>
-                  </select>
-                </div>
-              </div>
-
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label>Level</label>
-                  <select name="level" class="form-control" <%= isComplete ? 'disabled' : '' %>>
-                    <option value="">-- Select Level --</option>
-                    <% levels.forEach(function (lvl) { %>
-                      <option
-                        value="<%= lvl %>"
-                        <%= profile.level === lvl ? 'selected' : '' %>>
-                        <%= lvl %>
-                      </option>
-                    <% }); %>
-                  </select>
-                </div>
-              </div>
-            </div>
-
             <!-- Contact -->
             <div class="form-group">
               <label>Phone Number</label>
@@ -227,7 +181,8 @@
 
             <hr>
 
-            <h4>Emergency Contact</h4>
+            <!-- Parent / Emergency contact -->
+            <h4>Parent / Guardian (Emergency Contact)</h4>
 
             <div class="form-group">
               <label>Full Name</label>
@@ -349,127 +304,46 @@
 
 <script>
   (function () {
-    var schoolSelect = document.getElementById('school-select');
-    var deptSelect = document.getElementById('department-select');
-    var progSelect = document.getElementById('programme-select');
+    var form = document.getElementById('profileForm');
+    var saveModal = document.getElementById('saveModal');
+    var modalTitle = document.getElementById('modalTitle');
+    var modalMessage = document.getElementById('modalMessage');
+    var modalNote = document.getElementById('modalNote');
+    var modalYesBtn = document.getElementById('modalYesBtn');
+    var modalNoBtn = document.getElementById('modalNoBtn');
 
-    function filterDepartments() {
-      var schoolId = schoolSelect.value;
-      Array.prototype.forEach.call(deptSelect.options, function (opt) {
-        if (!opt.value) return; // skip placeholder
-        var optSchool = opt.getAttribute('data-school-id');
-        opt.style.display = !schoolId || optSchool === schoolId ? '' : 'none';
-      });
+    if (!form) return;
 
-      // clear department if not matching
-      if (deptSelect.value) {
-        var selectedOpt = deptSelect.querySelector('option[value="' + deptSelect.value + '"]');
-        if (selectedOpt && selectedOpt.style.display === 'none') {
-          deptSelect.value = '';
-        }
-      }
-
-      filterProgrammes(); // keep programmes in sync
-    }
-
-    function filterProgrammes() {
-      var schoolId = schoolSelect.value;
-      var deptId = deptSelect.value;
-
-      Array.prototype.forEach.call(progSelect.options, function (opt) {
-        if (!opt.value) return;
-        var optSchool = opt.getAttribute('data-school-id');
-        var optDept = opt.getAttribute('data-dept-id');
-        var matchSchool = !schoolId || optSchool === schoolId;
-        var matchDept = !deptId || optDept === deptId;
-        opt.style.display = matchSchool && matchDept ? '' : 'none';
-      });
-
-      if (progSelect.value) {
-        var selectedOpt = progSelect.querySelector('option[value="' + progSelect.value + '"]');
-        if (selectedOpt && selectedOpt.style.display === 'none') {
-          progSelect.value = '';
-        }
-      }
-    }
-
-    if (schoolSelect && deptSelect && progSelect) {
-      schoolSelect.addEventListener('change', filterDepartments);
-      deptSelect.addEventListener('change', filterProgrammes);
-      // initial filter on load (for existing profile)
-      filterDepartments();
-    }
-
-    // ===== Modal + required fields check + YES/NO confirm =====
-    const form = document.getElementById('profileForm');
-    const modal = document.getElementById('saveModal');
-    const title = document.getElementById('modalTitle');
-    const message = document.getElementById('modalMessage');
-    const note = document.getElementById('modalNote');
-    const yesBtn = document.getElementById('modalYesBtn');
-    const noBtn = document.getElementById('modalNoBtn');
-
-    // If form is locked (profile COMPLETE), do nothing
-    if (!form || form.dataset.locked === 'true') return;
-
+    // Intercept submit to show confirmation modal
     form.addEventListener('submit', function (e) {
-      e.preventDefault(); // stop normal submit
-
-      const requiredFields = [
-        'school_id',
-        'department_id',
-        'programme_id',
-        'level',
-        'phone',
-        'email',
-        'emergency_name',
-        'emergency_phone',
-        'emergency_relationship'
-      ];
-      const missing = [];
-
-      requiredFields.forEach(function (name) {
-        const el = form.querySelector('[name="' + name + '"]');
-        if (el && !el.value.trim()) missing.push(name);
-      });
-
-      // reset handlers every time
-      yesBtn.onclick = null;
-      noBtn.onclick = null;
-
-      if (missing.length > 0) {
-        title.textContent = 'Missing Information';
-        message.innerHTML =
-          'Please fill all required fields before saving:<br><b>' +
-          missing.join(', ') +
-          '</b>';
-        note.style.display = 'none';
-        yesBtn.style.display = 'none';
-        noBtn.textContent = 'OK';
-        modal.style.display = 'flex';
-
-        noBtn.onclick = function () {
-          modal.style.display = 'none';
-        };
-        return;
+      var locked = form.getAttribute('data-locked') === 'true';
+      if (locked) {
+        return; // nothing – should already be disabled
       }
 
-      // Confirmation state
-      title.textContent = 'Are you sure you want to update your profile?';
-      message.textContent = '';
-      note.style.display = 'block';
-      yesBtn.style.display = 'inline-block';
-      noBtn.textContent = 'NO';
-      modal.style.display = 'flex';
+      e.preventDefault();
 
-      noBtn.onclick = function () {
-        modal.style.display = 'none';
-      };
+      modalTitle.textContent = 'Confirm Save';
+      modalMessage.textContent =
+        'Are you sure you want to save your profile information?';
+      modalNote.style.display = 'block';
+      saveModal.style.display = 'flex';
 
-      yesBtn.onclick = function () {
-        modal.style.display = 'none';
+      function closeModal() {
+        saveModal.style.display = 'none';
+        modalYesBtn.removeEventListener('click', onYes);
+        modalNoBtn.removeEventListener('click', onNo);
+      }
+      function onYes() {
+        closeModal();
         form.submit();
-      };
+      }
+      function onNo() {
+        closeModal();
+      }
+
+      modalYesBtn.addEventListener('click', onYes);
+      modalNoBtn.addEventListener('click', onNo);
     });
   })();
 </script>

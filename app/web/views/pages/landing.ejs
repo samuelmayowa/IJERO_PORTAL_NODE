@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/public/css/portal.css" />
   <link rel="icon" href="/public/favicon.ico">
 
-  <!-- Mobile enhancements (non-destructive) -->
+  <!-- Mobile enhancements (non-destructive) + Notice banner styles -->
   <style>
     /* General helpers */
     img { max-width: 100%; height: auto; }
@@ -56,10 +56,7 @@
     }
 
     /* ──────────────────────────────────────────────
-       MOBILE-ONLY tweaks requested
-       - Bigger tiles (login group) + push text down
-       - Bigger info cards
-       - Show college name next to logo
+       MOBILE-ONLY tweaks
        ────────────────────────────────────────────── */
     .brand-name{ display:none; } /* default hidden (tablet/desktop) */
 
@@ -76,15 +73,14 @@
 
       /* LOGIN TILES: taller + push text down so it doesn't overlap chip */
       .tiles .tile{
-        min-height: 170px;              /* increased more than before */
+        min-height: 170px;
         padding: 1.25rem 1.25rem 1rem;
         position: relative;
       }
       .tiles .tile .tile-title{
         display:block;
-        margin-top: 1.35rem;            /* nudge down below the chip */
+        margin-top: 1.35rem;
       }
-      /* If your chip is absolutely positioned at the top, this ensures room */
       .tiles .tile .chip{ margin-top: .15rem; }
 
       /* INFO CARDS: a bit taller for comfortable tap targets */
@@ -93,9 +89,208 @@
         padding: 1rem 1.25rem;
       }
     }
+
+    /* ──────────────────────────────────────────────
+       EKSCOTECH NOTICE OVERLAY
+       ────────────────────────────────────────────── */
+    .notice-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.72);
+      backdrop-filter:blur(3px);
+      -webkit-backdrop-filter:blur(3px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:1.5rem;
+      z-index:9999;
+    }
+    .notice-card{
+      max-width:900px;
+      width:100%;
+      background:#ffffff;
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 22px 45px rgba(0,0,0,0.45);
+      position:relative;
+      animation:notice-slide-up .35s ease-out;
+      font-size:0.95rem;
+    }
+    @keyframes notice-slide-up{
+      from{ transform:translateY(10px); opacity:0; }
+      to{ transform:translateY(0); opacity:1; }
+    }
+
+    .notice-hero{
+      position:relative;
+      padding:1.5rem 2.2rem;
+      color:#fff;
+      background-image:url('/public/img/login-bg.jpg');
+      background-size:cover;
+      background-position:center;
+    }
+    .notice-hero::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(120deg, rgba(0,60,30,0.92), rgba(0,100,60,0.8));
+      mix-blend-mode:multiply;
+    }
+    .notice-hero-inner{
+      position:relative;
+      z-index:1;
+      display:flex;
+      align-items:center;
+      gap:1rem;
+    }
+    .notice-hero-icon{
+      width:54px;
+      height:54px;
+      border-radius:14px;
+      background:rgba(255,255,255,0.14);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.8rem;
+    }
+    .notice-hero-text h2{
+      margin:0;
+      font-size:1.35rem;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+    }
+    .notice-hero-text span{
+      display:block;
+      font-size:.84rem;
+      margin-top:.15rem;
+      opacity:.9;
+    }
+
+    .notice-close{
+      position:absolute;
+      top:.75rem;
+      right:.75rem;
+      border:0;
+      background:rgba(0,0,0,0.35);
+      color:#fff;
+      width:32px;
+      height:32px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:background .15s ease, transform .15s ease;
+    }
+    .notice-close:hover{
+      background:rgba(0,0,0,0.6);
+      transform:scale(1.04);
+    }
+
+    .notice-body{
+      padding:1.75rem 2rem 1.5rem;
+      max-height:70vh;
+      overflow:auto;
+    }
+    .notice-body ol{
+      padding-left:1.1rem;
+      margin:0 0 1rem 0;
+    }
+    .notice-body li{
+      margin-bottom:.4rem;
+      line-height:1.35;
+    }
+    .notice-note{
+      margin-top:.75rem;
+      padding:.85rem 1rem;
+      border-radius:10px;
+      background:#f5faf7;
+      border:1px solid rgba(0,120,60,0.15);
+    }
+    .notice-note strong{
+      display:block;
+      margin-bottom:.25rem;
+    }
+    .notice-footer{
+      margin-top:.75rem;
+      font-size:.86rem;
+      display:flex;
+      justify-content:space-between;
+      gap:.5rem;
+      flex-wrap:wrap;
+      color:#555;
+    }
+    .notice-footer span{
+      font-style:italic;
+      font-weight:600;
+    }
+
+    @media (max-width: 640px){
+      .notice-card{ max-width:100%; }
+      .notice-hero{
+        padding:1.25rem 1.4rem;
+      }
+      .notice-hero-inner{
+        align-items:flex-start;
+      }
+      .notice-hero-text h2{
+        font-size:1.05rem;
+      }
+      .notice-hero-text span{
+        font-size:.78rem;
+      }
+      .notice-body{
+        padding:1.3rem 1.4rem 1.2rem;
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- EKSCOTECH NOTICE OVERLAY -->
+  <div class="notice-overlay" id="ekscotechNotice">
+    <div class="notice-card" role="dialog" aria-modal="true" aria-labelledby="noticeTitle">
+      <button type="button" class="notice-close" id="noticeClose" aria-label="Close notice">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="notice-hero">
+        <div class="notice-hero-inner">
+          <div class="notice-hero-icon">
+            <i class="fa-solid fa-bullhorn"></i>
+          </div>
+          <div class="notice-hero-text">
+            <h2 id="noticeTitle">EKSCOTECH NOTICE BOARD</h2>
+            <span>Important information for all students using this portal.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="notice-body">
+        <ol>
+          <li>Kindly visit the Bursary with your previous school fee payment receipts for proper verification before making use of this portal.</li>
+          <li>Proceed to the Directorate of ICT with the cleared receipt to obtain a unique code required for signing up and accessing the portal.</li>
+          <li>Validate your payments once access is successful.</li>
+          <li>Proceed to the Course Registration page to complete your registration.</li>
+        </ol>
+
+        <div class="notice-note">
+          <strong>First-time portal access:</strong>
+          Click <em>Student Login</em>, then select <em>Register</em>. Enter the <em>Access Code</em> and <em>Email</em> issued by the ICT Directorate, confirm that your details are correct, and complete your registration. Afterwards, log in to your dashboard to complete your profile and access all portal features, including course registration.
+        </div>
+
+        <div class="notice-note" style="margin-top:.75rem;background:#fff9f6;border-color:rgba(220,100,50,0.25);">
+          <strong>Payment reminder:</strong>
+          Late payment attracts a ₦5,000 penalty, which will be added automatically to your portal charges.
+        </div>
+
+        <div class="notice-footer">
+          <div>For any complaints or assistance, kindly visit the Directorate of ICT.</div>
+          <div>Signed: <span>Directorate of ICT</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="wrapper" class="clearfix">
 
     <!-- Header Top -->
@@ -346,7 +541,7 @@
     </footer>
   </div>
 
-  <!-- Tiny script for mobile menu + submenus -->
+  <!-- Tiny script for mobile menu + submenus + notice close -->
   <script>
     (function () {
       var nav = document.querySelector('.nav');
@@ -387,6 +582,24 @@
           if (toggle) toggle.setAttribute('aria-expanded', 'false');
           nav.querySelectorAll('.has-dd.open').forEach(function (li) { li.classList.remove('open'); });
         }
+      });
+    })();
+
+    // Notice overlay close behaviour
+    (function () {
+      var overlay = document.getElementById('ekscotechNotice');
+      var closeBtn = document.getElementById('noticeClose');
+      if (!overlay || !closeBtn) return;
+
+      function hideNotice() {
+        overlay.style.display = 'none';
+      }
+
+      closeBtn.addEventListener('click', hideNotice);
+
+      // Optional: close if user clicks dark backdrop
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) hideNotice();
       });
     })();
   </script>

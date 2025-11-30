@@ -45,22 +45,76 @@ export async function loadStudentProfile(userId) {
 }
 
 // Helper: load public user + derive email from username (since DB has no email column)
+// Also hydrate school/department/programme/level from student_imports (uploaded Excel).
 async function getPublicUserWithEmail(userId) {
+  // Base public_users data (now also pulling matric_number)
   const [[publicUser]] = await pool.query(
-    `SELECT id, role, first_name, middle_name, last_name,
-            dob, state_of_origin, lga, phone, username
+    `SELECT
+       id,
+       role,
+       first_name,
+       middle_name,
+       last_name,
+       dob,
+       state_of_origin,
+       lga,
+       phone,
+       username,
+       matric_number
      FROM public_users
      WHERE id = ?`,
     [userId]
   );
 
+  // Derive email from username (only if it really looks like an email)
   let email = null;
   if (publicUser.username && publicUser.username.includes('@')) {
-    // registration uses username as email for students
     email = publicUser.username;
   }
+  publicUser.email = email;
 
-  publicUser.email = email; // attach for views
+  // Default academic fields (so EJS doesn't blow up if nothing is found)
+  publicUser.schoolName = null;
+  publicUser.departmentName = null;
+  publicUser.programmeName = null;
+  publicUser.levelName = null;
+
+  // Try to pull academic data from student_imports.
+  // We match by email and/or matric_number so either one can work.
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT
+          school,
+          department,
+          programme,
+          student_level
+        FROM student_imports
+        WHERE
+          student_email = ? OR
+          matric_number = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [
+        email || null,
+        publicUser.matric_number || null
+      ]
+    );
+
+    if (rows.length) {
+      const src = rows[0];
+
+      publicUser.schoolName      = src.school || null;
+      publicUser.departmentName  = src.department || null;
+      publicUser.programmeName   = src.programme || null;
+      publicUser.levelName       = src.student_level || null;
+    }
+  } catch (err) {
+    console.error('Error loading academic info from student_imports:', err);
+    // we already set safe null defaults above
+  }
+
   return publicUser;
 }
 
@@ -76,21 +130,8 @@ export async function showStudentProfilePage(req, res, next) {
     // registration/basic data (read-only section)
     const publicUser = await getPublicUserWithEmail(student.id);
 
+    // profile data (phone, emergency contact, photo, status, etc.)
     const profile = await getOrCreateProfile(student.id);
-
-    // dropdown data
-    const [schools] = await pool.query(
-      'SELECT id, name FROM schools ORDER BY name ASC'
-    );
-    const [departments] = await pool.query(
-      'SELECT id, school_id, name FROM departments ORDER BY name ASC'
-    );
-    const [programmes] = await pool.query(
-      'SELECT id, school_id, department_id, name FROM programmes ORDER BY name ASC'
-    );
-
-    // simple level list
-    const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
     const isComplete = profile.status === 'COMPLETE';
 
@@ -102,10 +143,6 @@ export async function showStudentProfilePage(req, res, next) {
       csrfToken,
       publicUser,
       profile,
-      schools,
-      departments,
-      programmes,
-      levels,
       isComplete
     });
   } catch (err) {
@@ -135,10 +172,6 @@ export async function updateStudentProfile(req, res, next) {
     }
 
     const {
-      school_id,
-      department_id,
-      programme_id,
-      level,
       phone,
       emergency_name,
       emergency_address,
@@ -150,36 +183,34 @@ export async function updateStudentProfile(req, res, next) {
 
     let photoPath = currentProfile.photo_path || null;
 
-    // Handle passport upload
     // Handle passport upload (save file + DB reference)
-if (req.file) {
-  // multer stored file under app/web/public/uploads/students
-  photoPath = `/uploads/students/${req.file.filename}`;
+    if (req.file) {
+      // multer stored file under app/web/public/uploads/students
+      photoPath = `/uploads/students/${req.file.filename}`;
 
-  // Save or update record in student_photos table
-  await pool.query(
-    `INSERT INTO student_photos (student_id, photo_type, file_path)
-     VALUES (?, 'PROFILE', ?)
-     ON DUPLICATE KEY UPDATE file_path = VALUES(file_path), uploaded_at = NOW()`,
-    [student.id, photoPath]
-  );
+      // Save or update record in student_photos table
+      await pool.query(
+        `INSERT INTO student_photos (student_id, photo_type, file_path)
+         VALUES (?, 'PROFILE', ?)
+         ON DUPLICATE KEY UPDATE file_path = VALUES(file_path), uploaded_at = NOW()`,
+        [student.id, photoPath]
+      );
 
-  // delete old file from disk only if changed
-  if (currentProfile.photo_path && currentProfile.photo_path !== photoPath) {
-    const oldFsPath = path.join(
-      publicRoot,
-      currentProfile.photo_path.replace(/^\//, '')
-    );
-    if (fs.existsSync(oldFsPath)) {
-      try {
-        fs.unlinkSync(oldFsPath);
-      } catch {
-        // ignore unlink errors
+      // delete old file from disk only if changed
+      if (currentProfile.photo_path && currentProfile.photo_path !== photoPath) {
+        const oldFsPath = path.join(
+          publicRoot,
+          currentProfile.photo_path.replace(/^\//, '')
+        );
+        if (fs.existsSync(oldFsPath)) {
+          try {
+            fs.unlinkSync(oldFsPath);
+          } catch {
+            // ignore unlink errors
+          }
+        }
       }
     }
-  }
-}
-
 
     // Load public user to know existing email (via username)
     const publicUser = await getPublicUserWithEmail(student.id);
@@ -189,12 +220,10 @@ if (req.file) {
     // final email we consider "on file"
     const effectiveEmail = existingEmail || submittedEmail;
 
-    // determine COMPLETE vs INCOMPLETE (email is now required)
+    // determine COMPLETE vs INCOMPLETE
+    // (school/department/programme/level now come from uploaded data,
+    // so we only insist on contact + email here)
     const isComplete =
-      school_id &&
-      department_id &&
-      programme_id &&
-      level &&
       phone &&
       emergency_name &&
       emergency_phone &&
@@ -204,14 +233,10 @@ if (req.file) {
     // once it becomes COMPLETE, we keep that status forever for this route
     const status = isComplete ? 'COMPLETE' : 'INCOMPLETE';
 
-    // Simple UPDATE
+    // UPDATE only contact + photo + status
     await pool.query(
       `UPDATE student_profiles
-       SET school_id = ?,
-           department_id = ?,
-           programme_id = ?,
-           level = ?,
-           phone = ?,
+       SET phone = ?,
            emergency_name = ?,
            emergency_address = ?,
            emergency_email = ?,
@@ -221,10 +246,6 @@ if (req.file) {
            status = ?
        WHERE user_id = ?`,
       [
-        school_id || null,
-        department_id || null,
-        programme_id || null,
-        level || null,
         phone || null,
         emergency_name || null,
         emergency_address || null,
@@ -261,8 +282,8 @@ if (req.file) {
     // Refresh latest photo from DB (ensures session always has it)
     const [photoRows] = await pool.query(
       `SELECT file_path FROM student_photos
-      WHERE student_id = ? AND photo_type = 'PROFILE'
-      ORDER BY uploaded_at DESC LIMIT 1`,
+       WHERE student_id = ? AND photo_type = 'PROFILE'
+       ORDER BY uploaded_at DESC LIMIT 1`,
       [student.id]
     );
 
