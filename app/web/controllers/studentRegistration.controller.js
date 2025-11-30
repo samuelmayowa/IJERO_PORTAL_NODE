@@ -3,6 +3,8 @@
 import crypto from 'crypto';
 import pool from '../../core/db.js';
 
+const MAX_UNITS_PER_SEMESTER = 35;
+
 /**
  * Helper: current logged-in student (public_users row)
  */
@@ -64,9 +66,32 @@ async function getRegistrationSummary(studentId, sessionId, semester) {
 }
 
 /**
+ * NEW: Helper – read student profile status
+ * We use this to gate course registration until profile is COMPLETE.
+ */
+async function getProfileStatus(userId) {
+  const [rows] = await pool.query(
+    'SELECT status FROM student_profiles WHERE user_id = ? LIMIT 1',
+    [userId],
+  );
+  return rows[0]?.status || null;
+}
+
+/**
  * GET /student/registration
  * Main course registration page
  */
+
+// NEW: Fetch extended student profile details
+async function getStudentProfile(userId) {
+  const [rows] = await pool.query(
+    `SELECT department_id, programme_id, level, photo_path 
+     FROM student_profiles WHERE user_id = ? LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
 export async function showCourseRegistrationPage(req, res) {
   try {
     const student = await getCurrentStudent(req);
@@ -86,12 +111,17 @@ export async function showCourseRegistrationPage(req, res) {
       { value: 'SECOND', label: 'Second Semester' },
     ];
 
-    res.render('student/registration', {
+    const profileStatus = await getProfileStatus(student.id);
+    const profileComplete = profileStatus === 'COMPLETE';
+
+    return res.render('student/registration', {
       title: 'Course Registration',
       student,
       sessions,
       semesters,
       defaultSessionId: defaultSession ? defaultSession.id : null,
+      profileStatus,
+      profileComplete,
       csrfToken: req.csrfToken(),
     });
   } catch (err) {
@@ -102,24 +132,28 @@ export async function showCourseRegistrationPage(req, res) {
 }
 
 /**
- * GET /student/registration/api/course?code=...&sessionId=...&semester=...
- * Look up a course by code, ensuring semester matches
+ * GET /student/registration/api/course?code=...&semester=...
+ * Look up course for given code & semester.
  */
 export async function apiFindCourseByCode(req, res) {
   try {
     const student = await getCurrentStudent(req);
-    if (!student) return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    if (!student) {
+      return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    }
 
-    const { code, semester } = req.query;
-    if (!code || !semester) {
+    const codeRaw = (req.query.code || '').trim();
+    const semester = (req.query.semester || '').trim().toUpperCase();
+
+    if (!codeRaw || !semester) {
       return res
         .status(400)
         .json({ ok: false, message: 'Course code and semester are required.' });
     }
 
-    const trimmedCode = code.trim().toUpperCase();
+    const code = codeRaw.toUpperCase();
 
-    const [courses] = await pool.query(
+    const [rows] = await pool.query(
       `
       SELECT
         c.id,
@@ -128,27 +162,29 @@ export async function apiFindCourseByCode(req, res) {
         c.unit,
         c.level,
         c.semester,
-        c.school_id,
-        c.department_id,
-        c.lecturer_id,
-        s.full_name AS lecturer_name
+        COALESCE(st.full_name, 'Not Assigned') AS lecturer
       FROM courses c
-      LEFT JOIN staff s ON s.id = c.lecturer_id
+      LEFT JOIN course_assignments ca
+        ON ca.course_id = c.id
+      LEFT JOIN staff st
+        ON st.id = ca.staff_id
       WHERE c.code = ?
       LIMIT 1
       `,
-      [trimmedCode],
+      [code],
     );
 
-    const course = courses[0];
-    if (!course) {
-      return res
-        .status(404)
-        .json({ ok: false, message: `No course found with code ${trimmedCode}.` });
+    if (!rows.length) {
+      return res.json({
+        ok: false,
+        message: `No course found with code ${code}.`,
+      });
     }
 
+    const course = rows[0];
+
     if (course.semester !== semester) {
-      return res.status(400).json({
+      return res.json({
         ok: false,
         message: `This course belongs to ${course.semester.toLowerCase()} semester.`,
       });
@@ -163,23 +199,27 @@ export async function apiFindCourseByCode(req, res) {
         unit: course.unit,
         level: course.level,
         semester: course.semester,
-        lecturer: course.lecturer_name || 'N/A',
+        lecturer: course.lecturer,
       },
     });
   } catch (err) {
     console.error('apiFindCourseByCode error:', err);
-    return res.status(500).json({ ok: false, message: 'Error finding course.' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error looking up course.' });
   }
 }
 
 /**
  * GET /student/registration/api/list?sessionId=...&semester=...
- * Return courses already registered for that session/semester
+ * List registered courses for that session/semester.
  */
 export async function apiListRegistrations(req, res) {
   try {
     const student = await getCurrentStudent(req);
-    if (!student) return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    if (!student) {
+      return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    }
 
     const { sessionId, semester } = req.query;
     if (!sessionId || !semester) {
@@ -188,11 +228,8 @@ export async function apiListRegistrations(req, res) {
         .json({ ok: false, message: 'Session and semester are required.' });
     }
 
-    const { rows, totalUnits, totalCourses, isLocked } = await getRegistrationSummary(
-      student.id,
-      Number(sessionId),
-      semester,
-    );
+    const { rows, totalUnits, totalCourses, isLocked } =
+      await getRegistrationSummary(student.id, Number(sessionId), semester);
 
     return res.json({
       ok: true,
@@ -203,7 +240,9 @@ export async function apiListRegistrations(req, res) {
     });
   } catch (err) {
     console.error('apiListRegistrations error:', err);
-    return res.status(500).json({ ok: false, message: 'Error loading registrations.' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error loading registrations.' });
   }
 }
 
@@ -214,7 +253,21 @@ export async function apiListRegistrations(req, res) {
 export async function apiAddCourse(req, res) {
   try {
     const student = await getCurrentStudent(req);
-    if (!student) return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    if (!student) {
+      return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    }
+
+    // --- PROFILE GATE -------------------------------------------------------
+    const profileStatus = await getProfileStatus(student.id);
+    if (profileStatus !== 'COMPLETE') {
+      return res.status(400).json({
+        ok: false,
+        code: 'PROFILE_INCOMPLETE',
+        message:
+          'Your student profile is not yet marked as COMPLETE. Please visit the Bursary with your previous school fee receipts and the Directorate of ICT to regularise your records before registering courses.',
+      });
+    }
+    // -----------------------------------------------------------------------
 
     const { sessionId, semester, courseCode, regType } = req.body;
     if (!sessionId || !semester || !courseCode || !regType) {
@@ -234,9 +287,10 @@ export async function apiAddCourse(req, res) {
     );
     const course = courses[0];
     if (!course) {
-      return res
-        .status(404)
-        .json({ ok: false, message: `No course found with code ${trimmedCode}.` });
+      return res.status(404).json({
+        ok: false,
+        message: `No course found with code ${trimmedCode}.`,
+      });
     }
 
     if (course.semester !== semester) {
@@ -260,12 +314,12 @@ export async function apiAddCourse(req, res) {
       });
     }
 
-    // Enforce 35 units max per semester
+    // Enforce max units per semester
     const newTotalUnits = totalUnits + (course.unit || 0);
-    if (newTotalUnits > 35) {
+    if (newTotalUnits > MAX_UNITS_PER_SEMESTER) {
       return res.status(400).json({
         ok: false,
-        message: `You cannot register more than 35 units. Current: ${totalUnits}, course: ${course.unit}.`,
+        message: `You cannot register more than ${MAX_UNITS_PER_SEMESTER} units. Current: ${totalUnits}, course: ${course.unit}.`,
       });
     }
 
@@ -274,7 +328,10 @@ export async function apiAddCourse(req, res) {
       `
       SELECT id
       FROM student_course_regs
-      WHERE student_id = ? AND session_id = ? AND semester = ? AND course_id = ?
+      WHERE student_id = ?
+        AND session_id = ?
+        AND semester = ?
+        AND course_id = ?
       LIMIT 1
       `,
       [student.id, Number(sessionId), semester, course.id],
@@ -327,7 +384,9 @@ export async function apiAddCourse(req, res) {
 export async function apiRemoveCourse(req, res) {
   try {
     const student = await getCurrentStudent(req);
-    if (!student) return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    if (!student) {
+      return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    }
 
     const { sessionId, semester, regId } = req.body;
     if (!sessionId || !semester || !regId) {
@@ -352,7 +411,10 @@ export async function apiRemoveCourse(req, res) {
     await pool.query(
       `
       DELETE FROM student_course_regs
-      WHERE id = ? AND student_id = ? AND session_id = ? AND semester = ?
+      WHERE id = ?
+        AND student_id = ?
+        AND session_id = ?
+        AND semester = ?
       `,
       [Number(regId), student.id, Number(sessionId), semester],
     );
@@ -366,7 +428,9 @@ export async function apiRemoveCourse(req, res) {
     return res.json({ ok: true, ...summary });
   } catch (err) {
     console.error('apiRemoveCourse error:', err);
-    return res.status(500).json({ ok: false, message: 'Error removing course.' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error removing course.' });
   }
 }
 
@@ -377,7 +441,9 @@ export async function apiRemoveCourse(req, res) {
 export async function apiFinishRegistration(req, res) {
   try {
     const student = await getCurrentStudent(req);
-    if (!student) return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    if (!student) {
+      return res.status(401).json({ ok: false, message: 'Not authenticated.' });
+    }
 
     const { sessionId, semester } = req.body;
     if (!sessionId || !semester) {
@@ -393,15 +459,16 @@ export async function apiFinishRegistration(req, res) {
     );
 
     if (!summary.totalCourses) {
-      return res
-        .status(400)
-        .json({ ok: false, message: 'You have not registered any courses yet.' });
-    }
-
-    if (summary.totalUnits > 35) {
       return res.status(400).json({
         ok: false,
-        message: `Total units (${summary.totalUnits}) cannot exceed 35.`,
+        message: 'You have not registered any courses yet.',
+      });
+    }
+
+    if (summary.totalUnits > MAX_UNITS_PER_SEMESTER) {
+      return res.status(400).json({
+        ok: false,
+        message: `Total units (${summary.totalUnits}) cannot exceed ${MAX_UNITS_PER_SEMESTER}.`,
       });
     }
 
@@ -411,7 +478,9 @@ export async function apiFinishRegistration(req, res) {
         `
         SELECT form_token
         FROM student_course_regs
-        WHERE student_id = ? AND session_id = ? AND semester = ?
+        WHERE student_id = ?
+          AND session_id = ?
+          AND semester = ?
         LIMIT 1
         `,
         [student.id, Number(sessionId), semester],
@@ -435,7 +504,9 @@ export async function apiFinishRegistration(req, res) {
       `
       UPDATE student_course_regs
       SET status = 'SUBMITTED', form_token = ?
-      WHERE student_id = ? AND session_id = ? AND semester = ?
+      WHERE student_id = ?
+        AND session_id = ?
+        AND semester = ?
       `,
       [token, student.id, Number(sessionId), semester],
     );
@@ -448,7 +519,9 @@ export async function apiFinishRegistration(req, res) {
     });
   } catch (err) {
     console.error('apiFinishRegistration error:', err);
-    return res.status(500).json({ ok: false, message: 'Error finishing registration.' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error finishing registration.' });
   }
 }
 
@@ -471,10 +544,14 @@ export async function showCourseFormPrint(req, res) {
       return res.redirect('/student/registration');
     }
 
+    // NEW: Load extra profile info
+    const profile = await getStudentProfile(student.id);
+
     const [sessionRows] = await pool.query(
       'SELECT id, name FROM sessions WHERE id = ? LIMIT 1',
-      [Number(sessionId)],
+      [Number(sessionId)]
     );
+
     const session = sessionRows[0] || { name: '' };
 
     const [rows] = await pool.query(
@@ -496,7 +573,7 @@ export async function showCourseFormPrint(req, res) {
         AND r.status = 'SUBMITTED'
       ORDER BY c.code
       `,
-      [student.id, Number(sessionId), semester, token],
+      [student.id, Number(sessionId), semester, token]
     );
 
     if (!rows.length) {
@@ -508,10 +585,10 @@ export async function showCourseFormPrint(req, res) {
     const totalCourses = rows.length;
 
     const qrTargetUrl = `${req.protocol}://${req.get(
-      'host',
+      'host'
     )}/verify/course-form/${token}`;
 
-    res.render('student/registration-print', {
+    return res.render('student/registration-print', {
       title: 'Course Registration Form',
       student,
       session,
@@ -520,6 +597,9 @@ export async function showCourseFormPrint(req, res) {
       totalUnits,
       totalCourses,
       qrTargetUrl,
+
+      // NEW: extra student info
+      profile
     });
   } catch (err) {
     console.error('showCourseFormPrint error:', err);

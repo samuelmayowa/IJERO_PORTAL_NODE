@@ -1,171 +1,278 @@
 <!-- app/web/views/student/registration.ejs -->
 
-<div class="content-wrapper">
-  <section class="content-header">
-    <h1>Course Registration</h1>
-  </section>
+<section class="content-header">
+  <h1>Course Registration</h1>
+</section>
 
-  <section class="content">
+<section class="content">
 
-    <% if (typeof error !== 'undefined' && error) { %>
-      <div class="alert alert-danger"><%= error %></div>
-    <% } %>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger alert-dismissible">
+      <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+      <%= error %>
+    </div>
+  <% } %>
 
-    <% if (typeof success !== 'undefined' && success) { %>
-      <div class="alert alert-success"><%= success %></div>
-    <% } %>
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success alert-dismissible">
+      <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+      <%= success %>
+    </div>
+  <% } %>
 
-    <div class="row">
-      <div class="col-md-3">
-        <div class="small-box bg-aqua">
-          <div class="inner">
-            <h3 id="cr-total-courses">0</h3>
-            <p>Total Courses</p>
-          </div>
-          <div class="icon">
-            <i class="fa fa-book"></i>
-          </div>
+  <div class="row" style="margin-bottom:15px;">
+    <div class="col-md-3">
+      <div class="small-box bg-blue">
+        <div class="inner">
+          <h3 id="cr-total-courses">0</h3>
+          <p>Total Registered Course(s)</p>
         </div>
-      </div>
-      <div class="col-md-3">
-        <div class="small-box bg-green">
-          <div class="inner">
-            <h3 id="cr-total-units">0</h3>
-            <p>Total Units (Max 35)</p>
-          </div>
-          <div class="icon">
-            <i class="fa fa-balance-scale"></i>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="callout callout-info" style="margin-top: 5px;">
-          <h4>Note</h4>
-          <p>
-            Select the <strong>Academic Session</strong> and <strong>Semester</strong> first,
-            then register your courses for that semester. Maximum allowed is
-            <strong>35 units</strong> per semester.
-          </p>
+        <div class="icon">
+          <i class="fa fa-book"></i>
         </div>
       </div>
     </div>
-
-    <!-- Filters -->
-    <div class="box box-primary">
-      <div class="box-header with-border">
-        <h3 class="box-title">Step 1 &mdash; Select Session &amp; Semester</h3>
-      </div>
-      <div class="box-body">
-        <form id="cr-filter-form" class="form-inline">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-
-          <div class="form-group" style="margin-right: 15px;">
-            <label for="cr-session" class="control-label">Academic Session</label>
-            <select id="cr-session" class="form-control" style="min-width: 220px;">
-              <option value="">-- Select Session --</option>
-              <% sessions.forEach(function (s) { %>
-                <option value="<%= s.id %>" <%= (defaultSessionId && s.id === defaultSessionId) ? 'selected' : '' %>>
-                  <%= s.name %> <%= (s.is_current === 'YES' || s.is_current === 1) ? '(Current)' : '' %>
-                </option>
-              <% }); %>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-right: 15px;">
-            <label for="cr-semester" class="control-label">Semester</label>
-            <select id="cr-semester" class="form-control">
-              <option value="">-- Select Semester --</option>
-              <% semesters.forEach(function (sem) { %>
-                <option value="<%= sem.value %>"><%= sem.label %></option>
-              <% }); %>
-            </select>
-          </div>
-
-          <button type="button" id="cr-load-btn" class="btn btn-primary">
-            <i class="fa fa-refresh"></i> Load / Reset
-          </button>
-        </form>
+    <div class="col-md-3">
+      <div class="small-box bg-green">
+        <div class="inner">
+          <h3 id="cr-total-units">0</h3>
+          <p>Total Units Registered</p>
+        </div>
+        <div class="icon">
+          <i class="fa fa-balance-scale"></i>
+        </div>
       </div>
     </div>
-
-    <!-- Course entry -->
-    <div class="box box-success">
-      <div class="box-header with-border">
-        <h3 class="box-title">Step 2 &mdash; Add Courses</h3>
-      </div>
-      <div class="box-body">
-
-        <form id="cr-add-form" class="form-inline">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-
-          <div class="form-group" style="margin-right: 10px;">
-            <label for="cr-course-code" class="control-label">Course Code</label>
-            <input type="text" id="cr-course-code" class="form-control" placeholder="e.g. GST101" style="width: 120px;">
-          </div>
-
-          <button type="button" id="cr-find-course-btn" class="btn btn-info" style="margin-right: 10px;">
-            <i class="fa fa-search"></i> Fetch
-          </button>
-
-          <div class="form-group" style="margin-right: 10px;">
-            <label for="cr-reg-type" class="control-label">Type</label>
-            <select id="cr-reg-type" class="form-control">
-              <option value="MAIN">Main</option>
-              <option value="ELECTIVE">Elective</option>
-            </select>
-          </div>
-
-          <button type="button" id="cr-add-course-btn" class="btn btn-success" disabled>
-            <i class="fa fa-plus"></i> Add Course
-          </button>
-
-          <span id="cr-course-info" class="text-muted" style="margin-left: 15px;"></span>
-        </form>
-
+    <div class="col-md-6">
+      <div class="callout callout-info" style="margin-top: 5px;">
+        <h4>Note</h4>
+        <p>
+          Select the <strong>Academic Session</strong> and <strong>Semester</strong> first,
+          then register your courses for that semester.
+        </p>
+        <p>
+          <strong style="color: red;">Status will show as DRAFT until you click the Submit button</strong>
+        </p>
       </div>
     </div>
+  </div>
 
-    <!-- Registered courses table -->
-    <div class="box box-default">
-      <div class="box-header with-border">
-        <h3 class="box-title">Registered Courses</h3>
+  <!-- Filters -->
+  <div class="box box-primary" style="margin-bottom:20px;">
+    <div class="box-header with-border">
+      <h3 class="box-title">Step 1 &mdash; Select Session &amp; Semester</h3>
+    </div>
+    <div class="box-body">
+      <form id="cr-filter-form" class="form-inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="form-group" style="margin-right: 15px;">
+          <label for="cr-session" class="control-label">Academic Session</label>
+          <select id="cr-session" class="form-control" style="min-width: 220px;">
+            <option value="">-- Select Session --</option>
+            <% sessions.forEach(function (s) { %>
+              <option value="<%= s.id %>" <%= (defaultSessionId && s.id === defaultSessionId) ? 'selected' : '' %>>
+                <%= s.name %> <%= (s.is_current === 'YES' || s.is_current === 1) ? '(Current)' : '' %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-right: 15px;">
+          <label for="cr-semester" class="control-label">Semester</label>
+          <select id="cr-semester" class="form-control">
+            <option value="">-- Select Semester --</option>
+            <% semesters.forEach(function (sem) { %>
+              <option value="<%= sem.value %>"><%= sem.label %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <button type="button" id="cr-load-btn" class="btn btn-primary">
+          <i class="fa fa-refresh"></i> Load / Reset
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Course entry -->
+  <div class="box box-success" style="margin-bottom:20px;">
+    <div class="box-header with-border">
+      <h3 class="box-title">Step 2 &mdash; Register Courses</h3>
+    </div>
+    <div class="box-body">
+
+      <form id="cr-add-form" class="form-inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="form-group" style="margin-right: 10px;">
+          <label for="cr-course-code" class="control-label">Course Code</label>
+          <input type="text"
+                 id="cr-course-code"
+                 class="form-control"
+                 placeholder="e.g. GST101"
+                 style="width: 120px;">
+        </div>
+
+        <button type="button"
+                id="cr-find-course-btn"
+                class="btn btn-info"
+                style="margin-right: 10px;">
+          <i class="fa fa-search"></i> Fetch
+        </button>
+
+        <div class="form-group" style="margin-right: 10px;">
+          <label for="cr-reg-type" class="control-label">Type</label>
+          <select id="cr-reg-type" class="form-control">
+            <option value="MAIN">Main</option>
+            <option value="ELECTIVE">Elective</option>
+          </select>
+        </div>
+
+        <button type="button"
+                id="cr-add-course-btn"
+                class="btn btn-success"
+                disabled>
+          <i class="fa fa-plus"></i> Register Course
+        </button>
+
+        <span id="cr-course-info"
+              class="text-muted"
+              style="margin-left: 15px;"></span>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Registered courses table -->
+  <div class="box box-default">
+    <div class="box-header with-border">
+      <h3 class="box-title">Registered Courses</h3>
+    </div>
+    <div class="box-body table-responsive">
+      <table class="table table-bordered table-striped" id="cr-courses-table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">#</th>
+            <th>Code</th>
+            <th>Title</th>
+            <th style="width: 60px;">Unit</th>
+            <th style="width: 90px;">Level</th>
+            <th style="width: 110px;">Semester</th>
+            <th style="width: 90px;">Type</th>
+            <th style="width: 80px;">Status</th>
+            <th style="width: 80px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr id="cr-empty-row">
+            <td colspan="9" class="text-center text-muted">
+              <strong style="color: red;">To Print</strong> Please repeat the registration process by selecting session and semester,
+              this will populate your registered courses for that semester.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SINGLE, CLEAN FOOTER -->
+    <div class="box-footer text-right">
+      <!-- GREEN SUBMIT BUTTON -->
+      <button type="button"
+              id="cr-submit-btn"
+              class="btn btn-lg btn-success"
+              disabled>
+        <i class="fa fa-check-circle"></i> Submit
+      </button>
+
+      <!-- BLUE PRINT BUTTON (hidden until submitted) -->
+      <button type="button"
+              id="cr-print-btn"
+              class="btn btn-lg btn-primary"
+              style="display:none;">
+        <i class="fa fa-print"></i> Print / Download
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     PROFILE NOT COMPLETE MODAL
+     ========================================================= -->
+<div class="modal fade" id="crProfileIncompleteModal" tabindex="-1">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <button type="button" class="close" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+        <h4 class="modal-title">
+          <i class="fa fa-exclamation-triangle"></i> Profile Not Complete
+        </h4>
       </div>
-      <div class="box-body table-responsive">
-        <table class="table table-bordered table-striped" id="cr-courses-table">
-          <thead>
-            <tr>
-              <th style="width: 40px;">#</th>
-              <th>Code</th>
-              <th>Title</th>
-              <th style="width: 60px;">Unit</th>
-              <th style="width: 90px;">Level</th>
-              <th style="width: 110px;">Semester</th>
-              <th style="width: 90px;">Type</th>
-              <th style="width: 80px;">Status</th>
-              <th style="width: 80px;">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr id="cr-empty-row">
-              <td colspan="9" class="text-center text-muted">
-                Select session and semester, then start adding courses.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="modal-body">
+        <p>
+          Your student profile is not yet marked as <strong>COMPLETE</strong>.
+        </p>
+        <p>
+          Please visit the <strong>ICT Directorate</strong> and <strong>Bursary</strong>
+          to confirm that your payments and biodata are fully updated before
+          registering courses on this portal.
+        </p>
       </div>
-      <div class="box-footer text-right">
-        <button type="button" id="cr-finish-btn" class="btn btn-lg btn-primary" disabled>
-          <i class="fa fa-print"></i> Finish &amp; Print Course Form
+      <div class="modal-footer">
+        <button class="btn btn-default" data-dismiss="modal">Okay, got it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     SUBMIT CONFIRMATION MODAL
+     ========================================================= -->
+<div class="modal fade" id="crFinishModal" tabindex="-1">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-primary">
+        <button type="button" class="close" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+        <h4 class="modal-title">
+          <i class="fa fa-check-circle"></i> Confirm Course Registration
+        </h4>
+      </div>
+      <div class="modal-body">
+        <p>
+          You have registered
+          <strong><span id="cr-finish-total-courses">0</span></strong>
+          course(s) with a total of
+          <strong><span id="cr-finish-total-units">0</span></strong>
+          unit(s).
+        </p>
+        <p>
+          Are you sure you want to submit this registration?
+        </p>
+        <p>
+          IMPORTANT: Once submitted for this session/semester, changes can no longer be made.
+          Please confirm your courses carefully.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" data-dismiss="modal">No, go back</button>
+        <button class="btn btn-primary" id="cr-finish-confirm-btn">
+          Yes, Submit
         </button>
       </div>
     </div>
-  </section>
+  </div>
 </div>
 
 <script>
   (function () {
     const csrfToken = '<%= csrfToken %>';
+
+    <% const _profileComplete = (typeof profileComplete !== 'undefined' ? profileComplete : true); %>
+    const profileComplete = <%= _profileComplete ? 'true' : 'false' %> === 'true';
 
     const $session   = document.getElementById('cr-session');
     const $semester  = document.getElementById('cr-semester');
@@ -182,24 +289,33 @@
 
     const $totalCoursesEl = document.getElementById('cr-total-courses');
     const $totalUnitsEl   = document.getElementById('cr-total-units');
-    const $finishBtn      = document.getElementById('cr-finish-btn');
 
-    let currentCourse = null; // holds last fetched course
+    const $submitBtn = document.getElementById('cr-submit-btn');
+    const $printBtn  = document.getElementById('cr-print-btn');
+
+    const $finishModal    = document.getElementById('crFinishModal');
+    const $finishTotalCoursesSpan = document.getElementById('cr-finish-total-courses');
+    const $finishTotalUnitsSpan   = document.getElementById('cr-finish-total-units');
+    const $finishConfirmBtn       = document.getElementById('cr-finish-confirm-btn');
+
+    let currentCourse = null;    // last fetched course
+    let lastDownloadUrl = null;  // last print URL returned by the server
+
+    function ensureFilterOrAlert() {
+      const sessionId = $session.value;
+      const semester  = $semester.value;
+      if (!sessionId || !semester) {
+        alert('Please select academic session and semester first.');
+        return false;
+      }
+      return true;
+    }
 
     function getFilter() {
       return {
         sessionId: $session.value,
         semester: $semester.value,
       };
-    }
-
-    function ensureFilterOrAlert() {
-      const { sessionId, semester } = getFilter();
-      if (!sessionId || !semester) {
-        alert('Please select academic session and semester first.');
-        return false;
-      }
-      return true;
     }
 
     function setTotals(totalCourses, totalUnits) {
@@ -254,7 +370,9 @@
         });
       });
 
-      $finishBtn.disabled = !items.length || isLocked;
+      // enable/disable submit & show/hide print based on locked state
+      $submitBtn.disabled = !items.length || isLocked;
+      $printBtn.style.display = isLocked ? 'inline-block' : 'none';
     }
 
     function fetchList() {
@@ -307,7 +425,9 @@
           }
 
           currentCourse = data.course;
-          $infoSpan.textContent = `${data.course.title} — ${data.course.unit} unit(s), ${data.course.level}, Lecturer: ${data.course.lecturer}`;
+          $infoSpan.textContent =
+            `${data.course.title} — ${data.course.unit} unit(s), ` +
+            `${data.course.level}, Lecturer: ${data.course.lecturer}`;
           $addBtn.disabled = false;
         })
         .catch((err) => {
@@ -317,6 +437,18 @@
         .finally(() => {
           $findBtn.disabled = false;
         });
+    }
+
+    function showProfileIncompleteModal() {
+      try {
+        $('#crProfileIncompleteModal').modal('show');
+      } catch (e) {
+        alert(
+          'Your profile is not yet marked as COMPLETE.\n\n' +
+          'Please visit the ICT Directorate and Bursary to make sure your ' +
+          'payments and biodata are fully updated before registering courses.'
+        );
+      }
     }
 
     function addCourse() {
@@ -397,21 +529,11 @@
         });
     }
 
-    function finishRegistration() {
+    // Core finish/submit function
+    function finishRegistration(openPrintWindow) {
       if (!ensureFilterOrAlert()) return;
 
       const { sessionId, semester } = getFilter();
-      const totalCourses = Number($totalCoursesEl.textContent || '0');
-      const totalUnits = Number($totalUnitsEl.textContent || '0');
-
-      if (!totalCourses) {
-        alert('You have not registered any courses yet.');
-        return;
-      }
-
-      if (!confirm(`You have registered ${totalCourses} course(s) with a total of ${totalUnits} unit(s).\n\nAre you sure you want to complete registration and generate your course form?`)) {
-        return;
-      }
 
       fetch('/student/registration/api/finish', {
         method: 'POST',
@@ -430,16 +552,45 @@
           }
 
           if (data.downloadUrl) {
-            window.open(data.downloadUrl, '_blank');
+            lastDownloadUrl = data.downloadUrl;
+            if (openPrintWindow) {
+              window.open(data.downloadUrl, '_blank');
+            }
           }
 
-          alert('Course form processed successfully.');
+          alert('Course registration has been submitted successfully.');
           fetchList();
         })
         .catch((err) => {
           console.error(err);
           alert('Error completing registration.');
         });
+    }
+
+    function openFinishModal() {
+      if (!ensureFilterOrAlert()) return;
+
+      const totalCourses = Number($totalCoursesEl.textContent || '0');
+      const totalUnits   = Number($totalUnitsEl.textContent || '0');
+
+      if (!totalCourses) {
+        alert('You have not registered any courses yet.');
+        return;
+      }
+
+      $finishTotalCoursesSpan.textContent = totalCourses;
+      $finishTotalUnitsSpan.textContent   = totalUnits;
+
+      try {
+        $('#crFinishModal').modal('show');
+      } catch (e) {
+        if (confirm(
+          `You have registered ${totalCourses} course(s) with a total of ${totalUnits} unit(s).\n\n` +
+          'Are you sure you want to submit this registration?'
+        )) {
+          finishRegistration(false);
+        }
+      }
     }
 
     // Event bindings
@@ -455,10 +606,37 @@
     });
 
     $findBtn.addEventListener('click', findCourse);
-    $addBtn.addEventListener('click', addCourse);
-    $finishBtn.addEventListener('click', finishRegistration);
 
-    // Optional: auto-load when default session is set and semester chosen
+    $addBtn.addEventListener('click', function () {
+      if (!profileComplete) {
+        showProfileIncompleteModal();
+        return;
+      }
+      addCourse();
+    });
+
+    // Submit button -> confirmation modal
+    $submitBtn.addEventListener('click', openFinishModal);
+
+    // Confirm submit inside modal
+    if ($finishConfirmBtn) {
+      $finishConfirmBtn.addEventListener('click', function () {
+        try { $('#crFinishModal').modal('hide'); } catch (e) {}
+        finishRegistration(false); // submit only; user can print with blue button
+      });
+    }
+
+    // Print / Download button
+    $printBtn.addEventListener('click', function () {
+      if (lastDownloadUrl) {
+        window.open(lastDownloadUrl, '_blank');
+        return;
+      }
+      // If we don't have a cached URL (e.g., page reloaded), ask server again.
+      finishRegistration(true);
+    });
+
+    // Auto-load if defaults are present
     if ($session.value && $semester.value) {
       fetchList();
     }

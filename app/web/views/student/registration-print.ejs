@@ -1,90 +1,157 @@
-<!-- app/web/views/student/registration-print.ejs -->
-
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title><%= title %></title>
-  <link rel="stylesheet" href="/public/bootstrap/css/bootstrap.min.css">
-  <style>
-    body { font-size: 12px; }
-    .course-table th, .course-table td { padding: 4px; }
-    .qr-box {
-      border: 1px solid #ddd;
-      padding: 5px;
-      text-align: center;
-      font-size: 10px;
-    }
-  </style>
+    <meta charset="utf-8">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/public/bootstrap/css/bootstrap.min.css">
+
+    <style>
+        body { font-size: 13px; }
+
+        .header-logo img {
+            width: 65px;
+            height: 65px;
+        }
+
+        .student-photo {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #ccc;
+        }
+
+        .biodata-box {
+            border: 1px solid #999;
+            padding: 10px;
+            margin-top: 10px;
+            background: #f9f9f9;
+        }
+
+        .title-head {
+            text-align: center;
+            margin-top: -60px;
+        }
+
+        .title-head h3 {
+            margin: 0;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .qr-bottom {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        .signatures {
+            margin-top: 35px;
+        }
+    </style>
 </head>
-<body onload="window.print()">
+
+<body>
 
 <div class="container">
-  <div class="row">
-    <div class="col-xs-9">
-      <h3>EKSCOTECH COURSE REGISTRATION FORM</h3>
-      <p>
-        <strong>Student:</strong> <%= student.first_name %> <%= student.last_name %><br>
-        <strong>Matric No:</strong> <%= student.matric_number || '' %><br>
-        <strong>Session:</strong> <%= session.name %><br>
-        <strong>Semester:</strong> <%= semester %><br>
-      </p>
-    </div>
-    <div class="col-xs-3">
-      <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<%= encodeURIComponent(qrTargetUrl) %>" alt="QR Code">
-        <div>Scan to verify course form</div>
-      </div>
-    </div>
-  </div>
 
-  <table class="table table-bordered table-striped course-table">
-    <thead>
-      <tr>
-        <th style="width: 30px;">#</th>
-        <th>Code</th>
-        <th>Title</th>
-        <th style="width: 60px;">Unit</th>
-        <th style="width: 80px;">Level</th>
-        <th style="width: 90px;">Semester</th>
-        <th style="width: 80px;">Type</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% rows.forEach(function (row, idx) { %>
-        <tr>
-          <td><%= idx + 1 %></td>
-          <td><%= row.code %></td>
-          <td><%= row.title %></td>
-          <td class="text-center"><%= row.unit %></td>
-          <td class="text-center"><%= row.level %></td>
-          <td class="text-center"><%= row.semester %></td>
-          <td class="text-center"><%= row.reg_type === 'MAIN' ? 'Main' : 'Elective' %></td>
-        </tr>
-      <% }); %>
-    </tbody>
-  </table>
+    <div class="row">
 
-  <p>
+        <!-- LOGO -->
+        <div class="col-xs-2 header-logo">
+            <img src="/public/logo.png" alt="School Logo">
+        </div>
+
+        <!-- TITLE -->
+        <div class="col-xs-8 title-head">
+            <h3>EKITI STATE COLLEGE OF HEALTH SCIENCES & TECHNOLOGY</h3>
+            <h4 style="margin-top:5px;">Course Registration Form</h4>
+        </div>
+
+        <!-- PHOTO -->
+        <div class="col-xs-2 text-right">
+            <% if (profile && profile.photo_path) { %>
+                <img src="<%= profile.photo_path %>" class="student-photo"/>
+            <% } else { %>
+                <img src="/public/default-avatar.png" class="student-photo"/>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- STUDENT BIO DATA -->
+    <div class="biodata-box">
+        <strong>Student Name:</strong> <%= student.first_name %> <%= student.last_name %><br>
+        <strong>Matric Number:</strong> <%= student.matric_number %><br>
+        <strong>Department:</strong> <%= profile.department_id %><br>
+        <strong>Programme:</strong> <%= profile.programme_id %><br>
+        <strong>Level:</strong> <%= profile.level %><br>
+        <strong>Phone:</strong> <%= student.phone %><br>
+        <strong>Email:</strong> <%= student.username %><br>
+        <strong>Academic Session:</strong> <%= session.name %><br>
+        <strong>Semester:</strong> <%= semester %>
+    </div>
+
+    <br>
+
+    <!-- COURSE TABLE -->
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Unit</th>
+                <th>Level</th>
+                <th>Semester</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% rows.forEach(function(row, idx) { %>
+                <tr>
+                    <td><%= idx + 1 %></td>
+                    <td><%= row.code %></td>
+                    <td><%= row.title %></td>
+                    <td><%= row.unit %></td>
+                    <td><%= row.level %></td>
+                    <td><%= row.semester %></td>
+                    <td><%= row.reg_type %></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+
     <strong>Total Courses:</strong> <%= totalCourses %><br>
     <strong>Total Units:</strong> <%= totalUnits %>
-  </p>
 
-  <div class="row" style="margin-top: 40px;">
-    <div class="col-xs-4 text-center">
-      _______________________________<br>
-      Student's Signature / Date
+    <!-- QR CODE -->
+    <div class="qr-bottom">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=<%= encodeURIComponent(qrTargetUrl) %>" />
+        <div><small>Scan to verify</small></div>
     </div>
-    <div class="col-xs-4 text-center">
-      _______________________________<br>
-      H.O.D / Date
+
+    <!-- SIGNATURES -->
+    <div class="signatures row text-center">
+        <div class="col-xs-4">
+            _______________________________<br>
+            Student's Signature / Date
+        </div>
+
+        <div class="col-xs-4">
+            _______________________________<br>
+            HOD / Date
+        </div>
+
+        <div class="col-xs-4">
+            _______________________________<br>
+            Registrar / Date
+        </div>
     </div>
-    <div class="col-xs-4 text-center">
-      _______________________________<br>
-      Registrar / Date
-    </div>
-  </div>
+
 </div>
+
+<script>
+    window.print();
+</script>
 
 </body>
 </html>
