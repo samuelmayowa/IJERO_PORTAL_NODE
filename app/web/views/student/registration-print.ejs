@@ -1,0 +1,90 @@
+<!-- app/web/views/student/registration-print.ejs -->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/public/bootstrap/css/bootstrap.min.css">
+  <style>
+    body { font-size: 12px; }
+    .course-table th, .course-table td { padding: 4px; }
+    .qr-box {
+      border: 1px solid #ddd;
+      padding: 5px;
+      text-align: center;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body onload="window.print()">
+
+<div class="container">
+  <div class="row">
+    <div class="col-xs-9">
+      <h3>EKSCOTECH COURSE REGISTRATION FORM</h3>
+      <p>
+        <strong>Student:</strong> <%= student.first_name %> <%= student.last_name %><br>
+        <strong>Matric No:</strong> <%= student.matric_number || '' %><br>
+        <strong>Session:</strong> <%= session.name %><br>
+        <strong>Semester:</strong> <%= semester %><br>
+      </p>
+    </div>
+    <div class="col-xs-3">
+      <div class="qr-box">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<%= encodeURIComponent(qrTargetUrl) %>" alt="QR Code">
+        <div>Scan to verify course form</div>
+      </div>
+    </div>
+  </div>
+
+  <table class="table table-bordered table-striped course-table">
+    <thead>
+      <tr>
+        <th style="width: 30px;">#</th>
+        <th>Code</th>
+        <th>Title</th>
+        <th style="width: 60px;">Unit</th>
+        <th style="width: 80px;">Level</th>
+        <th style="width: 90px;">Semester</th>
+        <th style="width: 80px;">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% rows.forEach(function (row, idx) { %>
+        <tr>
+          <td><%= idx + 1 %></td>
+          <td><%= row.code %></td>
+          <td><%= row.title %></td>
+          <td class="text-center"><%= row.unit %></td>
+          <td class="text-center"><%= row.level %></td>
+          <td class="text-center"><%= row.semester %></td>
+          <td class="text-center"><%= row.reg_type === 'MAIN' ? 'Main' : 'Elective' %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>Total Courses:</strong> <%= totalCourses %><br>
+    <strong>Total Units:</strong> <%= totalUnits %>
+  </p>
+
+  <div class="row" style="margin-top: 40px;">
+    <div class="col-xs-4 text-center">
+      _______________________________<br>
+      Student's Signature / Date
+    </div>
+    <div class="col-xs-4 text-center">
+      _______________________________<br>
+      H.O.D / Date
+    </div>
+    <div class="col-xs-4 text-center">
+      _______________________________<br>
+      Registrar / Date
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!-- app/web/views/student/registration.ejs -->
+
+<div class="content-wrapper">
+  <section class="content-header">
+    <h1>Course Registration</h1>
+  </section>
+
+  <section class="content">
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="alert alert-success"><%= success %></div>
+    <% } %>
+
+    <div class="row">
+      <div class="col-md-3">
+        <div class="small-box bg-aqua">
+          <div class="inner">
+            <h3 id="cr-total-courses">0</h3>
+            <p>Total Courses</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-book"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="small-box bg-green">
+          <div class="inner">
+            <h3 id="cr-total-units">0</h3>
+            <p>Total Units (Max 35)</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-balance-scale"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="callout callout-info" style="margin-top: 5px;">
+          <h4>Note</h4>
+          <p>
+            Select the <strong>Academic Session</strong> and <strong>Semester</strong> first,
+            then register your courses for that semester. Maximum allowed is
+            <strong>35 units</strong> per semester.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="box box-primary">
+      <div class="box-header with-border">
+        <h3 class="box-title">Step 1 &mdash; Select Session &amp; Semester</h3>
+      </div>
+      <div class="box-body">
+        <form id="cr-filter-form" class="form-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="form-group" style="margin-right: 15px;">
+            <label for="cr-session" class="control-label">Academic Session</label>
+            <select id="cr-session" class="form-control" style="min-width: 220px;">
+              <option value="">-- Select Session --</option>
+              <% sessions.forEach(function (s) { %>
+                <option value="<%= s.id %>" <%= (defaultSessionId && s.id === defaultSessionId) ? 'selected' : '' %>>
+                  <%= s.name %> <%= (s.is_current === 'YES' || s.is_current === 1) ? '(Current)' : '' %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-right: 15px;">
+            <label for="cr-semester" class="control-label">Semester</label>
+            <select id="cr-semester" class="form-control">
+              <option value="">-- Select Semester --</option>
+              <% semesters.forEach(function (sem) { %>
+                <option value="<%= sem.value %>"><%= sem.label %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <button type="button" id="cr-load-btn" class="btn btn-primary">
+            <i class="fa fa-refresh"></i> Load / Reset
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Course entry -->
+    <div class="box box-success">
+      <div class="box-header with-border">
+        <h3 class="box-title">Step 2 &mdash; Add Courses</h3>
+      </div>
+      <div class="box-body">
+
+        <form id="cr-add-form" class="form-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="form-group" style="margin-right: 10px;">
+            <label for="cr-course-code" class="control-label">Course Code</label>
+            <input type="text" id="cr-course-code" class="form-control" placeholder="e.g. GST101" style="width: 120px;">
+          </div>
+
+          <button type="button" id="cr-find-course-btn" class="btn btn-info" style="margin-right: 10px;">
+            <i class="fa fa-search"></i> Fetch
+          </button>
+
+          <div class="form-group" style="margin-right: 10px;">
+            <label for="cr-reg-type" class="control-label">Type</label>
+            <select id="cr-reg-type" class="form-control">
+              <option value="MAIN">Main</option>
+              <option value="ELECTIVE">Elective</option>
+            </select>
+          </div>
+
+          <button type="button" id="cr-add-course-btn" class="btn btn-success" disabled>
+            <i class="fa fa-plus"></i> Add Course
+          </button>
+
+          <span id="cr-course-info" class="text-muted" style="margin-left: 15px;"></span>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- Registered courses table -->
+    <div class="box box-default">
+      <div class="box-header with-border">
+        <h3 class="box-title">Registered Courses</h3>
+      </div>
+      <div class="box-body table-responsive">
+        <table class="table table-bordered table-striped" id="cr-courses-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th>Code</th>
+              <th>Title</th>
+              <th style="width: 60px;">Unit</th>
+              <th style="width: 90px;">Level</th>
+              <th style="width: 110px;">Semester</th>
+              <th style="width: 90px;">Type</th>
+              <th style="width: 80px;">Status</th>
+              <th style="width: 80px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="cr-empty-row">
+              <td colspan="9" class="text-center text-muted">
+                Select session and semester, then start adding courses.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box-footer text-right">
+        <button type="button" id="cr-finish-btn" class="btn btn-lg btn-primary" disabled>
+          <i class="fa fa-print"></i> Finish &amp; Print Course Form
+        </button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  (function () {
+    const csrfToken = '<%= csrfToken %>';
+
+    const $session   = document.getElementById('cr-session');
+    const $semester  = document.getElementById('cr-semester');
+    const $loadBtn   = document.getElementById('cr-load-btn');
+
+    const $codeInput = document.getElementById('cr-course-code');
+    const $regType   = document.getElementById('cr-reg-type');
+    const $findBtn   = document.getElementById('cr-find-course-btn');
+    const $addBtn    = document.getElementById('cr-add-course-btn');
+    const $infoSpan  = document.getElementById('cr-course-info');
+
+    const $tableBody = document.querySelector('#cr-courses-table tbody');
+    const $emptyRow  = document.getElementById('cr-empty-row');
+
+    const $totalCoursesEl = document.getElementById('cr-total-courses');
+    const $totalUnitsEl   = document.getElementById('cr-total-units');
+    const $finishBtn      = document.getElementById('cr-finish-btn');
+
+    let currentCourse = null; // holds last fetched course
+
+    function getFilter() {
+      return {
+        sessionId: $session.value,
+        semester: $semester.value,
+      };
+    }
+
+    function ensureFilterOrAlert() {
+      const { sessionId, semester } = getFilter();
+      if (!sessionId || !semester) {
+        alert('Please select academic session and semester first.');
+        return false;
+      }
+      return true;
+    }
+
+    function setTotals(totalCourses, totalUnits) {
+      $totalCoursesEl.textContent = totalCourses || 0;
+      $totalUnitsEl.textContent   = totalUnits || 0;
+    }
+
+    function renderRows(items, isLocked) {
+      $tableBody.innerHTML = '';
+      if (!items.length) {
+        $tableBody.appendChild($emptyRow);
+        $emptyRow.style.display = '';
+      } else {
+        $emptyRow.style.display = 'none';
+
+        items.forEach((item, idx) => {
+          const tr = document.createElement('tr');
+
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${item.course_code}</td>
+            <td>${item.course_title}</td>
+            <td class="text-center">${item.course_unit}</td>
+            <td class="text-center">${item.course_level}</td>
+            <td class="text-center">${item.course_semester}</td>
+            <td class="text-center">${item.reg_type === 'MAIN' ? 'Main' : 'Elective'}</td>
+            <td class="text-center">
+              <span class="label label-${item.status === 'SUBMITTED' ? 'success' : 'warning'}">
+                ${item.status === 'SUBMITTED' ? 'Submitted' : 'Draft'}
+              </span>
+            </td>
+            <td class="text-center">
+              ${
+                item.status === 'SUBMITTED'
+                  ? ''
+                  : `<button class="btn btn-xs btn-danger cr-remove-btn" data-id="${item.id}">
+                       <i class="fa fa-trash"></i>
+                     </button>`
+              }
+            </td>
+          `;
+
+          $tableBody.appendChild(tr);
+        });
+      }
+
+      const removeBtns = $tableBody.querySelectorAll('.cr-remove-btn');
+      removeBtns.forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const regId = this.getAttribute('data-id');
+          removeCourse(regId);
+        });
+      });
+
+      $finishBtn.disabled = !items.length || isLocked;
+    }
+
+    function fetchList() {
+      if (!ensureFilterOrAlert()) return;
+
+      const { sessionId, semester } = getFilter();
+
+      fetch(`/student/registration/api/list?sessionId=${sessionId}&semester=${semester}`, {
+        credentials: 'same-origin',
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.ok) {
+            alert(data.message || 'Could not load registrations.');
+            return;
+          }
+          setTotals(data.totalCourses, data.totalUnits);
+          renderRows(data.items || [], data.isLocked);
+        })
+        .catch((err) => {
+          console.error(err);
+          alert('Error loading registrations.');
+        });
+    }
+
+    function findCourse() {
+      if (!ensureFilterOrAlert()) return;
+
+      const courseCode = $codeInput.value.trim();
+      if (!courseCode) {
+        alert('Please enter a course code.');
+        return;
+      }
+
+      const { semester } = getFilter();
+
+      $findBtn.disabled = true;
+      $infoSpan.textContent = 'Looking up course...';
+      currentCourse = null;
+      $addBtn.disabled = true;
+
+      fetch(`/student/registration/api/course?code=${encodeURIComponent(courseCode)}&semester=${encodeURIComponent(semester)}`, {
+        credentials: 'same-origin',
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.ok) {
+            $infoSpan.textContent = data.message || 'Course not found.';
+            return;
+          }
+
+          currentCourse = data.course;
+          $infoSpan.textContent = `${data.course.title} — ${data.course.unit} unit(s), ${data.course.level}, Lecturer: ${data.course.lecturer}`;
+          $addBtn.disabled = false;
+        })
+        .catch((err) => {
+          console.error(err);
+          $infoSpan.textContent = 'Error finding course.';
+        })
+        .finally(() => {
+          $findBtn.disabled = false;
+        });
+    }
+
+    function addCourse() {
+      if (!ensureFilterOrAlert()) return;
+      if (!currentCourse) {
+        alert('Please fetch a course first.');
+        return;
+      }
+
+      const { sessionId, semester } = getFilter();
+
+      const body = {
+        sessionId,
+        semester,
+        courseCode: currentCourse.code,
+        regType: $regType.value,
+      };
+
+      $addBtn.disabled = true;
+
+      fetch('/student/registration/api/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'CSRF-Token': csrfToken,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.ok) {
+            alert(data.message || 'Could not add course.');
+            return;
+          }
+          setTotals(data.totalCourses, data.totalUnits);
+          renderRows(data.rows || [], data.isLocked);
+          $infoSpan.textContent = '';
+          $codeInput.value = '';
+          currentCourse = null;
+        })
+        .catch((err) => {
+          console.error(err);
+          alert('Error adding course.');
+        })
+        .finally(() => {
+          $addBtn.disabled = false;
+        });
+    }
+
+    function removeCourse(regId) {
+      if (!confirm('Remove this course from your registration?')) return;
+      if (!ensureFilterOrAlert()) return;
+
+      const { sessionId, semester } = getFilter();
+
+      fetch('/student/registration/api/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'CSRF-Token': csrfToken,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ sessionId, semester, regId }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.ok) {
+            alert(data.message || 'Could not remove course.');
+            return;
+          }
+          setTotals(data.totalCourses, data.totalUnits);
+          renderRows(data.rows || [], data.isLocked);
+        })
+        .catch((err) => {
+          console.error(err);
+          alert('Error removing course.');
+        });
+    }
+
+    function finishRegistration() {
+      if (!ensureFilterOrAlert()) return;
+
+      const { sessionId, semester } = getFilter();
+      const totalCourses = Number($totalCoursesEl.textContent || '0');
+      const totalUnits = Number($totalUnitsEl.textContent || '0');
+
+      if (!totalCourses) {
+        alert('You have not registered any courses yet.');
+        return;
+      }
+
+      if (!confirm(`You have registered ${totalCourses} course(s) with a total of ${totalUnits} unit(s).\n\nAre you sure you want to complete registration and generate your course form?`)) {
+        return;
+      }
+
+      fetch('/student/registration/api/finish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'CSRF-Token': csrfToken,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ sessionId, semester }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.ok) {
+            alert(data.message || 'Could not complete registration.');
+            return;
+          }
+
+          if (data.downloadUrl) {
+            window.open(data.downloadUrl, '_blank');
+          }
+
+          alert('Course form processed successfully.');
+          fetchList();
+        })
+        .catch((err) => {
+          console.error(err);
+          alert('Error completing registration.');
+        });
+    }
+
+    // Event bindings
+    $loadBtn.addEventListener('click', () => {
+      setTotals(0, 0);
+      renderRows([], false);
+      currentCourse = null;
+      $infoSpan.textContent = '';
+      $codeInput.value = '';
+      if ($session.value && $semester.value) {
+        fetchList();
+      }
+    });
+
+    $findBtn.addEventListener('click', findCourse);
+    $addBtn.addEventListener('click', addCourse);
+    $finishBtn.addEventListener('click', finishRegistration);
+
+    // Optional: auto-load when default session is set and semester chosen
+    if ($session.value && $semester.value) {
+      fetchList();
+    }
+  })();
+</script>

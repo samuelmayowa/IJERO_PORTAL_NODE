@@ -44,6 +44,7 @@ import studentLectureTimeRoutes from './app/web/routes/student-lecture-time.rout
 import studentExamTimeRoutes from './app/web/routes/student-exam-time.routes.js';
 import studentProfileRoutes from './app/web/routes/student-profile.routes.js';
 import studentUploadRoutes from './app/web/routes/student-upload.routes.js';
+import studentRegistrationRoutes from './app/web/routes/student-registration.routes.js';
 
 
 
@@ -268,6 +269,23 @@ app.use(
   },
   studentProfileRoutes
 );
+
+// after other student routes like /student/profile, /student/exam-time-table, etc.
+
+app.use(
+  '/student/registration',
+  ensureUserForViews,
+  (req, res, next) => {
+    // Make sure layout & user role matches your existing student pages
+    res.locals.layout = 'layouts/adminlte';
+    if (res.locals.user) {
+      res.locals.user.role = 'student';
+    }
+    next();
+  },
+  studentRegistrationRoutes,
+);
+
 
 // Upload Student Data (Admin-only)
 app.use(
