@@ -243,6 +243,117 @@
         padding:1.3rem 1.4rem 1.2rem;
       }
     }
+        @media (max-width: 640px){
+      .notice-card{ max-width:100%; }
+      .notice-hero{
+        padding:1.25rem 1.4rem;
+      }
+      .notice-hero-inner{
+        align-items:flex-start;
+      }
+      .notice-hero-text h2{
+        font-size:1.05rem;
+      }
+      .notice-hero-text span{
+        font-size:.78rem;
+      }
+      .notice-body{
+        padding:1.3rem 1.4rem 1.2rem;
+      }
+    }
+
+    /* ===== NOTICE BOARD (GLASS) CSS GOES HERE ===== */
+    #notice-board-section {
+      margin-top: 40px;
+      margin-bottom: 40px;
+    }
+
+    .glass-card {
+      flex: 1;
+      min-height: 240px;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 25px;
+      padding: 25px;
+      border: 1px solid rgba(255,255,255,0.35);
+      backdrop-filter: blur(15px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notice-title {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .slider {
+      position: relative;
+      width: 100%;
+      height: 150px;
+      overflow: hidden;
+    }
+
+    .slides {
+      position: relative;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: all 0.5s ease-in-out;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .slide h4 {
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .slide p {
+      color: #f0f0f0;
+      line-height: 1.5;
+    }
+
+    .dots {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    .dots span {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin: 0 4px;
+      background: #fff;
+      opacity: 0.4;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+
+    .dots span.active {
+      opacity: 1;
+    }
+
+    @media (max-width: 1024px) {
+      #notice-board-section .row {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
   </style>
 </head>
 <body>
@@ -413,77 +524,151 @@
     </section>
 
     <!-- Transcript / Virtual / E-Learning / Payment -->
-    <section id="courses" class="light-band">
-      <div class="container">
-        <div class="grid-4 gap-lg">
-          <a class="info-card" href="/c_signin">
-            <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
-            <div>
-              <h4 class="info-title">Transcript/ Certificate</h4>
-              <p class="info-sub">Apply for Transcript/Certificate</p>
-            </div>
-          </a>
+      <section id="courses" class="light-band">
+        <div class="container">
+          <div class="grid-4 gap-lg">
+            <a class="info-card" href="/c_signin">
+              <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
+              <div>
+                <h4 class="info-title">Transcript/ Certificate</h4>
+                <p class="info-sub">Apply for Transcript/Certificate</p>
+              </div>
+            </a>
 
-          <a class="info-card" href="/staff/attendance/mark">
-            <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
-            <div>
-              <h4 class="info-title">Staff / Students Attendance</h4>
-              <p class="info-sub">Login to Mark Daily Attendance</p>
-            </div>
-          </a>
+            <a class="info-card" href="/staff/attendance/mark">
+              <div class="info-icon"><i class="fa-solid fa-laptop"></i></div>
+              <div>
+                <h4 class="info-title">Staff / Students Attendance</h4>
+                <p class="info-sub">Login to Mark Daily Attendance</p>
+              </div>
+            </a>
 
-          <a class="info-card" href="/students/index#/ebooks/ebooks">
-            <div class="info-icon"><i class="fa-solid fa-book"></i></div>
-            <div>
-              <h4 class="info-title">E-Learning</h4>
-              <p class="info-sub">Virtual Learning / Download lecture materials</p>
-            </div>
-          </a>
+            <a class="info-card" href="/students/index#/ebooks/ebooks">
+              <div class="info-icon"><i class="fa-solid fa-book"></i></div>
+              <div>
+                <h4 class="info-title">E-Learning</h4>
+                <p class="info-sub">Virtual Learning / Download lecture materials</p>
+              </div>
+            </a>
 
-          <a class="info-card" href="/payment">
-            <div class="info-icon"><i class="fa-regular fa-id-card"></i></div>
-            <div>
-              <h4 class="info-title">Online Payment</h4>
-              <p class="info-sub">Generate IRR / Pay Fees Online</p>
-            </div>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- Help Desk -->
-    <section class="helpdesk">
-      <div class="container">
-        <h2 class="section-heading">HELP <span class="accent">DESK</span></h2>
-
-        <div class="grid-4 gap-lg">
-          <div class="help-card primary">
-            <i class="fa-solid fa-user"></i>
-            <h4>STUDENTS COMPLAINTS</h4>
-            <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
-            <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
-          </div>
-
-          <div class="help-card secondary">
-            <i class="fa-regular fa-comments"></i>
-            <h4>STAFF COMPLAINTS</h4>
-            <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
-          </div>
-
-          <div class="help-card primary">
-            <i class="fa-solid fa-money-bill-wave"></i>
-            <h4>BURSARY COMPLAINTS</h4>
-             <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
-          </div>
-
-          <div class="help-card secondary">
-            <i class="fa-solid fa-graduation-cap"></i>
-            <h4>ADMISSION</h4>
-             <p><i class="fa-solid fa-phone"></i> Visit the Registrar's Office</p>
+            <a class="info-card" href="/payment">
+              <div class="info-icon"><i class="fa-regular fa-id-card"></i></div>
+              <div>
+                <h4 class="info-title">Online Payment</h4>
+                <p class="info-sub">Generate IRR / Pay Fees Online</p>
+              </div>
+            </a>
           </div>
         </div>
+      </section>
+
+      <!-- Help Desk -->
+      <section class="helpdesk">
+        <div class="container">
+          <h2 class="section-heading">HELP <span class="accent">DESK</span></h2>
+
+          <div class="grid-4 gap-lg">
+            <div class="help-card primary">
+              <i class="fa-solid fa-user"></i>
+              <h4>STUDENTS COMPLAINTS</h4>
+              <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
+              <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
+            </div>
+
+            <div class="help-card secondary">
+              <i class="fa-regular fa-comments"></i>
+              <h4>STAFF COMPLAINTS</h4>
+              <p><i class="fa-solid fa-phone"></i> +234-(80) 435685427</p>
+            </div>
+
+            <div class="help-card primary">
+              <i class="fa-solid fa-money-bill-wave"></i>
+              <h4>BURSARY COMPLAINTS</h4>
+              <p><i class="fa-solid fa-phone"></i> +234-(80) 32523034</p>
+            </div>
+
+            <div class="help-card secondary">
+              <i class="fa-solid fa-graduation-cap"></i>
+              <h4>ADMISSION</h4>
+              <p><i class="fa-solid fa-phone"></i> Visit the Registrar's Office</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ===== NOTICE BOARD SECTION (GLASS STYLE) ===== -->
+  <h2 class="section-heading">NOTICE <span class="accent">BOARD</span></h2>
+  <section id="notice-board-section" style="padding: 40px 0;">
+    <div class="container">
+      <div class="row" style="display: flex; gap: 20px;">
+
+        <!-- ================= STUDENT NOTICE BOARD ================= -->
+        <div class="col glass-card">
+          <h3 class="notice-title" style="color: red;">STUDENT NOTICE BOARD</h3>
+
+          <div class="slider" data-slider="student">
+            <div class="slides">
+              <!-- Slide 1 -->
+              <div class="slide active" style="color:blue;">
+                <h4 style="color: darkblue;">Welcome Students</h4>
+                <p style="color: green;">Kindly visit the Bursary with your previous school fee payment receipts for proper verification before making use of this portal.
+Proceed to the Directorate of ICT with the cleared receipt to obtain a unique code required for signing up and accessing the portal.
+Validate your payments once access is successful.
+Proceed to the Course Registration page to complete your registration.</p>
+                   <p style="color: green;">First-time portal access:
+Click Student Login, then select Register. Enter the Access Code and Email issued by the ICT Directorate, confirm that your details are correct, and complete your registration. Afterwards, log in to your dashboard to complete your profile and access all portal features, including course registration.
+</p>
+              <p style="color: green;">Payment reminder:
+Late payment attracts a ₦5,000 penalty, which will be added automatically to your portal charges.
+</p>
+              </div>
+
+              <!-- Future slides go here -->
+            </div>
+
+            <!-- Dots -->
+            <div class="dots" data-dots="student"></div>
+          </div>
+        </div>
+
+        <!-- ================= APPLICANT NOTICE BOARD ================= -->
+        <div class="col glass-card">
+          <h3 class="notice-title" style="color: red;">APPLICANT NOTICE BOARD</h3>
+
+          <div class="slider" data-slider="applicant">
+            <div class="slides">
+              <!-- Slide 1 -->
+              <div class="slide active">
+                <h4 style="color: darkblue;">Admission Updates</h4>
+                <p style="color: green;">Application forms for 2025/2026 Academic Session will be available 
+                for sale soon. Please check back regularly for updates.</p>
+              </div>
+            </div>
+
+            <div class="dots" data-dots="applicant"></div>
+          </div>
+        </div>
+
+        <!-- ================= STAFF NOTICE BOARD ================= -->
+        <div class="col glass-card">
+          <h3 class="notice-title" style="color: red;">STAFF NOTICE BOARD</h3>
+
+          <div class="slider" data-slider="staff">
+            <div class="slides">
+              <!-- Slide 1 -->
+              <div class="slide active">
+                <h4 style="color: darkblue;">Staff Announcement</h4>
+                <p style="color: green;">There will be a general staff meeting on Monday at 10 AM 
+                in the ICT Conference Room. Attendance is mandatory.</p>
+              </div>
+            </div>
+
+            <div class="dots" data-dots="staff"></div>
+          </div>
+        </div>
+
       </div>
-    </section>
+    </div>
+  </section>
 
     <!-- Footer -->
     <footer class="footer">
@@ -603,5 +788,46 @@
       });
     })();
   </script>
+  <script>
+function initSlider(name) {
+  const slider = document.querySelector(`[data-slider="${name}"]`);
+  const slides = slider.querySelectorAll(".slide");
+  const dotsContainer = document.querySelector(`[data-dots="${name}"]`);
+
+  let index = 0;
+
+  // Create dots
+  slides.forEach((_, i) => {
+    const dot = document.createElement("span");
+    dot.addEventListener("click", () => goToSlide(i));
+    dotsContainer.appendChild(dot);
+  });
+
+  const dots = dotsContainer.querySelectorAll("span");
+  dots[0].classList.add("active");
+
+  function goToSlide(i) {
+    slides[index].classList.remove("active");
+    dots[index].classList.remove("active");
+
+    index = i;
+
+    slides[index].classList.add("active");
+    dots[index].classList.add("active");
+  }
+
+  function autoSlide() {
+    let next = (index + 1) % slides.length;
+    goToSlide(next);
+  }
+
+  setInterval(autoSlide, 3000);
+}
+
+// Initialize sliders
+initSlider("student");
+initSlider("applicant");
+initSlider("staff");
+</script>
 </body>
 </html>
