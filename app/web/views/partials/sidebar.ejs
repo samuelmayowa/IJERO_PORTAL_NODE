@@ -231,7 +231,13 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/students/edit"           class="nav-link <%= cur.startsWith('/staff/students/edit') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Edit Student</p></a></li>
           <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link <%= cur.startsWith('/staff/students/reset-password') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Reset Password</p></a></li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME DATA</p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Course Registration</p></a></li>
+          <li class="nav-item">
+            <a href="/staff/registration/report"
+              class="nav-link <%= currentPath === '/staff/registration/report' ? 'active' : '' %>">
+              <i class="nav-icon fas fa-clipboard-check"></i>
+              <p>Course Reg. Report</p>
+            </a>
+          </li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Student Attendance</p></a></li>
         </ul>
       </li>

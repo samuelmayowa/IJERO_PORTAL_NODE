@@ -10,7 +10,13 @@
     <li class="nav-item"><a href="/staff/students/verify" class="nav-link"><i class="nav-icon fas fa-user-check"></i><p>Verify Student</p></a></li>
     <li class="nav-item"><a href="/staff/admissions/upload-utme" class="nav-link"><i class="nav-icon fas fa-upload"></i><p>Upload UTME Admission</p></a></li>
 
-    <li class="nav-item"><a href="/staff/registration" class="nav-link"><i class="nav-icon fas fa-clipboard-list"></i><p>Course Registration</p></a></li>
+    <li class="nav-item">
+      <a href="/staff/registration/report"
+        class="nav-link <%= currentPath === '/staff/registration/report' ? 'active' : '' %>">
+        <i class="nav-icon fas fa-clipboard-check"></i>
+        <p>Course Reg. Report</p>
+      </a>
+    </li>
     <li class="nav-item"><a href="/staff/uniform" class="nav-link"><i class="nav-icon fas fa-ruler"></i><p>Uniform Measurement</p></a></li>
     <li class="nav-item"><a href="/staff/utme" class="nav-link"><i class="nav-icon fas fa-database"></i><p>UTME DATA</p></a></li>
     <li class="nav-item"><a href="/staff/screening/result" class="nav-link"><i class="nav-icon fas fa-poll"></i><p>Screening Result</p></a></li>

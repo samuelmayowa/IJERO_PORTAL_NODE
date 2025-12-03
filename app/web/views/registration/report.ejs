@@ -1,0 +1,308 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1><%= pageTitle || 'Course Registration Report' %></h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <!-- Filters -->
+    <div class="card card-primary card-outline">
+      <div class="card-body">
+        <form id="filterForm" class="form-row align-items-end">
+
+          <!-- Session -->
+          <div class="form-group col-md-2">
+            <label for="session_id">Session</label>
+            <select id="session_id" name="session_id" class="form-control">
+              <option value="">All</option>
+              <% (sessions || []).forEach(function(s) { %>
+                <option value="<%= s.id %>" <%= s.is_current === 'YES' || s.is_current === 1 ? 'selected' : '' %>>
+                  <%= s.name %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+
+          <!-- Semester -->
+          <div class="form-group col-md-2">
+            <label for="semester">Semester</label>
+            <select id="semester" name="semester" class="form-control">
+              <option value="">All</option>
+              <option value="FIRST">FIRST</option>
+              <option value="SECOND">SECOND</option>
+            </select>
+          </div>
+
+          <!-- School -->
+          <div class="form-group col-md-2">
+            <label for="school_id">School</label>
+            <select id="school_id" name="school_id" class="form-control">
+              <option value="">All</option>
+              <% (schools || []).forEach(function(s) { %>
+                <option value="<%= s.id %>"><%= s.name %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <!-- Department -->
+          <div class="form-group col-md-2">
+            <label for="department_id">Department</label>
+            <select id="department_id" name="department_id" class="form-control">
+              <option value="">All</option>
+              <% (departments || []).forEach(function(d) { %>
+                <option value="<%= d.id %>" data-school="<%= d.school_id %>">
+                  <%= d.name %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+
+          <!-- Level -->
+          <div class="form-group col-md-2">
+            <label for="level">Level</label>
+            <input id="level" name="level" class="form-control" placeholder="e.g. ND1, HND2">
+          </div>
+
+          <!-- Search -->
+          <div class="form-group col-md-2">
+            <label for="q">Search</label>
+            <div class="input-group">
+              <input id="q" name="q" class="form-control" placeholder="ID / Name / Course">
+            </div>
+          </div>
+
+          <!-- Second row -->
+          <div class="form-group col-md-2">
+            <label for="reg_type">Reg. Type</label>
+            <select id="reg_type" name="reg_type" class="form-control">
+              <option value="">All</option>
+              <option value="MAIN">MAIN</option>
+              <option value="ELECTIVE">ELECTIVE</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="form-control">
+              <option value="">All</option>
+              <option value="SUBMITTED">SUBMITTED</option>
+              <option value="PENDING">PENDING</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2">
+            <label for="course_code">Course Code</label>
+            <input id="course_code" name="course_code" class="form-control" placeholder="e.g. GST101">
+          </div>
+
+          <div class="form-group col-md-3">
+            <button type="button" id="applyBtn" class="btn btn-primary btn-block" style="margin-top: 32px;">
+              Apply
+            </button>
+          </div>
+
+          <div class="form-group col-md-3">
+            <button type="button" id="exportCsvBtn" class="btn btn-success btn-block" style="margin-top: 32px;">
+              Export CSV
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="info-box bg-info">
+          <span class="info-box-text p-2">Total Not Yet Submitted Registration</span>
+          <span class="info-box-number p-2" id="statDraft">0</span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="info-box bg-success">
+          <span class="info-box-text p-2">Registered Courses</span>
+          <span class="info-box-number p-2" id="statRegCourses">0</span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="info-box bg-primary">
+          <span class="info-box-text p-2">Total Registered Students</span>
+          <span class="info-box-number p-2" id="statRegStudents">0</span>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="info-box" style="background:#e83e8c;color:#fff;">
+          <span class="info-box-text p-2">Registered Department Average</span>
+          <span class="info-box-number p-2" id="statDeptAvg">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-hover" id="resultsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student ID</th>
+              <th>Name</th>
+              <th>Session</th>
+              <th>Semester</th>
+              <th>School</th>
+              <th>Department</th>
+              <th>Programme</th>
+              <th>Level</th>
+              <th>Registered Units</th>
+              <th>Registered Courses</th>
+              <th>Registration Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- filled by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <div>
+          <span id="paginationInfo">Page 1</span>
+        </div>
+        <div>
+          <button class="btn btn-default btn-sm" id="prevPageBtn">Prev</button>
+          <button class="btn btn-default btn-sm" id="nextPageBtn">Next</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  (function () {
+    const hodDeptId = "<%= hodDeptId || '' %>";
+
+    const schoolSelect = document.getElementById('school_id');
+    const deptSelect = document.getElementById('department_id');
+
+    function filterDepartments() {
+      const schoolId = schoolSelect.value;
+      Array.from(deptSelect.options).forEach(function (opt, idx) {
+        if (idx === 0) return; // "All"
+        const optSchool = opt.getAttribute('data-school');
+        opt.style.display = (!schoolId || schoolId === optSchool) ? '' : 'none';
+      });
+    }
+
+    if (schoolSelect && deptSelect) {
+      schoolSelect.addEventListener('change', filterDepartments);
+      filterDepartments();
+    }
+
+    if (hodDeptId && deptSelect) {
+      deptSelect.value = hodDeptId;
+      deptSelect.disabled = true;
+    }
+
+    let currentPage = 1;
+    const pageSize = 20;
+
+    const statDraft        = document.getElementById('statDraft');
+    const statRegCourses   = document.getElementById('statRegCourses');
+    const statRegStudents  = document.getElementById('statRegStudents');
+    const statDeptAvg      = document.getElementById('statDeptAvg');
+    const tbody            = document.querySelector('#resultsTable tbody');
+    const paginationInfo   = document.getElementById('paginationInfo');
+
+    async function loadData(page) {
+      currentPage = page;
+
+      const form = document.getElementById('filterForm');
+      const params = new URLSearchParams(new FormData(form));
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+
+      const url = '/staff/registration/report/data?' + params.toString();
+      tbody.innerHTML = '<tr><td colspan="12">Loading...</td></tr>';
+
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+
+        if (!data.ok) {
+          tbody.innerHTML = '<tr><td colspan="12">Failed to load data</td></tr>';
+          return;
+        }
+
+        // Update stats
+        statDraft.textContent       = data.draftRegistrations;
+        statRegCourses.textContent  = data.registeredCourses;
+        statRegStudents.textContent = data.registeredStudents;
+
+        const avg = Number(data.deptAverage || 0);
+        statDeptAvg.textContent     = avg.toFixed(1);
+
+        // Fill table
+        tbody.innerHTML = '';
+        if (!data.items.length) {
+          tbody.innerHTML = '<tr><td colspan="12">No records found</td></tr>';
+        } else {
+          data.items.forEach(function (row, idx) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${(data.page - 1) * data.pageSize + idx + 1}</td>
+              <td>${row.student_username || ''}</td>
+              <td>${row.student_name || ''}</td>
+              <td>${row.session_id}</td>
+              <td>${row.semester || ''}</td>
+              <td>${row.school_name || ''}</td>
+              <td>${row.department_name || ''}</td>
+              <td>${row.programme_name || ''}</td>
+              <td>${row.student_level || ''}</td>
+              <td>${row.total_units || 0}</td>
+              <td>${row.course_cnt || 0}</td>
+              <td>${row.registration_status || ''}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        const totalPages = Math.max(1, Math.ceil((data.total || 0) / data.pageSize));
+        paginationInfo.textContent = `Page ${data.page} of ${totalPages} (Total: ${data.total || 0})`;
+
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="12">Error loading data</td></tr>';
+      }
+    }
+
+    document.getElementById('applyBtn').addEventListener('click', function () {
+      loadData(1);
+    });
+
+    document.getElementById('prevPageBtn').addEventListener('click', function () {
+      if (currentPage > 1) loadData(currentPage - 1);
+    });
+
+    document.getElementById('nextPageBtn').addEventListener('click', function () {
+      currentPage += 1;
+      loadData(currentPage);
+    });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', function () {
+      const form = document.getElementById('filterForm');
+      const params = new URLSearchParams(new FormData(form));
+      window.location.href = '/staff/registration/report/export.csv?' + params.toString();
+    });
+
+    // Initial load
+    loadData(1);
+  })();
+</script>

@@ -45,6 +45,7 @@ import studentExamTimeRoutes from './app/web/routes/student-exam-time.routes.js'
 import studentProfileRoutes from './app/web/routes/student-profile.routes.js';
 import studentUploadRoutes from './app/web/routes/student-upload.routes.js';
 import studentRegistrationRoutes from './app/web/routes/student-registration.routes.js';
+import courseRegistrationReportRoutes from './app/web/routes/course-registration-report.routes.js';
 
 
 
@@ -329,6 +330,7 @@ app.use('/staff/attendance', markAttendanceRoutes);
 app.use(attendanceReportRoutes);
 
 app.use(watchlistRoutes);
+app.use(courseRegistrationReportRoutes);
 
 app.use('/staff/fees', feesRoutes);
 
