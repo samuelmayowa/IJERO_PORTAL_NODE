@@ -139,6 +139,19 @@ export async function lectureTimePage(req, res) {
     `
   );
 
+  // 🔑 Venues for the new venue dropdown
+  const [lectureVenues] = await pool.query(
+    `
+    SELECT
+      id,
+      school_id,
+      department_id,
+      name AS venue_name
+    FROM lecture_venues
+    ORDER BY name
+    `
+  );
+
   // Flash messages
   const success = req.flash('success')[0] || '';
   const error = req.flash('error')[0] || '';
@@ -162,6 +175,7 @@ export async function lectureTimePage(req, res) {
 
     lectures,
     departments,
+    lectureVenues, // <-- used by the EJS for the venue select
 
     total,
     page,

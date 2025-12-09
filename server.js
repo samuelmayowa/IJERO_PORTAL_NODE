@@ -46,6 +46,11 @@ import studentProfileRoutes from './app/web/routes/student-profile.routes.js';
 import studentUploadRoutes from './app/web/routes/student-upload.routes.js';
 import studentRegistrationRoutes from './app/web/routes/student-registration.routes.js';
 import courseRegistrationReportRoutes from './app/web/routes/course-registration-report.routes.js';
+import studentAttendanceRoutes from './app/web/routes/student-attendance.routes.js';
+import studentLectureVenueRoutes from './app/web/routes/student-lecture-venue.routes.js';
+import studentAttendanceReportRoutes from './app/web/routes/student-attendance-report.routes.js';
+
+
 
 
 
@@ -220,6 +225,14 @@ app.use(
   assignCourseRoutes
 );
 app.use('/staff/courses', viewAssignedCoursesRoutes);
+// Student attendance pages use the AdminLTE layout + staff roles
+app.use(
+  '/staff/student-attendance',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'bursary')
+);
+
+
 
 // Applicant (AdminLTE layout + correct sidebar role)
 app.use(
@@ -287,7 +300,12 @@ app.use(
   studentRegistrationRoutes,
 );
 
-
+// Student attendance (uses same layout, but path is /student/attendance/...) 
+app.use(
+  '/student/attendance',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  studentAttendanceRoutes
+);
 // Upload Student Data (Admin-only)
 app.use(
   '/staff/students',
@@ -328,6 +346,10 @@ app.use(
 app.use('/staff/attendance', markAttendanceRoutes);
 
 app.use(attendanceReportRoutes);
+app.use('/staff/attendance', studentLectureVenueRoutes);
+// Student attendance report route: /staff/student-attendance/report
+app.use(studentAttendanceReportRoutes);
+
 
 app.use(watchlistRoutes);
 app.use(courseRegistrationReportRoutes);

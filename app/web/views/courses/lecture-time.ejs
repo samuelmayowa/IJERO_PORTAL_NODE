@@ -135,15 +135,28 @@
                  required>
         </div>
 
-        <!-- VENUE -->
+        <!-- VENUE (now driven from lecture_venues.name) -->
         <div class="form-group col-md-3">
           <label>Venue</label>
-          <input type="text"
-                 class="form-control"
-                 name="venue"
-                 id="venue"
-                 placeholder="Eg. LT1, Room 203"
-                 required>
+
+          <% if (!lectureVenues || !lectureVenues.length) { %>
+            <select class="form-control" id="venue" name="venue" disabled>
+              <option value="">No venues defined</option>
+            </select>
+            <small class="form-text text-muted">
+              Venues are managed under Attendance &raquo; Set Student Lecture Venue.
+            </small>
+          <% } else { %>
+            <select class="form-control" id="venue" name="venue" required>
+              <option value="">-- Select Venue --</option>
+              <% lectureVenues.forEach(v => { %>
+                <option value="<%= v.venue_name %>"><%= v.venue_name %></option>
+              <% }) %>
+            </select>
+            <small class="form-text text-muted">
+              Venues are managed under Attendance &raquo; Set Student Lecture Venue.
+            </small>
+          <% } %>
         </div>
 
         <!-- STUDENT DEPARTMENT -->

@@ -1,0 +1,195 @@
+<!-- app/web/views/student/mark-attendance.ejs -->
+
+<section class="content-header">
+  <h1><%= pageTitle %></h1>
+</section>
+
+<section class="content">
+
+  <% if (messages && messages.error) { %>
+    <div class="alert alert-danger"><%= messages.error %></div>
+  <% } %>
+  <% if (messages && messages.success) { %>
+    <div class="alert alert-success"><%= messages.success %></div>
+  <% } %>
+
+  <!-- SUMMARY CARDS -->
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <div class="small-box bg-info">
+        <div class="inner">
+          <h3><%= activeLectures && activeLectures.length ? activeLectures.length : 0 %></h3>
+          <p>Current Lecture(s)</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="small-box bg-success">
+        <div class="inner">
+          <h3><%= upcomingLectures && upcomingLectures.length ? upcomingLectures.length : 0 %></h3>
+          <p>Upcoming Lectures</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="small-box bg-warning">
+        <div class="inner">
+          <h3><%= today %></h3>
+          <p>Today</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="small-box bg-primary">
+        <div class="inner">
+          <h3><%= timeNow %></h3>
+          <p>Current Time</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+
+    <!-- LEFT: MARK ATTENDANCE FORM -->
+    <div class="col-md-5">
+      <div class="card card-success">
+        <div class="card-header">
+          <h3 class="card-title">Mark Attendance</h3>
+        </div>
+        <div class="card-body">
+
+          <% if (!canCheckIn) { %>
+            <p class="text-muted">
+              There is no lecture currently in progress for your registered courses.
+              You can see upcoming lectures on the right. The "Mark Attendance" button
+              will be enabled during the lecture time window and at the correct venue.
+            </p>
+          <% } %>
+
+          <form method="POST" action="/student/attendance/mark" id="studentAttendanceForm">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <div class="form-group">
+              <label>Lecture</label>
+              <select name="lecture_time_id" class="form-control" <%= canCheckIn ? '' : 'disabled' %>>
+                <% if (!activeLectures || activeLectures.length === 0) { %>
+                  <option value="">No active lecture</option>
+                <% } else { %>
+                  <% activeLectures.forEach(function(lec) { %>
+                    <option value="<%= lec.lecture_time_id %>">
+                      <%= lec.course_code %> - <%= lec.course_title %>
+                      ( <%= lec.start_time %> - <%= lec.end_time %>, <%= lec.venue %> )
+                    </option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <!-- Location fields -->
+            <input type="hidden" name="latitude" id="latInput">
+            <input type="hidden" name="longitude" id="lngInput">
+
+            <div class="form-group">
+              <label>Your Location</label>
+              <div id="locationStatus" class="text-muted">Detecting location…</div>
+            </div>
+
+            <button type="submit"
+                    class="btn btn-success btn-block"
+                    id="submitBtn"
+                    <%= canCheckIn ? '' : 'disabled' %>>
+              Mark Attendance
+            </button>
+          </form>
+
+          <p class="mt-2 text-muted small">
+            You must be within about <%= allowedRadiusMeters %> meters of the lecture venue
+            and within the scheduled lecture time.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: UPCOMING LECTURES -->
+    <div class="col-md-7">
+      <div class="card card-primary">
+        <div class="card-header">
+          <h3 class="card-title">Upcoming Lectures</h3>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Course</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Venue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!upcomingLectures || upcomingLectures.length === 0) { %>
+                <tr>
+                  <td colspan="5" class="text-center text-muted">
+                    No upcoming lectures found for your registered courses.
+                  </td>
+                </tr>
+              <% } else { %>
+                <% upcomingLectures.forEach(function(lec, idx) { %>
+                  <tr class="<%= lec.is_active === 1 ? 'table-success' : '' %>">
+                    <td><%= idx + 1 %></td>
+                    <td>
+                      <strong><%= lec.course_code %></strong><br>
+                      <span class="text-muted"><%= lec.course_title %></span>
+                    </td>
+                    <td><%= lec.lecture_date %></td>
+                    <td><%= lec.start_time %> - <%= lec.end_time %></td>
+                    <td><%= lec.venue %></td>
+                  </tr>
+                <% }); %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+<script>
+  (function() {
+    const statusEl = document.getElementById('locationStatus');
+    const latInput = document.getElementById('latInput');
+    const lngInput = document.getElementById('lngInput');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (!navigator.geolocation) {
+      statusEl.textContent = 'Geolocation is not supported by your browser.';
+      submitBtn.disabled = true;
+      return;
+    }
+
+    function onSuccess(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      latInput.value = lat;
+      lngInput.value = lng;
+      statusEl.textContent = 'Location detected.';
+    }
+
+    function onError(err) {
+      console.error('Geolocation error', err);
+      statusEl.textContent = 'Unable to get location. Please allow location access and refresh.';
+      submitBtn.disabled = true;
+    }
+
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+  })();
+</script>

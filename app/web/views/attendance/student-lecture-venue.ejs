@@ -1,0 +1,229 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1><%= pageTitle || 'Set Lecture Venue Location' %></h1>
+      </div>
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="/staff/dashboard">Home</a></li>
+          <li class="breadcrumb-item active">Lecture Venue Location</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <div class="row">
+      <!-- Left: form -->
+      <div class="col-md-5">
+        <div class="card card-success">
+          <div class="card-header">
+            <h3 class="card-title">Set Lecture Venue Location</h3>
+          </div>
+          <form method="post" action="/staff/attendance/student-venue">
+            <div class="card-body">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+              <!-- School -->
+              <div class="form-group">
+                <label for="school_id">School</label>
+                <select class="form-control" id="school_id" name="school_id" required>
+                  <option value="">-- Select School --</option>
+                  <% (schools || []).forEach(function (s) { %>
+                    <option value="<%= s.id %>"><%= s.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <!-- Department (from DB, filtered by school) -->
+              <div class="form-group">
+                <label for="department_id">Department</label>
+                <select
+                  class="form-control"
+                  id="department_id"
+                  name="department_id"
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  <% (departments || []).forEach(function (d) { %>
+                    <option
+                      value="<%= d.id %>"
+                      data-school-id="<%= d.school_id %>"
+                    >
+                      <%= d.name %>
+                    </option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <!-- Venue -->
+              <div class="form-group">
+                <label for="venue_name">Venue (e.g. LT1, Room 203)</label>
+                <input
+                  list="venue_names_datalist"
+                  class="form-control"
+                  id="venue_name"
+                  name="venue_name"
+                  placeholder="Lecture theatre / classroom"
+                  required
+                >
+                <datalist id="venue_names_datalist">
+                  <% (venueNames || []).forEach(function (v) { %>
+                    <option value="<%= v %>"></option>
+                  <% }) %>
+                </datalist>
+              </div>
+
+              <!-- Latitude -->
+              <div class="form-group">
+                <label for="latitude">Latitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  class="form-control"
+                  id="latitude"
+                  name="latitude"
+                  placeholder="-90 to 90"
+                  required
+                >
+              </div>
+
+              <!-- Longitude -->
+              <div class="form-group">
+                <label for="longitude">Longitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  class="form-control"
+                  id="longitude"
+                  name="longitude"
+                  placeholder="-180 to 180"
+                  required
+                >
+              </div>
+
+              <!-- Radius -->
+              <div class="form-group">
+                <label for="radius_meters">Allowed radius (meters)</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="radius_meters"
+                  name="radius_meters"
+                  value="<%= defaultRadius || 200 %>"
+                >
+                <small class="form-text text-muted">
+                  Students must be within this distance of the venue to mark attendance.
+                  Default is <%= defaultRadius || 200 %>m.
+                </small>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <button type="submit" class="btn btn-success">Save Location</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right: existing venues -->
+      <div class="col-md-7">
+        <div class="card card-primary">
+          <div class="card-header">
+            <h3 class="card-title">Existing Lecture Venues</h3>
+          </div>
+          <div class="card-body table-responsive p-0">
+            <table class="table table-hover table-striped">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>School</th>
+                  <th>Department</th>
+                  <th>Venue</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Radius (m)</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!venues || !venues.length) { %>
+                  <tr>
+                    <td colspan="8" class="text-center text-muted">
+                      No lecture venues defined yet.
+                    </td>
+                  </tr>
+                <% } else { %>
+                  <% venues.forEach(function (v, idx) { %>
+                    <tr>
+                      <td><%= idx + 1 %></td>
+                      <td><%= v.school_name || '' %></td>
+                      <td><%= v.department_name || '' %></td>
+                      <td><%= v.name %></td>
+                      <td><%= v.latitude %></td>
+                      <td><%= v.longitude %></td>
+                      <td><%= v.radius_meters %></td>
+                      <td>
+                        <form
+                          method="post"
+                          action="/staff/attendance/student-venue/<%= v.id %>/delete"
+                          onsubmit="return confirm('Delete this venue?');"
+                        >
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <button type="submit" class="btn btn-sm btn-danger">
+                            Delete
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  // Filter department options by selected school
+  (function () {
+    const schoolSelect = document.getElementById('school_id');
+    const deptSelect = document.getElementById('department_id');
+    if (!schoolSelect || !deptSelect) return;
+
+    function refreshDepartments() {
+      const schoolId = schoolSelect.value;
+      const opts = deptSelect.querySelectorAll('option');
+
+      opts.forEach(function (opt) {
+        const optSchool = opt.getAttribute('data-school-id');
+        if (!optSchool || !schoolId) {
+          // keep placeholder visible
+          if (!opt.value) opt.hidden = false;
+          return;
+        }
+
+        if (opt.value === '') {
+          opt.hidden = false;
+          return;
+        }
+
+        opt.hidden = optSchool !== schoolId;
+      });
+
+      // Reset selection when school changes
+      deptSelect.value = '';
+    }
+
+    schoolSelect.addEventListener('change', refreshDepartments);
+    refreshDepartments();
+  })();
+</script>

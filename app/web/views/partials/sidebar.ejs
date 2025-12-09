@@ -148,6 +148,16 @@ const inAttendance = cur.startsWith('/staff/attendance');
               <i class="far fa-circle nav-icon"></i><p>Watch-List Staff</p>
             </a>
           </li>
+           <li class="nav-item">
+            <a href="/staff/attendance/student-venue" class="nav-link <%= cur.startsWith('/staff/attendance/student-venue') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Set Student Lecture Venue</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/staff/student-attendance/report" class="nav-link <%= cur.startsWith('/staff/student-attendance/report') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Student Attendance Report</p>
+            </a>
+          </li>
         </ul>
       </li>
 
@@ -238,7 +248,11 @@ const inAttendance = cur.startsWith('/staff/attendance');
               <p>Course Reg. Report</p>
             </a>
           </li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Student Attendance</p></a></li>
+          <li class="nav-item">
+            <a href="/staff/student-attendance/report" class="nav-link <%= cur.startsWith('/staff/student-attendance/report') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Student Attendance Report</p>
+            </a>
+          </li>
         </ul>
       </li>
       <!-- Uniform Report -->
