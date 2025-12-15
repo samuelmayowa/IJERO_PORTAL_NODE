@@ -1,18 +1,20 @@
 // app/web/routes/student.routes.js
 import { Router } from 'express';
-import * as student from '../controllers/student.controller.js';
-import { requireRole } from '../../core/session.js';
+import {
+  dashboard,
+  uniformForm,
+  saveUniform,
+  uniformPrint,
+} from '../controllers/student.controller.js';
 
 const router = Router();
 
-// Scope auth to the pages that truly need it
-router.get('/dashboard', requireRole('student'), student.dashboard);
+// Dashboard (mounted at /student in server.js)
+router.get('/', dashboard);
 
-// Uniform Measurement (no forced logout)
-router.get('/uniform', student.uniformForm);
-router.post('/uniform', student.saveUniform);
-
-// Printable PDF-friendly page
-router.get('/uniform/print', student.uniformPrint);
+// Uniform measurement
+router.get('/uniform', uniformForm);
+router.post('/uniform', saveUniform);
+router.get('/uniform/print', uniformPrint);
 
 export default router;

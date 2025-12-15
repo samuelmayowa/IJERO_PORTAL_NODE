@@ -136,10 +136,27 @@ app.use((req, res, next) => {
 app.use('/', roleRoutes);  // put above any “catch-all” redirects
 
 // Expose CSRF + user to all views
+// Expose CSRF + user to all views
 app.use((req, res, next) => {
   try { res.locals.csrfToken = req.csrfToken?.() || null; } catch { res.locals.csrfToken = null; }
   const s = req.session || {};
-  res.locals.user = s.user || s.staff || s.account || req.user || null;
+
+  // Prefer public portal users (students/applicants) when present
+  if (s.publicUser) {
+    const pu = s.publicUser;
+    res.locals.user = {
+      ...pu,
+      name:
+        pu.full_name ||
+        pu.first_name ||
+        pu.username ||
+        pu.matric_number ||
+        'User',
+    };
+  } else {
+    // Fallback: staff/admin/etc.
+    res.locals.user = s.user || s.staff || s.account || req.user || null;
+  }
 
   const role = String(res.locals.user?.role || '').toLowerCase();
   res.locals.roleMenus = ROLE_MENUS;
@@ -246,14 +263,37 @@ app.use(
   applicantRoutes
 );
 
-// Student lecture time (view-only page)
+// // Student lecture time (view-only page)
+// app.use(
+//   '/student/lecture-time',
+//   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+//   (req, res, next) => {
+//     // mimic the /student block so sidebar + role work correctly
+//     if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
+//     else res.locals.user.role = 'student';
+//     next();
+//   },
+//   studentLectureTimeRoutes
+// );
+// Student (AdminLTE layout + correct sidebar role)
 app.use(
   '/student/lecture-time',
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
   (req, res, next) => {
-    // mimic the /student block so sidebar + role work correctly
-    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
-    else res.locals.user.role = 'student';
+    const pu = req.session?.publicUser;
+    if (pu && pu.role === 'student') {
+      // Use student's real name from session
+      res.locals.user = {
+        name: pu.full_name || pu.username || 'Student',
+        role: 'student',
+      };
+    } else if (!res.locals.user) {
+      // fallback when no student session yet
+      res.locals.user = { name: 'User', role: 'student' };
+    } else {
+      // if something already set user, just force the role
+      res.locals.user.role = 'student';
+    }
     next();
   },
   studentLectureTimeRoutes
@@ -316,18 +356,30 @@ app.use(
   studentUploadRoutes
 );
 
-
 // Student (AdminLTE layout + correct sidebar role)
 app.use(
   '/student',
   (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
   (req, res, next) => {
-    if (!res.locals.user) res.locals.user = { name: 'User', role: 'student' };
-    else res.locals.user.role = 'student';
+    const pu = req.session?.publicUser;
+    if (pu && pu.role === 'student') {
+      // Use student's real name from session
+      res.locals.user = {
+        name: pu.full_name || pu.username || 'Student',
+        role: 'student',
+      };
+    } else if (!res.locals.user) {
+      // fallback when no student session yet
+      res.locals.user = { name: 'User', role: 'student' };
+    } else {
+      // if something already set user, just force the role
+      res.locals.user.role = 'student';
+    }
     next();
   },
   studentRoutes
 );
+
 
 // ✅ Add this BEFORE routes:
 app.use((req, res, next) => {
