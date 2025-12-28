@@ -133,37 +133,100 @@ app.use((req, res, next) => {
 });
 
 
-app.use('/', roleRoutes);  // put above any “catch-all” redirects
-
-// Expose CSRF + user to all views
-// Expose CSRF + user to all views
+// app.use('/', roleRoutes);  // put above any “catch-all” redirects
+// Expose CSRF + user to all views  (MUST be before roleRoutes)
 app.use((req, res, next) => {
-  try { res.locals.csrfToken = req.csrfToken?.() || null; } catch { res.locals.csrfToken = null; }
-  const s = req.session || {};
-
-  // Prefer public portal users (students/applicants) when present
-  if (s.publicUser) {
-    const pu = s.publicUser;
-    res.locals.user = {
-      ...pu,
-      name:
-        pu.full_name ||
-        pu.first_name ||
-        pu.username ||
-        pu.matric_number ||
-        'User',
-    };
-  } else {
-    // Fallback: staff/admin/etc.
-    res.locals.user = s.user || s.staff || s.account || req.user || null;
+  // csrf (guarded)
+  try {
+    res.locals.csrfToken = req.csrfToken ? req.csrfToken() : null;
+  } catch (e) {
+    res.locals.csrfToken = null;
   }
 
-  const role = String(res.locals.user?.role || '').toLowerCase();
-  res.locals.roleMenus = ROLE_MENUS;
-  res.locals.roleMenuForUser = ROLE_MENUS[role] ?? null;
-  if (typeof res.locals.allowedModules === 'undefined') res.locals.allowedModules = null;
+  const s = req.session || {};
+
+  // prefer publicUser for students/applicants; fallback to staff/session user
+  const raw =
+    s.publicUser ||
+    s.user ||
+    s.staff ||
+    s.account ||
+    req.user ||
+    null;
+
+  if (raw) {
+    const role = String(raw.role || raw.user_role || raw.position || '').toLowerCase();
+
+    // normalize display name (prevents "Welcome: User")
+    const name =
+      raw.name ||
+      raw.full_name ||
+      raw.fullname ||
+      raw.fullName ||
+      raw.username ||
+      raw.email ||
+      raw.staff_no ||
+      raw.staffNo ||
+      'User';
+
+    res.locals.user = { ...raw, role, name };
+    res.locals.roleMenuForUser = ROLE_MENUS[role] || null;
+  } else {
+    res.locals.user = null;
+    res.locals.roleMenuForUser = null;
+  }
+
+  res.locals.currentPath = req.path;
   next();
 });
+
+// NOW mount role routes (so dashboards get locals + menu)
+app.use('/', roleRoutes);
+
+// Expose CSRF + user to all views
+// Expose CSRF + user to all views
+// app.use((req, res, next) => {
+//   try { res.locals.csrfToken = req.csrfToken?.() || null; } catch { res.locals.csrfToken = null; }
+//   const s = req.session || {};
+
+//   // Prefer public portal users (students/applicants) when present
+//   if (s.publicUser) {
+//     const pu = s.publicUser;
+//     res.locals.user = {
+//       ...pu,
+//       name:
+//         pu.full_name ||
+//         pu.first_name ||
+//         pu.username ||
+//         pu.matric_number ||
+//         'User',
+//     };
+//   } else {
+//     // Fallback: staff/admin/etc.
+//     // res.locals.user = s.user || s.staff || s.account || req.user || null;
+//     const staffUser = s.user || s.staff || s.account || req.user || null;
+//     if (staffUser) {
+//       res.locals.user = {
+//         ...staffUser,
+//         name:
+//           staffUser.name ||
+//           staffUser.full_name ||
+//           staffUser.fullname ||
+//           staffUser.username ||
+//           staffUser.email ||
+//           'User',
+//       };
+//     } else {
+//       res.locals.user = null;
+//     }
+//   }
+
+//   const role = String(res.locals.user?.role || '').toLowerCase();
+//   res.locals.roleMenus = ROLE_MENUS;
+//   res.locals.roleMenuForUser = ROLE_MENUS[role] ?? null;
+//   if (typeof res.locals.allowedModules === 'undefined') res.locals.allowedModules = null;
+//   next();
+// });
 
 // Friendly CSRF error
 app.use((err, req, res, next) => {

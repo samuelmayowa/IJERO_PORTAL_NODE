@@ -1,86 +1,64 @@
 <%
-  // -------- Safe locals (no shadowing) --------
-  const _stats = (typeof stats !== 'undefined' && stats) ? stats : {};
-  const SESSION_NAME     = _stats.sessionName || '2025/2026';
-  const TOTAL_APPLICANTS = (typeof _stats.totalApplicants !== 'undefined') ? _stats.totalApplicants : 1157;
-  const TOTAL_STUDENTS   = (typeof _stats.totalStudents   !== 'undefined') ? _stats.totalStudents   : 2310;
-  const TOTAL_STAFF_BOX  =
-      (typeof _stats.totalStaff !== 'undefined') ? _stats.totalStaff
-    : (typeof staffTotal !== 'undefined')        ? staffTotal
-    : 0;
+  const s = (typeof stats !== 'undefined' && stats) ? stats : {};
 
-  // Attendance rows come from controller (already mapped): [{staffId,name,status,time}]
-  const attRows = Array.isArray(attendance) ? attendance.slice(0, 5) : [];
+  const sessionName = s.sessionName || 'N/A';
+  const totalApplicants = Number(s.totalApplicants || 0);
+  const totalStudents = Number(s.totalStudents || 0);
+  const totalStaff = Number(s.totalStaff || 0);
 
-  // Recent course registrations: fallback demo rows
-  const recentRegs = (typeof recentCourseRegs !== 'undefined' && Array.isArray(recentCourseRegs) && recentCourseRegs.length)
-    ? recentCourseRegs
-    : [
-        { date: '2025-02-10', matric: 'IJR/24/0001', name: 'Ade A.',   course: 'CSC101' },
-        { date: '2025-02-10', matric: 'IJR/24/0002', name: 'Bisi B.',  course: 'MTH101' },
-        { date: '2025-02-11', matric: 'IJR/24/0003', name: 'Chika C.', course: 'GNS101' },
-        { date: '2025-02-11', matric: 'IJR/24/0004', name: 'Dayo D.',  course: 'CHM101' },
-        { date: '2025-02-12', matric: 'IJR/24/0005', name: 'Emeka E.', course: 'PHY101' }
-      ];
+  const regs = (typeof recentCourseRegs !== 'undefined' && Array.isArray(recentCourseRegs)) ? recentCourseRegs : [];
+  const att = (typeof attendance !== 'undefined' && Array.isArray(attendance)) ? attendance : [];
 
-  // Payments (Bursary dashboard supplies this). We'll format the date (strip timezone tail).
-  const paymentRows = (typeof payments !== 'undefined' && Array.isArray(payments)) ? payments.slice(0,5) : [];
-  const fmtDate = (d) => { try { return new Date(d).toString().slice(0, 24); } catch(_) { return d; } };
+  const toMin = (t) => {
+    try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch { return 0; }
+  };
 
-  // Footer mini metrics (computed from 5 visible attendance rows)
-  const toMin = t => { try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch(_){ return 0; } };
-  const recentThreshold = 9*60; // ≥ 09:00
-  const RECENTLY_LOGIN = attRows.filter(r => toMin(r.time) >= recentThreshold).length;
-  const ONLINE_COUNT   = attRows.filter(r => r.status === 'Online').length;
-  const ON_LEAVE_COUNT = attRows.filter(r => r.status === 'On-Leave').length;
+  const recentlyLogin = att.filter(r => toMin(r.time) >= (9*60)).length;
+  const onlineCount = att.filter(r => r.status === 'Online').length;
+  const onLeaveCount = att.filter(r => r.status === 'On-Leave').length;
 %>
-
-<style>
-  :root{
-    --green-base:#247D57;
-    --green-ink:#184c3b;
-    --green-soft:#eaf6f2;
-    --green-accent:#bfe4d6;
-    --green-accent-2:#abdccd;
-    --green-border:#cfe9e1;
-  }
-  .btn-softgreen{ background-color:var(--green-accent); border:1px solid var(--green-border); color:var(--green-ink); }
-  .btn-softgreen:hover{ background-color:var(--green-accent-2); border-color:var(--green-accent-2); color:var(--green-ink); }
-  .thead-softgreen th{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
-  .card-header.softgreen{ background:var(--green-soft); border-bottom:1px solid var(--green-border); }
-  .summary-squares{ gap:.75rem; }
-  .summary-square{ width:84px; height:84px; border-radius:.5rem; background:var(--green-accent); border:1px solid var(--green-border);
-                   display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--green-ink); box-shadow:0 2px 6px rgba(0,0,0,.08);}
-  .summary-square .count{ font-weight:700; font-size:1.25rem; line-height:1; }
-  .summary-square .label{ font-size:.70rem; text-align:center; line-height:1.1; margin-top:.25rem; }
-</style>
 
 <!-- Stat boxes -->
 <div class="row">
   <div class="col-lg-3 col-6">
     <div class="small-box bg-info">
-      <div class="inner"><h3><%= SESSION_NAME %></h3><p>Current Academic Session</p></div>
+      <div class="inner">
+        <h3><%= sessionName %></h3>
+        <p>Current Academic Session</p>
+      </div>
       <div class="icon"><i class="ion ion-bag"></i></div>
       <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
+
   <div class="col-lg-3 col-6">
     <div class="small-box bg-success">
-      <div class="inner"><h3><%= TOTAL_APPLICANTS %></h3><p>Total Number of Applicants</p></div>
+      <div class="inner">
+        <h3><%= totalApplicants %></h3>
+        <p>Total Number of Applicants</p>
+      </div>
       <div class="icon"><i class="ion ion-stats-bars"></i></div>
       <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
+
   <div class="col-lg-3 col-6">
     <div class="small-box bg-warning">
-      <div class="inner"><h3><%= TOTAL_STUDENTS %></h3><p>Total Number of Students</p></div>
+      <div class="inner">
+        <h3><%= totalStudents %></h3>
+        <p>Total Number of Students</p>
+      </div>
       <div class="icon"><i class="ion ion-person-add"></i></div>
       <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
   </div>
+
   <div class="col-lg-3 col-6">
     <div class="small-box bg-danger">
-      <div class="inner"><h3><%= TOTAL_STAFF_BOX %></h3><p>Total Number of Staff</p></div>
+      <div class="inner">
+        <h3><%= totalStaff %></h3>
+        <p>Total Number of Staff</p>
+      </div>
       <div class="icon"><i class="ion ion-pie-graph"></i></div>
       <a href="#" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
@@ -88,92 +66,61 @@
 </div>
 
 <div class="row">
-  <!-- LEFT: payments or registrations + chat -->
+  <!-- LEFT -->
   <section class="col-lg-6 connectedSortable">
-
-    <% if (paymentRows.length) { %>
-      <!-- Recent Payments (Bursary) -->
-      <div class="card">
-        <div class="card-header softgreen d-flex justify-content-between align-items-center">
-          <h3 class="card-title m-0"><i class="fas fa-receipt mr-1"></i> Recent Payments</h3>
-          <div class="card-tools">
-            <a href="/staff/fees/payments" class="btn btn-softgreen btn-sm">View / Print List</a>
-            <a href="/staff/fees/payments" class="btn btn-softgreen btn-sm">Print Clearance List</a>
-          </div>
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-chart-line mr-1"></i> Recent Course Registration</h3>
+        <div class="card-tools">
+          <a href="/staff/registration/report" class="btn btn-sm btn-success">View/Print List</a>
+          <a href="/staff/registration/report" class="btn btn-sm btn-success">Print Clearance List</a>
         </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0">
-              <thead class="thead-softgreen">
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Matric No.</th>
+                <th>Course</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!regs.length) { %>
                 <tr>
-                  <th>#</th>
-                  <th>Payer</th>
-                  <th>Payment Type</th>
-                  <th>RRR</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Action</th>
+                  <td colspan="5" class="text-center text-muted">No recent registrations</td>
                 </tr>
-              </thead>
-              <tbody>
-                <% paymentRows.forEach(function (p, i) { %>
-                  <tr>
-                    <td><%= i + 1 %></td>
-                    <td><%= p.payerName %></td>
-                    <td><%= p.paymentType %></td>
-                    <td><%= p.rrr %></td>
-                    <td><%= p.amount %></td>
-                    <td><%= fmtDate(p.date) %></td>
-                    <td><a class="btn btn-softgreen btn-sm" href="/staff/fees/payments">View Details</a></td>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    <% } else { %>
-      <!-- Recent Course Registration (default for non-bursary roles) -->
-      <div class="card">
-        <div class="card-header softgreen">
-          <h3 class="card-title"><i class="fas fa-chart-line mr-1"></i> Recent Course Registration</h3>
-          <div class="card-tools">
-            <a href="#" class="btn btn-softgreen btn-sm">View/Print List</a>
-            <a href="#" class="btn btn-softgreen btn-sm">Print Clearance List</a>
-          </div>
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0">
-              <thead class="thead-softgreen">
-                <tr><th>#</th><th>Matric No.</th><th>Course</th><th>Date</th><th>Action</th></tr>
-              </thead>
-              <tbody>
-                <% if (!recentRegs.length) { %>
-                  <tr><td colspan="5" class="text-center text-muted">No recent registrations</td></tr>
-                <% } %>
-                <% recentRegs.forEach(function (row, i) { %>
-                  <tr>
-                    <td><%= i + 1 %></td>
-                    <td><%= row.matric %></td>
-                    <td><%= row.course %></td>
-                    <td><%= row.date %></td>
-                    <td><a href="#" class="btn btn-softgreen btn-sm">View Details</a></td>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    <% } %>
+              <% } %>
 
-    <!-- Direct Chat -->
+              <% regs.forEach(function (r, idx) { %>
+                <tr>
+                  <td><%= idx + 1 %></td>
+                  <td><%= r.matric %></td>
+                  <td><%= r.course %></td>
+                  <td><%= r.date %></td>
+                  <td>
+                    <a class="btn btn-sm btn-success" href="/staff/registration/report?q=<%= encodeURIComponent(r.matric || '') %>">
+                      View Details
+                    </a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct chat (kept as-is / static) -->
     <div class="card direct-chat direct-chat-primary">
-      <div class="card-header softgreen">
+      <div class="card-header">
         <h3 class="card-title">Direct Chat student / staff</h3>
         <div class="card-tools">
-          <span class="badge badge-softgreen">3</span>
+          <span class="badge badge-primary">3</span>
           <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
           <button type="button" class="btn btn-tool" title="Contacts" data-widget="chat-pane-toggle"><i class="fas fa-comments"></i></button>
           <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
@@ -183,18 +130,19 @@
         <div class="direct-chat-messages">
           <div class="direct-chat-msg">
             <div class="direct-chat-infos clearfix">
-              <span class="direct-chat-name float-left"><%= (user && (user.full_name || user.name)) || 'You' %></span>
+              <span class="direct-chat-name float-left">You</span>
               <span class="direct-chat-timestamp float-right">10:12 AM</span>
             </div>
-            <img class="direct-chat-img" src="/public/img/avatar.png" alt="You">
-            <div class="direct-chat-text">Hi, what’s the venue for CSC201 lab?</div>
+            <img class="direct-chat-img" src="/public/img/avatar.png" alt="message user image">
+            <div class="direct-chat-text">Hi, what's the venue for CSC201 lab?</div>
           </div>
+
           <div class="direct-chat-msg right">
             <div class="direct-chat-infos clearfix">
               <span class="direct-chat-name float-right">Course Rep</span>
               <span class="direct-chat-timestamp float-left">10:13 AM</span>
             </div>
-            <img class="direct-chat-img" src="/public/img/course-rep.png" alt="Rep">
+            <img class="direct-chat-img" src="/public/img/course-rep.png" alt="message user image">
             <div class="direct-chat-text">New Lab 2, 1:00–3:00 PM.</div>
           </div>
         </div>
@@ -202,58 +150,79 @@
       <div class="card-footer">
         <form action="#">
           <div class="input-group">
-            <input type="text" name="message" placeholder="Type Message ..." class="form-control">
-            <span class="input-group-append"><button type="button" class="btn btn-softgreen">Send</button></span>
+            <input type="text" name="message" placeholder="Type Message ." class="form-control">
+            <span class="input-group-append">
+              <button type="button" class="btn btn-primary">Send</button>
+            </span>
           </div>
         </form>
       </div>
     </div>
   </section>
 
-  <!-- RIGHT: Staff Attendance -->
+  <!-- RIGHT -->
   <section class="col-lg-6 connectedSortable">
     <div class="card">
-      <div class="card-header softgreen">
+      <div class="card-header">
         <h3 class="card-title"><i class="fas fa-th mr-1"></i> Staff Attendance</h3>
         <div class="card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
           <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
         </div>
       </div>
+
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-striped table-hover mb-0">
-            <thead class="thead-softgreen">
-              <tr><th>#</th><th>ID</th><th>Name</th><th>Status</th><th>Time</th><th>Action</th></tr>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody>
-              <% if (!attRows.length) { %>
-                <tr><td colspan="6" class="text-center text-muted">No recent attendance activity</td></tr>
+              <% if (!att.length) { %>
+                <tr><td colspan="6" class="text-center text-muted">No attendance yet</td></tr>
               <% } %>
-              <% attRows.forEach(function (r, i) { %>
+
+              <% att.forEach(function (row, idx) { %>
                 <tr>
-                  <td><%= i+1 %></td>
-                  <td><%= r.staffId %></td>
-                  <td><%= r.name %></td>
-                  <td><%= r.status %></td>
-                  <td><%= r.time %></td>
-                  <td><a href="/staff/attendance/report" class="btn btn-softgreen btn-sm">View Details</a></td>
+                  <td><%= idx + 1 %></td>
+                  <td><%= row.staffId %></td>
+                  <td><%= row.name %></td>
+                  <td><%= row.status %></td>
+                  <td><%= row.time %></td>
+                  <td><a href="/staff/attendance/report" class="btn btn-sm btn-success">View Details</a></td>
                 </tr>
               <% }) %>
             </tbody>
           </table>
         </div>
       </div>
-      <div class="card-footer" style="background:var(--green-soft); border-top:1px solid var(--green-border);">
-        <div class="d-flex justify-content-around summary-squares">
-          <div class="summary-square">
-            <div class="count"><%= RECENTLY_LOGIN %></div><div class="label">Recently<br>Login</div>
+
+      <div class="card-footer" style="background:#eaf6f2;">
+        <div class="row text-center">
+          <div class="col">
+            <div style="display:inline-block; padding:14px 18px; border-radius:8px; background:#bfe4d6;">
+              <div style="font-size:22px; font-weight:700;"><%= recentlyLogin %></div>
+              <div style="font-size:12px;">Recently<br/>Login</div>
+            </div>
           </div>
-          <div class="summary-square">
-            <div class="count"><%= ONLINE_COUNT %></div><div class="label">Online</div>
+          <div class="col">
+            <div style="display:inline-block; padding:14px 18px; border-radius:8px; background:#bfe4d6;">
+              <div style="font-size:22px; font-weight:700;"><%= onlineCount %></div>
+              <div style="font-size:12px;">Online</div>
+            </div>
           </div>
-          <div class="summary-square">
-            <div class="count"><%= ON_LEAVE_COUNT %></div><div class="label">On-Leave</div>
+          <div class="col">
+            <div style="display:inline-block; padding:14px 18px; border-radius:8px; background:#bfe4d6;">
+              <div style="font-size:22px; font-weight:700;"><%= onLeaveCount %></div>
+              <div style="font-size:12px;">On-Leave</div>
+            </div>
           </div>
         </div>
       </div>
