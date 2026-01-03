@@ -9,8 +9,11 @@ import {
 
 const router = Router();
 
-// Dashboard (mounted at /student in server.js)
+// Dashboard (mounted at /student)
 router.get('/', dashboard);
+
+// ✅ Alias for /student/dashboard (so both URLs work)
+router.get('/dashboard', dashboard);
 
 // Uniform measurement
 router.get('/uniform', uniformForm);

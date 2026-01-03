@@ -1,30 +1,58 @@
 <%
 const sess = (typeof currentSession !== 'undefined' && currentSession) ? currentSession : { name: '2025/2026' };
 const sem  = (typeof currentSemester !== 'undefined' && currentSemester) ? currentSemester : { name: 'First' };
+
 const paid = Number(typeof totalPaid !== 'undefined' ? totalPaid : 0);
 const totalCourses = Number(typeof totalRegisteredCourses !== 'undefined' ? totalRegisteredCourses : 0);
 const pb = (typeof paymentsBreakdown !== 'undefined' && paymentsBreakdown) ? paymentsBreakdown : { school:0, faculty:0, application:0 };
 
+// ✅ registrations: accept either new controller key OR old key (backward compatible)
+const recentRegs =
+  (typeof recentCourseRegistrations !== 'undefined' && Array.isArray(recentCourseRegistrations))
+    ? recentCourseRegistrations
+    : ((typeof recentRegistrations !== 'undefined' && Array.isArray(recentRegistrations)) ? recentRegistrations : []);
 
-const recentRegs = (typeof recentRegistrations !== 'undefined' && Array.isArray(recentRegistrations)) ? recentRegistrations : [];
+// ✅ payments unchanged
 const recentPaysRaw = (typeof recentPayments !== 'undefined' && Array.isArray(recentPayments)) ? recentPayments : [];
-const recentPays = recentPaysRaw.slice(0,4); // compact widget: show up to 4 rows
+const recentPays = recentPaysRaw.slice(0,4);
 
+// ✅ attendance: accept either new controller key OR old key (backward compatible)
+// IMPORTANT: no dummy fallback anymore — empty means "no attendance yet"
+const attRows =
+  (typeof recentAttendance !== 'undefined' && Array.isArray(recentAttendance))
+    ? recentAttendance.slice(0,4)
+    : ((typeof studentAttendance !== 'undefined' && Array.isArray(studentAttendance)) ? studentAttendance.slice(0,4) : []);
 
-const attRows = (typeof studentAttendance !== 'undefined' && Array.isArray(studentAttendance) && studentAttendance.length)
-  ? studentAttendance.slice(0,4)
-  : [
-      { matric:'IJR/24/1001', name:'You',           status:'Online', time:'08:45' },
-      { matric:'IJR/24/1012', name:'Course Rep',   status:'Online', time:'09:05' },
-      { matric:'IJR/24/1044', name:'Lab Partner',  status:'Online', time:'09:20' },
-      { matric:'IJR/24/1060', name:'Classmate',    status:'Online', time:'09:30' }
-    ];
+// student matric number (for display)
+const studentMatric =
+  (typeof publicUser !== 'undefined' && publicUser && (publicUser.matric_number || publicUser.matricNumber))
+    ? (publicUser.matric_number || publicUser.matricNumber)
+    : '-';
 
+// formatters
+const fmtDate = (d) => {
+  try {
+    const dt = new Date(d);
+    if (!d || isNaN(dt)) return '-';
+    return dt.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  } catch { return '-'; }
+};
+const fmtTime = (d) => {
+  try {
+    const dt = new Date(d);
+    if (!d || isNaN(dt)) return '-';
+    return dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch { return '-'; }
+};
 
-const toMin = t => { try { const [h,m] = String(t||'').split(':').map(Number); return (h*60)+m; } catch(_){ return 0; } };
-const recentThreshold = 9*60; // ≥ 09:00
-const RECENTLY_LOGIN = attRows.filter(r => toMin(r.time) >= recentThreshold).length;
-const ONLINE_COUNT   = attRows.filter(r => String(r.status||'').toLowerCase() === 'online').length;
+// Attendance footer widgets (keep your UI, but make numbers meaningful)
+const now = Date.now();
+const RECENTLY_LOGIN = attRows.filter(r => {
+  const t = new Date(r.check_in_at || r.created_at || r.time).getTime();
+  return !isNaN(t) && (now - t) <= (24 * 60 * 60 * 1000);
+}).length;
+
+const ONLINE_COUNT = attRows.filter(r => String(r.status||'').toUpperCase() === 'PRESENT').length;
 
 /* Prefer studentProfile.photo_path if controller provided it, otherwise use user/_user, then fallback */
 let avatarUrl = '/public/img/avatar.png'; // logo always exists, avoids 404
@@ -171,19 +199,22 @@ if (avatarSource) {
             </thead>
             <tbody>
               <% if (!recentRegs.length) { %>
-                <tr><td>1</td><td>CSC101</td><td>CSC101</td><td><%= new Date().toISOString().slice(0,10) %></td>
-                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
-                <tr><td>2</td><td>MTH101</td><td>MTH101</td><td><%= new Date().toISOString().slice(0,10) %></td>
-                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
-                <tr><td>3</td><td>GNS101</td><td>GNS101</td><td><%= new Date().toISOString().slice(0,10) %></td>
-                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td></tr>
-              <% } else { recentRegs.forEach(function (r,i){ %>
+                <tr>
+                  <td colspan="5" class="text-muted p-3">
+                    You have not registered for this Session or Semester, recent course registration for the current Session / Semester will display here
+                  </td>
+                </tr>
+              <% } else { recentRegs.forEach(function (r,i){ 
+                   const courseTitle = r.course_title || r.courseName || r.course || '-';
+                   const courseCode  = r.course_code  || r.courseCode  || r.code   || '-';
+                   const regDate     = fmtDate(r.created_at || r.date);
+              %>
                 <tr>
                   <td><%= i+1 %></td>
-                  <td><%= r.course || '-' %></td>
-                  <td><%= r.code || '-' %></td>
-                  <td><%= r.date || '-' %></td>
-                  <td><a href="/student/registration/<%= r.id %>" class="btn btn-softgreen btn-sm">View Details</a></td>
+                  <td><%= courseTitle %></td>
+                  <td><%= courseCode %></td>
+                  <td><%= regDate %></td>
+                  <td><a href="/student/registration" class="btn btn-softgreen btn-sm">View Details</a></td>
                 </tr>
               <% }) } %>
             </tbody>
@@ -247,22 +278,29 @@ if (avatarSource) {
         <div class="table-responsive">
           <table class="table table-striped table-hover mb-0">
             <thead class="thead-softgreen">
-              <tr><th>#</th><th>Matric No.</th><th>Name</th><th>Status</th><th>Time</th><th>Action</th></tr>
+              <tr><th>#</th><th>Matric No.</th><th>Course</th><th>Status</th><th>Time</th><th>Action</th></tr>
             </thead>
             <tbody>
-              <% attRows.forEach(function (r, i) { 
-                   const st = String(r.status||'');
-                   const statusText = st.toLowerCase()==='on-leave' ? '' : st; // hide "On-Leave" for students
+              <% if (!attRows.length) { %>
+                <tr>
+                  <td colspan="6" class="text-muted p-3">
+                    No attendance records yet. Your last 4 marked attendance will display here.
+                  </td>
+                </tr>
+              <% } else { attRows.forEach(function (r, i) { 
+                   const statusText = (r.status || '-');
+                   const t = r.check_in_at || r.created_at || r.time;
+                   const courseLabel = [r.course_code || r.courseCode, r.course_title || r.courseName].filter(Boolean).join(' - ') || '-';
               %>
                 <tr>
                   <td><%= i+1 %></td>
-                  <td><%= r.matric %></td>
-                  <td><%= r.name %></td>
+                  <td><%= studentMatric %></td>
+                  <td><%= courseLabel %></td>
                   <td><%= statusText %></td>
-                  <td><%= r.time %></td>
+                  <td><%= fmtTime(t) %></td>
                   <td><a href="/student/attendance" class="btn btn-softgreen btn-sm">View Details</a></td>
                 </tr>
-              <% }) %>
+              <% }) } %>
             </tbody>
           </table>
         </div>

@@ -8,6 +8,108 @@ export function showLogin(_req, res) {
   res.render('pages/login', { title: 'Login', pageTitle: 'Login' });
 }
 
+/* -------------------- helpers for dashboard -------------------- */
+const _columnsCache = new Map();
+
+async function getTableColumns(tableName) {
+  if (_columnsCache.has(tableName)) return _columnsCache.get(tableName);
+
+  const [rows] = await pool.query(
+    `
+      SELECT COLUMN_NAME AS name
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+    `,
+    [tableName]
+  );
+
+  const set = new Set((rows || []).map((r) => r.name));
+  _columnsCache.set(tableName, set);
+  return set;
+}
+
+function mapSemesterNameToKey(semesterName) {
+  const n = String(semesterName || '').trim().toLowerCase();
+  if (n.startsWith('first')) return 'FIRST';
+  if (n.startsWith('second')) return 'SECOND';
+  if (n.startsWith('summer')) return 'SUMMER';
+  return String(semesterName || '').trim().toUpperCase();
+}
+
+async function getCurrentSessionAndSemester() {
+  const [sessRows] = await pool.query(
+    `SELECT id, name FROM sessions WHERE is_current = 1 LIMIT 1`
+  );
+  const [semRows] = await pool.query(
+    `SELECT id, name FROM semesters WHERE is_current = 1 LIMIT 1`
+  );
+
+  const currentSession = sessRows?.[0] || null;
+  const currentSemester = semRows?.[0] || null;
+
+  return {
+    currentSession,
+    currentSemester,
+    semesterKey: mapSemesterNameToKey(currentSemester?.name),
+  };
+}
+
+async function enrichWithCourseDetails(items, courseIdGetter) {
+  const list = Array.isArray(items) ? items : [];
+  const ids = Array.from(
+    new Set(list.map(courseIdGetter).filter((v) => v !== null && v !== undefined))
+  );
+
+  if (!ids.length) return list;
+
+  let cols;
+  try {
+    cols = await getTableColumns('courses');
+  } catch {
+    return list;
+  }
+
+  const codeCol = cols.has('code')
+    ? 'code'
+    : cols.has('course_code')
+      ? 'course_code'
+      : null;
+
+  const titleCol = cols.has('title')
+    ? 'title'
+    : cols.has('name')
+      ? 'name'
+      : cols.has('course_title')
+        ? 'course_title'
+        : null;
+
+  if (!codeCol && !titleCol) return list;
+
+  const selectParts = ['id'];
+  selectParts.push(codeCol ? `${codeCol} AS course_code` : `NULL AS course_code`);
+  selectParts.push(titleCol ? `${titleCol} AS course_title` : `NULL AS course_title`);
+
+  const [rows] = await pool.query(
+    `SELECT ${selectParts.join(', ')} FROM courses WHERE id IN (?)`,
+    [ids]
+  );
+
+  const map = new Map();
+  (rows || []).forEach((r) => map.set(r.id, r));
+
+  return list.map((x) => {
+    const cid = courseIdGetter(x);
+    const c = map.get(cid);
+    return {
+      ...x,
+      course_code: c?.course_code ?? null,
+      course_title: c?.course_title ?? null,
+    };
+  });
+}
+/* ------------------ end helpers for dashboard ------------------ */
+
 /** Handle login, set session, and role-based redirect */
 export async function doLogin(req, res) {
   try {
@@ -19,7 +121,7 @@ export async function doLogin(req, res) {
       // 2) try public_users (student/applicant)
       try {
         const [pub] = await pool.query(
-          `SELECT id, role, first_name, last_name, username, password_hash
+          `SELECT id, role, first_name, middle_name, last_name, username, matric_number, password_hash
            FROM public_users
            WHERE username = ?
            LIMIT 1`,
@@ -33,6 +135,7 @@ export async function doLogin(req, res) {
               id: pub[0].id,
               username: pub[0].username,
               role: pub[0].role,
+              matric_number: pub[0].matric_number || null,
               full_name: `${pub[0].first_name || ''} ${pub[0].last_name || ''}`.trim(),
             };
             return res.redirect(
@@ -112,7 +215,6 @@ export function requireApplicant(req, res, next) {
 }
 
 // ---------- Register ----------
-
 export async function showRegister(req, res) {
   const csrfToken =
     typeof req.csrfToken === 'function' ? req.csrfToken() : '';
@@ -268,7 +370,6 @@ export async function postRegister(req, res) {
         return res.redirect('/register');
       }
 
-      // get existing student row INCLUDING state_of_origin, lga, dob, phone
       const [rows] = await pool.query(
         `
           SELECT
@@ -302,7 +403,6 @@ export async function postRegister(req, res) {
 
       const student = rows[0];
 
-      // username uniqueness (excluding this row)
       const [dup] = await pool.query(
         'SELECT id FROM public_users WHERE username = ? AND id <> ? LIMIT 1',
         [usernameFinal, student.id]
@@ -315,7 +415,6 @@ export async function postRegister(req, res) {
         return res.redirect('/register');
       }
 
-      // UPDATE — keep original state_of_origin / lga / dob / phone if body doesn't send them
       await pool.query(
         `
           UPDATE public_users
@@ -350,6 +449,7 @@ export async function postRegister(req, res) {
         id: student.id,
         username: usernameFinal,
         role: 'student',
+        matric_number: student.matric_number || null,
         full_name: `${firstTrim || student.first_name || ''} ${
           lastTrim || student.last_name || ''
         }`.trim(),
@@ -402,6 +502,7 @@ export async function postRegister(req, res) {
       id: ins.insertId,
       username: usernameFinal,
       role,
+      matric_number: null,
       full_name: `${firstTrim} ${lastTrim}`.trim(),
     };
 
@@ -481,29 +582,110 @@ export async function postStudentReset(req, res) {
   }
 }
 
-// ---------- Public dashboards (placeholders) ----------
+/* -------------------- DYNAMIC student dashboard -------------------- */
 export async function studentDashboard(req, res) {
-  const [sessRows] = await pool.query(
-    `SELECT name FROM sessions WHERE is_current = 1 LIMIT 1`
-  );
-  const [semRows] = await pool.query(
-    `SELECT name FROM semesters WHERE is_current = 1 LIMIT 1`
-  );
+  const publicUser = req.session?.publicUser || null;
+  if (!publicUser || publicUser.role !== 'student') return res.redirect('/login');
+
+  const studentId = publicUser.id;
+
+  const { currentSession, currentSemester, semesterKey } =
+    await getCurrentSessionAndSemester();
+
+  // 1) Total registered courses for CURRENT session + CURRENT semester
+  // (SUBMITTED only = “registered”)
+  let totalRegisteredCourses = 0;
+  let recentCourseRegistrations = [];
+
+  if (studentId && currentSession?.id && semesterKey) {
+    const [cnt] = await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM student_course_regs
+        WHERE student_id = ?
+          AND session_id = ?
+          AND semester = ?
+          AND status = 'SUBMITTED'
+      `,
+      [studentId, currentSession.id, semesterKey]
+    );
+    totalRegisteredCourses = Number(cnt?.[0]?.total || 0);
+
+    // 2) Last 4 course regs for CURRENT session + semester
+    const [regs] = await pool.query(
+      `
+        SELECT id, course_id, units, status, created_at
+        FROM student_course_regs
+        WHERE student_id = ?
+          AND session_id = ?
+          AND semester = ?
+          AND status = 'SUBMITTED'
+        ORDER BY created_at DESC
+        LIMIT 4
+      `,
+      [studentId, currentSession.id, semesterKey]
+    );
+
+    recentCourseRegistrations = await enrichWithCourseDetails(
+      regs || [],
+      (r) => r.course_id
+    );
+  }
+
+  // 3) Last 4 attendance across ALL schools/depts/courses/sessions/semesters
+  let recentAttendance = [];
+  if (studentId) {
+    const [att] = await pool.query(
+      `
+        SELECT id, course_id, status, check_in_at, created_at
+        FROM student_attendance_records
+        WHERE student_id = ?
+        ORDER BY COALESCE(check_in_at, created_at) DESC
+        LIMIT 4
+      `,
+      [studentId]
+    );
+
+    recentAttendance = await enrichWithCourseDetails(att || [], (a) => a.course_id);
+  }
+
+  // optional: photo (template supports photo_path)
+  let photo_path = null;
+  try {
+    const [rows] = await pool.query(
+      `SELECT file_path
+       FROM student_photos
+       WHERE student_id = ? AND photo_type = 'PROFILE'
+       ORDER BY uploaded_at DESC
+       LIMIT 1`,
+      [studentId]
+    );
+    photo_path = rows?.[0]?.file_path || null;
+  } catch {}
 
   return res.render('pages/student-dashboard', {
     layout: 'layouts/adminlte',
     _role: 'student',
-    _user: {
-      full_name: req.session?.publicUser?.full_name || 'Student',
-    },
+    _user: { full_name: publicUser.full_name || 'Student' },
+    publicUser, // <- important for matric number in your EJS
+    photo_path,
+
     allowedModules: [],
     currentPath: req.path || '',
-    currentSession: sessRows[0] || null,
-    currentSemester: semRows[0] || null,
+    currentSession: currentSession || null,
+    currentSemester: currentSemester || null,
+
+    // keep existing UI vars
     totalPaid: 0,
-    totalRegisteredCourses: 0,
+    paymentsBreakdown: { school: 0, faculty: 0, application: 0 },
+
+    // NEW vars consumed by your updated EJS
+    totalRegisteredCourses,
+    recentCourseRegistrations,
+    recentAttendance,
   });
 }
+/* ------------------ end dynamic student dashboard ------------------ */
 
 export async function applicantDashboard(req, res) {
   const [sessRows] = await pool.query(
