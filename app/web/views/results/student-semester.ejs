@@ -1,0 +1,158 @@
+  <section class="content">
+    <div class="container-fluid">
+
+      <div class="card card-outline card-primary">
+        <div class="card-header">
+          <h3 class="card-title">Select Session, Semester and Level</h3>
+        </div>
+
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4">
+              <label>Session</label>
+              <select id="sessionId" class="form-control">
+                <option value="">-- Select Session --</option>
+                <% sessions.forEach(s => { %>
+                  <option value="<%= s.id %>" <%= (currentSession && currentSession.id === s.id) ? 'selected' : '' %>>
+                    <%= s.name %> <%= s.is_current ? '(Current)' : '' %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label>Semester</label>
+              <select id="semesterId" class="form-control">
+                <option value="">-- Select Semester --</option>
+                <% semesters.forEach(s => { %>
+                  <option value="<%= s.id %>" <%= (currentSemester && currentSemester.id === s.id) ? 'selected' : '' %>>
+                    <%= s.name %> <%= s.is_current ? '(Current)' : '' %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <label>Level</label>
+              <select id="level" class="form-control">
+                <option value="">-- Select Level --</option>
+                <% (levels || []).forEach(l => { %>
+                  <option value="<%= l %>" <%= (currentLevel && currentLevel === l) ? 'selected' : '' %>><%= l %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+              <button id="btnLoad" class="btn btn-primary btn-block" type="button">
+                Load Result
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-3" id="summary"></div>
+
+          <div class="table-responsive mt-2">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Course</th>
+                  <th>Code</th>
+                  <th>Units</th>
+                  <th>CA1</th>
+                  <th>CA2</th>
+                  <th>CA3</th>
+                  <th>Exam</th>
+                  <th>Total</th>
+                  <th>Grade</th>
+                  <th>Status</th>
+                  <th>Uploaded At</th>
+                </tr>
+              </thead>
+              <tbody id="tbody">
+                <tr>
+                  <td colspan="12" class="text-center text-muted">
+                    Select session, semester and level, then click <b>Load Result</b>.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-2">
+            <a id="btnPrint" class="btn btn-success d-none" target="_blank">
+              <i class="fas fa-print"></i> Print / Save as PDF
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<script>
+  const tbody = document.getElementById('tbody');
+  const summary = document.getElementById('summary');
+  const btnPrint = document.getElementById('btnPrint');
+
+  async function loadResult() {
+    const sessionId = document.getElementById('sessionId').value;
+    const semesterId = document.getElementById('semesterId').value;
+    const level = document.getElementById('level').value;
+
+    btnPrint.classList.add('d-none');
+    summary.innerHTML = '';
+
+    if (!sessionId || !semesterId || !level) {
+      alert('Select session, semester and level');
+      return;
+    }
+
+    const url = `/student/results/semester/api?sessionId=${encodeURIComponent(sessionId)}&semesterId=${encodeURIComponent(semesterId)}&level=${encodeURIComponent(level)}`;
+    const r = await fetch(url);
+    const j = await r.json();
+
+    const rows = (j && j.rows) ? j.rows : [];
+    tbody.innerHTML = '';
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">
+        No results found for this selection.
+      </td></tr>`;
+      return;
+    }
+
+    rows.forEach((x, i) => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${x.course_title || ''}</td>
+          <td>${x.course_code || ''}</td>
+          <td>${x.units || 0}</td>
+          <td>${x.ca1}</td>
+          <td>${x.ca2}</td>
+          <td>${x.ca3}</td>
+          <td>${x.exam}</td>
+          <td><b>${x.total}</b></td>
+          <td><b>${x.grade}</b></td>
+          <td>${x.status}</td>
+          <td>${x.uploaded_at ? new Date(x.uploaded_at).toLocaleString() : ''}</td>
+        </tr>
+      `;
+    });
+
+    if (j.summary) {
+      summary.innerHTML = `<div class="alert alert-info">
+        Total Units: <b>${j.summary.totalUnits}</b> &nbsp; | &nbsp; GPA: <b>${j.summary.gpa}</b>
+        <br><small class="text-muted">NOTE: This is not an official transcript.</small>
+      </div>`;
+    }
+
+    btnPrint.href = `/student/results/semester/print?sessionId=${encodeURIComponent(sessionId)}&semesterId=${encodeURIComponent(semesterId)}&level=${encodeURIComponent(level)}`;
+    btnPrint.classList.remove('d-none');
+  }
+
+  document.getElementById('btnLoad').addEventListener('click', loadResult);
+</script>

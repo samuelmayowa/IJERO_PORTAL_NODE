@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title><%= title || 'Result Slip' %></title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color:#111; }
+    .hdr { display:flex; align-items:center; justify-content:space-between; }
+    .school { font-size: 18px; font-weight: 800; }
+    .meta { margin-top: 8px; font-size: 13px; }
+    .watermark {
+      position: fixed;
+      top: 40%;
+      left: 10%;
+      right: 10%;
+      text-align: center;
+      font-size: 56px;
+      color: rgba(200,0,0,0.10);
+      transform: rotate(-20deg);
+      z-index: 0;
+      pointer-events: none;
+      font-weight: 900;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; z-index: 1; position: relative; }
+    th, td { border: 1px solid #333; padding: 7px; font-size: 12px; }
+    th { background:#f2f2f2; text-align:left; }
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; display:inline-block; }
+    .interim { background:#fff3cd; }
+    .approved { background:#d1e7dd; }
+    .foot { margin-top: 16px; font-size: 12px; }
+    .small { font-size: 11px; color:#444; }
+    @media print {
+      .no-print { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="watermark">NOT AN OFFICIAL TRANSCRIPT</div>
+
+<div class="hdr">
+  <div>
+    <div class="school"><%= (bio && bio.school_name) ? bio.school_name : 'College Portal' %></div>
+    <div class="small">Result Slip (For Student Use Only)</div>
+  </div>
+  <div class="no-print">
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+</div>
+
+<div class="meta">
+  <div><b>Session:</b> <%= sessionName %> &nbsp; | &nbsp; <b>Semester:</b> <%= semesterName %> &nbsp; | &nbsp; <b>Level:</b> <%= level %></div>
+  <hr/>
+  <div><b>Name:</b>
+    <%= [bio.first_name, bio.middle_name, bio.last_name].filter(Boolean).join(' ') %>
+  </div>
+  <div><b>Matric:</b> <%= bio.matric_number || '' %> &nbsp; | &nbsp; <b>Email:</b> <%= bio.email || '' %> &nbsp; | &nbsp; <b>Phone:</b> <%= bio.phone || '' %></div>
+  <div><b>Department:</b> <%= bio.department_name || '' %> &nbsp; | &nbsp; <b>Programme:</b> <%= bio.programme_name || '' %></div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Course</th>
+      <th>Code</th>
+      <th>Units</th>
+      <th>CA1</th>
+      <th>CA2</th>
+      <th>CA3</th>
+      <th>Exam</th>
+      <th>Total</th>
+      <th>Grade</th>
+      <th>Status</th>
+      <th>Uploaded At</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (!rows || !rows.length) { %>
+      <tr><td colspan="12" style="text-align:center;">No results found.</td></tr>
+    <% } else { %>
+      <% rows.forEach((r, i) => { %>
+        <tr>
+          <td><%= i+1 %></td>
+          <td><%= r.course_title %></td>
+          <td><%= r.course_code %></td>
+          <td><%= r.units %></td>
+          <td><%= r.ca1 %></td>
+          <td><%= r.ca2 %></td>
+          <td><%= r.ca3 %></td>
+          <td><%= r.exam %></td>
+          <td><b><%= r.total %></b></td>
+          <td><b><%= r.grade %></b></td>
+          <td>
+            <% const isApproved = String(r.statusLabel || '').toUpperCase().includes('APPROVED'); %>
+            <span class="badge <%= isApproved ? 'approved' : 'interim' %>">
+              <%= r.statusLabel %>
+            </span>
+          </td>
+          <td><%= r.uploaded_at ? new Date(r.uploaded_at).toLocaleString() : '' %></td>
+        </tr>
+      <% }) %>
+    <% } %>
+  </tbody>
+</table>
+
+<div class="foot">
+  <div><b>Total Units:</b> <%= summary.totalUnits %> &nbsp; | &nbsp; <b>GPA:</b> <%= summary.gpa %></div>
+  <div class="small">This slip is generated from portal data and is <b>NOT</b> an official transcript.</div>
+</div>
+
+</body>
+</html>

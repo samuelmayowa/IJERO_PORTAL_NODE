@@ -49,6 +49,8 @@ import courseRegistrationReportRoutes from './app/web/routes/course-registration
 import studentAttendanceRoutes from './app/web/routes/student-attendance.routes.js';
 import studentLectureVenueRoutes from './app/web/routes/student-lecture-venue.routes.js';
 import studentAttendanceReportRoutes from './app/web/routes/student-attendance-report.routes.js';
+import resultsUploadRoutes from './app/web/routes/results-upload.routes.js';
+import studentResultsRoutes from './app/web/routes/student-results.routes.js';
 
 
 
@@ -403,6 +405,18 @@ app.use(
   studentRegistrationRoutes,
 );
 
+// Student results (semester view + print)
+app.use(
+  '/student/results',
+  ensureUserForViews,
+  (req, res, next) => {
+    res.locals.layout = 'layouts/adminlte';
+    if (res.locals.user) res.locals.user.role = 'student';
+    next();
+  },
+  studentResultsRoutes
+);
+
 // Student attendance (uses same layout, but path is /student/attendance/...) 
 app.use(
   '/student/attendance',
@@ -473,6 +487,16 @@ app.use('/staff/fees', feesRoutes);
 
 app.use('/', paymentRoutes);
 
+// =======================================================
+// RESULT UPLOAD (Lecturer/HOD/Dean/Registry/Admin)
+// =======================================================
+app.use(
+  '/staff/results/upload',
+  (req, res, next) => { res.locals.layout = 'layouts/adminlte'; next(); },
+  ensureUserForViews,
+  requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'dean', 'superadmin', 'administrator'),
+  resultsUploadRoutes
+);
 
 // ✅ Staff routes
 app.use(
