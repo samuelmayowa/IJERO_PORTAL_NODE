@@ -1,23 +1,38 @@
-// app/web/routes/results-upload.routes.js
-import { Router } from 'express';
-import multer from 'multer';
+import express from "express";
+import multer from "multer";
+
 import {
   showUploadPage,
+  apiDepartmentsBySchool,
+  apiProgrammesByDepartment,
+  apiAssignedCourses,
   apiFetchCourse,
+  downloadUploadTemplate,
   apiUploadResults,
   downloadRejectionsCsv,
-} from '../controllers/results-upload.controller.js';
+} from "../controllers/results-upload.controller.js";
 
-const router = Router();
+const router = express.Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-router.get('/', showUploadPage);
-router.get('/api/course', apiFetchCourse);
-router.post('/api/upload', upload.single('file'), apiUploadResults);
-router.get('/rejections/:batchId.csv', downloadRejectionsCsv);
+// Page
+router.get("/", showUploadPage);
+
+// Template
+router.get("/download-template", downloadUploadTemplate);
+
+// APIs
+router.get("/api/departments", apiDepartmentsBySchool);
+router.get("/api/programmes", apiProgrammesByDepartment);
+router.get("/api/assigned-courses", apiAssignedCourses);
+router.get("/api/course", apiFetchCourse);
+
+router.post("/api/upload", upload.single("file"), apiUploadResults);
+
+router.get("/api/rejections/:resultBatchId.csv", downloadRejectionsCsv);
 
 export default router;

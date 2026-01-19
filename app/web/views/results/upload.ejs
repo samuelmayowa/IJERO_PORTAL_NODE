@@ -1,280 +1,352 @@
+<%
+  const _sessions = (typeof sessions !== 'undefined' && sessions) ? sessions : [];
+  const _semesters = (typeof semesters !== 'undefined' && semesters) ? semesters : [];
+  const _schools = (typeof schools !== 'undefined' && schools) ? schools : [];
+  const _batches = (typeof batches !== 'undefined' && batches) ? batches : [];
+  const _pageError = (typeof pageError !== 'undefined' && pageError) ? pageError : '';
+%>
+
+<section class="content-header">
+  <div class="container-fluid">
+    <h1>Upload Student Result</h1>
+    <% if (_pageError) { %>
+      <div class="alert alert-danger mt-2"><%= _pageError %></div>
+    <% } %>
+  </div>
+</section>
+
 <section class="content">
-    <div class="container-fluid">
+  <div class="container-fluid">
 
-      <% if (messages && messages.error) { %>
-        <div class="alert alert-danger"><%= messages.error %></div>
-      <% } %>
-      <% if (messages && messages.success) { %>
-        <div class="alert alert-success"><%= messages.success %></div>
-      <% } %>
+    <div id="alertBox" class="alert d-none"></div>
 
-      <div class="card card-outline card-primary">
-        <div class="card-header">
-          <h3 class="card-title">Upload Result (per Course + Session + Semester + Level + Batch)</h3>
-          <div class="card-tools">
-            <a class="btn btn-sm btn-outline-secondary" href="/public/templates/lecturer_upload.xlsx" target="_blank">
-              Download Upload Template
-            </a>
-          </div>
-        </div>
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Upload Result</strong>
+        <a class="btn btn-outline-secondary btn-sm" id="downloadTemplateBtn" href="#">Download Upload Template</a>
+      </div>
 
-        <div class="card-body">
+      <div class="card-body">
+        <form id="uploadForm">
+          <!-- CSRF token (we will also send it in header for multipart uploads) -->
+          <input type="hidden" name="_csrf" id="_csrf" value="<%= csrfToken || '' %>">
+
           <div class="row">
-            <div class="col-md-3">
+            <div class="col-md-6">
               <label>Session</label>
-              <select id="sessionId" class="form-control">
-                <% sessions.forEach(s => { %>
-                  <option value="<%= s.id %>" <%= (currentSession && currentSession.id === s.id) ? 'selected' : '' %>>
-                    <%= s.name %> <%= s.is_current ? '(Current)' : '' %>
-                  </option>
+              <select class="form-control" name="sessionId" id="sessionId" required>
+                <option value="">-- Select Session --</option>
+                <% _sessions.forEach(s => { %>
+                  <option value="<%= s.id %>"><%= s.label %></option>
                 <% }) %>
               </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-6">
               <label>Semester</label>
-              <select id="semesterId" class="form-control">
-                <% semesters.forEach(s => { %>
-                  <option value="<%= s.id %>" <%= (currentSemester && currentSemester.id === s.id) ? 'selected' : '' %>>
-                    <%= s.name %> <%= s.is_current ? '(Current)' : '' %>
-                  </option>
+              <select class="form-control" name="semesterId" id="semesterId" required>
+                <option value="">-- Select Semester --</option>
+                <% _semesters.forEach(s => { %>
+                  <option value="<%= s.id %>"><%= s.label %></option>
                 <% }) %>
               </select>
             </div>
+          </div>
 
-            <div class="col-md-3">
+          <div class="row mt-3">
+            <div class="col-md-6">
               <label>School</label>
-              <select id="schoolId" class="form-control">
+              <select class="form-control" name="schoolId" id="schoolId">
                 <option value="">-- Select School --</option>
-                <% schools.forEach(s => { %>
-                  <option value="<%= s.id %>"><%= s.name %></option>
+                <% _schools.forEach(s => { %>
+                  <option value="<%= s.id %>"><%= s.label %></option>
                 <% }) %>
               </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-6">
               <label>Department</label>
-              <select id="departmentId" class="form-control">
+              <select class="form-control" name="departmentId" id="departmentId">
                 <option value="">-- Select Department --</option>
               </select>
             </div>
           </div>
 
           <div class="row mt-3">
-            <div class="col-md-4">
+            <div class="col-md-6">
               <label>Programme</label>
-              <select id="programmeId" class="form-control">
+              <select class="form-control" name="programmeId" id="programmeId">
                 <option value="">-- Select Programme --</option>
               </select>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-md-3">
               <label>Level</label>
-              <select id="level" class="form-control">
+              <select class="form-control" name="level" id="level">
                 <option value="">-- Select Level --</option>
-                <% (levels || []).forEach(l => { %>
-                  <option value="<%= l %>"><%= l %></option>
-                <% }) %>
+                <option value="ND1">ND1</option>
+                <option value="ND2">ND2</option>
+                <option value="HND1">HND1</option>
+                <option value="HND2">HND2</option>
               </select>
+              <small class="text-muted">Auto-fills from selected course.</small>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-md-3">
               <label>Batch</label>
-              <select id="batchId" class="form-control">
+              <select class="form-control" name="batchId" id="batchId" required>
                 <option value="">-- Select Batch --</option>
-                <% batches.forEach(b => { %>
-                  <option value="<%= b.id %>"><%= b.code %></option>
+                <% _batches.forEach(b => { %>
+                  <option value="<%= b.id %>"><%= b.label %></option>
                 <% }) %>
               </select>
             </div>
+          </div>
 
-            <div class="col-md-4">
-              <label>Course Code</label>
-              <div class="input-group">
-                <input id="courseCode" class="form-control" placeholder="e.g. GST101" />
-                <div class="input-group-append">
-                  <button id="btnFetch" class="btn btn-info" type="button">
-                    <i class="fas fa-search"></i> Fetch & Validate
-                  </button>
+          <div class="row mt-3">
+            <div class="col-md-12">
+              <label>Assigned Course</label>
+              <select class="form-control" name="courseId" id="courseId" required>
+                <option value="">-- Select Course --</option>
+              </select>
+              <small class="text-muted">Only courses assigned to you (based on session & semester).</small>
+            </div>
+          </div>
+
+          <div class="mt-3 p-3 bg-secondary text-white rounded d-flex justify-content-between align-items-center" id="selectedBar" style="display:none;">
+            <div id="selectedText"></div>
+            <a id="rejectionsLink" href="#" class="text-white font-weight-bold" style="display:none;">Download Rejections CSV</a>
+          </div>
+
+          <div class="row mt-4">
+            <div class="col-md-8">
+              <label>Select Excel/CSV File</label>
+              <input class="form-control" type="file" name="file" id="file" accept=".xlsx,xls,csv" required />
+            </div>
+            <div class="col-md-4 d-flex align-items-end justify-content-between">
+              <div>
+                <label class="d-block">&nbsp;</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="overrideExisting" name="overrideExisting" />
+                  <label class="form-check-label" for="overrideExisting">Override existing upload</label>
                 </div>
               </div>
-              <small class="text-muted">Only assigned lecturers can upload for a course.</small>
+              <button class="btn btn-success" type="submit" id="uploadBtn">Upload Result</button>
             </div>
           </div>
 
-          <hr/>
-
-          <div id="courseInfo" class="alert alert-secondary d-none"></div>
-
-          <div id="uploadArea" class="d-none">
-            <div class="row">
-              <div class="col-md-6">
-                <label>Select Excel/CSV File</label>
-                <input id="file" type="file" class="form-control" accept=".xlsx,.xls,.csv" />
-              </div>
-              <div class="col-md-6 d-flex align-items-end">
-                <button id="btnUpload" class="btn btn-success btn-block" type="button">
-                  <i class="fas fa-upload"></i> Upload Result
-                </button>
-              </div>
-            </div>
-
-            <div class="mt-3" id="uploadMsg"></div>
+          <hr class="mt-4" />
+          <div class="text-muted">
+            <strong>Accepted format:</strong>
+            <div>S/N | MATRIC NO | FULL NAME | CA1 10% | CA2 10% | CA3 10% | EXAM SCORE 70% | REG_TYPE</div>
+            <div>REG_TYPE allowed: MAIN, ELECTIVE, CARRYOVER</div>
+            <div>You may include a title row above the header row — the system will auto-detect the header row.</div>
           </div>
 
-        </div>
+        </form>
       </div>
-
     </div>
-  </section>
-</div>
+
+  </div>
+</section>
 
 <script>
-  const DEPARTMENTS = <%- JSON.stringify(departments || []) %>;
-  const PROGRAMMES  = <%- JSON.stringify(programmes || []) %>;
-  const csrfToken = "<%= (csrfToken || '') %>";
+  const BASE = window.location.pathname.replace(/\/$/, "");
+  const el = (id) => document.getElementById(id);
 
-  const elSchool = document.getElementById('schoolId');
-  const elDept   = document.getElementById('departmentId');
-  const elProg   = document.getElementById('programmeId');
+  const alertBox = el("alertBox");
+  const selectedBar = el("selectedBar");
+  const selectedText = el("selectedText");
+  const rejectionsLink = el("rejectionsLink");
 
-  function fillDepartments() {
-    const sid = elSchool.value;
-    elDept.innerHTML = '<option value="">-- Select Department --</option>';
-    elProg.innerHTML = '<option value="">-- Select Programme --</option>';
+  const sessionId = el("sessionId");
+  const semesterId = el("semesterId");
+  const schoolId = el("schoolId");
+  const departmentId = el("departmentId");
+  const programmeId = el("programmeId");
+  const courseId = el("courseId");
+  const level = el("level");
 
-    const list = DEPARTMENTS.filter(d => String(d.school_id) === String(sid));
-    list.forEach(d => {
-      const opt = document.createElement('option');
+  const downloadTemplateBtn = el("downloadTemplateBtn");
+  downloadTemplateBtn.href = `${BASE}/download-template`;
+
+  function showAlert(type, msg) {
+    alertBox.className = `alert alert-${type}`;
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+  }
+
+  function clearAlert() {
+    alertBox.classList.add("d-none");
+    alertBox.textContent = "";
+  }
+
+  function setSelectedBar(text, severity, rejectionUrl) {
+    selectedBar.style.display = "flex";
+    selectedText.textContent = text;
+
+    selectedBar.classList.remove("bg-secondary", "bg-danger", "bg-warning", "bg-success", "text-dark");
+    if (severity === "danger") selectedBar.classList.add("bg-danger");
+    else if (severity === "warning") selectedBar.classList.add("bg-warning", "text-dark");
+    else if (severity === "success") selectedBar.classList.add("bg-success");
+    else selectedBar.classList.add("bg-secondary");
+
+    if (rejectionUrl) {
+      rejectionsLink.href = rejectionUrl;
+      rejectionsLink.style.display = "inline";
+    } else {
+      rejectionsLink.style.display = "none";
+    }
+  }
+
+  async function loadDepartments() {
+    departmentId.innerHTML = `<option value="">-- Select Department --</option>`;
+    programmeId.innerHTML = `<option value="">-- Select Programme --</option>`;
+    if (!schoolId.value) return;
+
+    const r = await fetch(`${BASE}/api/departments?schoolId=${encodeURIComponent(schoolId.value)}`, {
+      credentials: "same-origin"
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) return;
+
+    j.items.forEach((d) => {
+      const opt = document.createElement("option");
       opt.value = d.id;
-      opt.textContent = d.name;
-      elDept.appendChild(opt);
+      opt.textContent = d.label;
+      departmentId.appendChild(opt);
     });
   }
 
-  function fillProgrammes() {
-    const sid = elSchool.value;
-    const did = elDept.value;
-    elProg.innerHTML = '<option value="">-- Select Programme --</option>';
+  async function loadProgrammes() {
+    programmeId.innerHTML = `<option value="">-- Select Programme --</option>`;
+    if (!departmentId.value) return;
 
-    const list = PROGRAMMES.filter(p =>
-      String(p.school_id) === String(sid) &&
-      String(p.department_id) === String(did)
-    );
+    const r = await fetch(`${BASE}/api/programmes?departmentId=${encodeURIComponent(departmentId.value)}`, {
+      credentials: "same-origin"
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) return;
 
-    list.forEach(p => {
-      const opt = document.createElement('option');
+    j.items.forEach((p) => {
+      const opt = document.createElement("option");
       opt.value = p.id;
-      opt.textContent = p.name;
-      elProg.appendChild(opt);
+      opt.textContent = p.label;
+      programmeId.appendChild(opt);
     });
   }
 
-  elSchool.addEventListener('change', fillDepartments);
-  elDept.addEventListener('change', fillProgrammes);
+  async function loadAssignedCourses() {
+    courseId.innerHTML = `<option value="">-- Select Course --</option>`;
+    selectedBar.style.display = "none";
+    rejectionsLink.style.display = "none";
 
-  const courseInfo = document.getElementById('courseInfo');
-  const uploadArea = document.getElementById('uploadArea');
-  const uploadMsg  = document.getElementById('uploadMsg');
+    if (!sessionId.value || !semesterId.value) return;
 
-  let validatedCourse = null;
+    const r = await fetch(
+      `${BASE}/api/assigned-courses?sessionId=${encodeURIComponent(sessionId.value)}&semesterId=${encodeURIComponent(semesterId.value)}`,
+      { credentials: "same-origin" }
+    );
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) return;
 
-  document.getElementById('btnFetch').addEventListener('click', async () => {
-    uploadMsg.innerHTML = '';
-    uploadArea.classList.add('d-none');
-    courseInfo.classList.add('d-none');
-    validatedCourse = null;
+    j.items.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `${c.code} - ${c.title}`;
+      opt.dataset.level = c.level || "";
+      opt.dataset.units = c.units || "";
+      courseId.appendChild(opt);
+    });
+  }
 
-    const sessionId  = document.getElementById('sessionId').value;
-    const semesterId = document.getElementById('semesterId').value;
-    const code       = document.getElementById('courseCode').value.trim();
+  function onCourseChange() {
+    selectedBar.style.display = "none";
+    rejectionsLink.style.display = "none";
+    if (!courseId.value) return;
 
-    if (!sessionId || !semesterId || !code) {
-      alert('Select session, semester and enter course code.');
+    const opt = courseId.options[courseId.selectedIndex];
+    const lev = opt.dataset.level || "";
+    const units = opt.dataset.units || "";
+    if (lev) level.value = lev;
+
+    setSelectedBar(
+      `Selected: ${opt.textContent} | Unit: ${units || "-"} | Level: ${lev || "-"}`,
+      "info",
+      null
+    );
+  }
+
+  schoolId.addEventListener("change", loadDepartments);
+  departmentId.addEventListener("change", loadProgrammes);
+  sessionId.addEventListener("change", loadAssignedCourses);
+  semesterId.addEventListener("change", loadAssignedCourses);
+  courseId.addEventListener("change", onCourseChange);
+
+  el("uploadForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert();
+
+    if (!sessionId.value || !semesterId.value || !courseId.value || !el("batchId").value) {
+      showAlert("danger", "Please select Session, Semester, Batch and Assigned Course.");
       return;
     }
 
-    const url = `/staff/results/upload/api/course?code=${encodeURIComponent(code)}&sessionId=${encodeURIComponent(sessionId)}&semesterId=${encodeURIComponent(semesterId)}`;
-    const r = await fetch(url);
-    const j = await r.json();
+    const fd = new FormData(e.target);
 
-    if (!j.ok) {
-      courseInfo.classList.remove('d-none');
-      courseInfo.classList.remove('alert-secondary');
-      courseInfo.classList.add('alert-danger');
-      courseInfo.textContent = j.message || 'Course validation failed';
-      return;
+    // IMPORTANT: for multipart uploads, send CSRF in header (csurf runs before multer)
+    const csrfToken = el("_csrf")?.value || "";
+
+    try {
+      const r = await fetch(`${BASE}/api/upload`, {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+        headers: {
+          "x-csrf-token": csrfToken
+        }
+      });
+
+      let j = null;
+      let rawText = "";
+      try {
+        j = await r.json();
+      } catch (_) {
+        rawText = await r.text().catch(() => "");
+      }
+
+      if (!r.ok) {
+        const msg =
+          (j && j.message) ||
+          (rawText ? "Upload failed: Security token error. Please refresh and try again." : `Upload failed (HTTP ${r.status})`);
+        showAlert("danger", msg);
+        return;
+      }
+
+      const severity =
+        j.severity ||
+        (j.inserted > 0 ? (j.rejectedCount > 0 ? "warning" : "success") : "danger");
+
+      showAlert(
+        severity === "success" ? "success" : (severity === "warning" ? "warning" : "danger"),
+        j.message || "Upload finished"
+      );
+
+      const opt = courseId.options[courseId.selectedIndex];
+      const lev = level.value || opt.dataset.level || "-";
+      const units = opt.dataset.units || "-";
+
+      const rejUrl = j.hasRejections ? `${BASE}/api/rejections/${j.resultBatchId}.csv` : null;
+
+      setSelectedBar(
+        `Selected: ${opt.textContent} | Unit: ${units} | Level: ${lev}`,
+        severity,
+        rejUrl
+      );
+    } catch (err) {
+      showAlert("danger", err.message || "Upload failed");
     }
-
-    validatedCourse = j.course;
-
-    courseInfo.classList.remove('d-none');
-    courseInfo.classList.remove('alert-danger');
-    courseInfo.classList.add('alert-secondary');
-    courseInfo.innerHTML = `<b>Validated:</b> ${j.course.code} — ${j.course.title} (${j.course.units || 0} units)`;
-
-    uploadArea.classList.remove('d-none');
   });
 
-  async function doUpload(override = 0) {
-    const sessionId  = document.getElementById('sessionId').value;
-    const semesterId = document.getElementById('semesterId').value;
-    const schoolId   = document.getElementById('schoolId').value;
-    const departmentId = document.getElementById('departmentId').value;
-    const programmeId  = document.getElementById('programmeId').value;
-    const level      = document.getElementById('level').value;
-    const batchId    = document.getElementById('batchId').value;
-    const courseCode = document.getElementById('courseCode').value.trim();
-    const fileEl     = document.getElementById('file');
-
-    if (!validatedCourse) return alert('Please Fetch & Validate course first.');
-    if (!level || !batchId) return alert('Select level and batch.');
-    if (!fileEl.files || !fileEl.files[0]) return alert('Select a file.');
-
-    const fd = new FormData();
-    fd.append('_csrf', csrfToken);
-    fd.append('sessionId', sessionId);
-    fd.append('semesterId', semesterId);
-    fd.append('schoolId', schoolId);
-    fd.append('departmentId', departmentId);
-    fd.append('programmeId', programmeId);
-    fd.append('level', level);
-    fd.append('batchId', batchId);
-    fd.append('courseCode', courseCode);
-    fd.append('override', String(override));
-    fd.append('file', fileEl.files[0]);
-
-    uploadMsg.innerHTML = `<div class="alert alert-info">Uploading... please wait</div>`;
-
-    const r = await fetch('/staff/results/upload/api/upload', { method: 'POST', body: fd });
-    const j = await r.json();
-
-    if (!j.ok && j.code === 'exists') {
-      const yes = confirm(j.message || 'Result exists. Override?');
-      if (yes) return doUpload(1);
-
-      uploadMsg.innerHTML = `<div class="alert alert-warning">Upload cancelled.</div>`;
-      return;
-    }
-
-    if (!j.ok) {
-      uploadMsg.innerHTML = `<div class="alert alert-danger">${j.message || 'Upload failed'}</div>`;
-      return;
-    }
-
-    let html = `<div class="alert alert-success">
-      <b>Upload Completed</b><br/>
-      Uploaded: <b>${j.uploaded}</b><br/>
-      Rejected: <b>${j.rejected}</b>
-    </div>`;
-
-    if (j.rejectedDownload) {
-      html += `<a class="btn btn-sm btn-outline-danger" href="${j.rejectedDownload}" target="_blank">
-        Download Rejected Rows (CSV)
-      </a>`;
-    }
-    uploadMsg.innerHTML = html;
-  }
-
-  document.getElementById('btnUpload').addEventListener('click', () => doUpload(0));
+  loadAssignedCourses().catch(() => {});
 </script>
