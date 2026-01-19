@@ -76,7 +76,7 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
     </li>
 
     <li class="nav-item">
-      <a href="/student/cgpa" class="nav-link <%= path.startsWith('/student/cgpa') ? 'active' : '' %>">
+      <a href="/student/results/semester" class="nav-link <%= path.startsWith('/student/results/semester') ? 'active' : '' %>">
         <i class="nav-icon fas fa-chart-line"></i><p>My CGPA</p>
       </a>
     </li>
@@ -92,7 +92,6 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-folder-open"></i><p>My Academic Records<i class="right fas fa-angle-left"></i></p>
       </a>
       <ul class="nav nav-treeview">
-         <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Raw Score (Not Final)</p></a></li>
         <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Result</p></a></li>
         <li class="nav-item"><a href="/student/records/graduating-list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Graduating List</p></a></li>
         <li class="nav-item"><a href="/student/records/transcript-draft" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transcript (Draft)</p></a></li>

@@ -40,9 +40,17 @@ export async function showSemesterResultPage(req, res) {
       `SELECT id, name FROM semesters WHERE is_current = 1 LIMIT 1`
     );
 
-    // optional: pick student's current level from student_profiles if exists
+    // pick student's current level (fallback to student_imports if profile level is NULL)
     const [[profile]] = await pool.query(
-      `SELECT level FROM student_profiles WHERE user_id = ? LIMIT 1`,
+      `
+      SELECT
+        COALESCE(sp.level, si.student_level, '') AS level
+      FROM public_users pu
+      LEFT JOIN student_profiles sp ON sp.user_id = pu.id
+      LEFT JOIN student_imports si ON si.student_email = pu.username
+      WHERE pu.id = ?
+      LIMIT 1
+      `,
       [pu.id]
     );
 
@@ -136,12 +144,18 @@ export async function apiGetSemesterResults(req, res) {
       };
     });
 
-    const gpa = totalUnits ? Number((totalPoints / totalUnits).toFixed(2)) : 0;
+    const gpaRaw = totalUnits ? (totalPoints / totalUnits) : 0;
+    // IMPORTANT: return GPA as a formatted string so the UI prints "4.0" not "4"
+    const gpa = totalUnits ? gpaRaw.toFixed(1) : '0.0';
 
     return res.json({
       ok: true,
       rows: out,
-      summary: { totalUnits, gpa },
+      summary: {
+        totalUnits,
+        gpa,            // e.g. "4.0"
+        gpa_numeric: totalUnits ? Number(gpaRaw.toFixed(2)) : 0, // optional
+      },
     });
   } catch (err) {
     console.error('apiGetSemesterResults error:', err);
@@ -202,21 +216,26 @@ export async function printSemesterResultSlip(req, res) {
     );
 
     // student biodata (best-effort)
+    // NOTE: student_profiles.*_id can be NULL, so we fallback to student_imports.* text fields
     const [[bio]] = await pool.query(
       `
       SELECT
-        pu.first_name, pu.middle_name, pu.last_name, pu.email,
-        pu.username, pu.matric_number,
-        sp.phone,
-        sc.name AS school_name,
-        d.name AS department_name,
-        p.name AS programme_name,
-        sp.level
+        pu.first_name, pu.middle_name, pu.last_name,
+        pu.username,
+        pu.matric_number,
+        COALESCE(sp.phone, pu.phone) AS phone,
+
+        COALESCE(sc.name, si.school)       AS school_name,
+        COALESCE(d.name,  si.department)   AS department_name,
+        COALESCE(p.name,  si.programme)    AS programme_name,
+
+        COALESCE(sp.level, si.student_level) AS level
       FROM public_users pu
       LEFT JOIN student_profiles sp ON sp.user_id = pu.id
       LEFT JOIN schools sc ON sc.id = sp.school_id
       LEFT JOIN departments d ON d.id = sp.department_id
       LEFT JOIN programmes p ON p.id = sp.programme_id
+      LEFT JOIN student_imports si ON si.student_email = pu.username
       WHERE pu.id = ?
       LIMIT 1
       `,
@@ -225,10 +244,12 @@ export async function printSemesterResultSlip(req, res) {
 
     let totalUnits = 0;
     let totalPoints = 0;
+
     const out = (rows || []).map((r) => {
       const units = Number(r.units || 0);
       totalUnits += units;
       totalPoints += units * Number(r.points || 0);
+
       return {
         ...r,
         units,
@@ -236,7 +257,8 @@ export async function printSemesterResultSlip(req, res) {
       };
     });
 
-    const gpa = totalUnits ? Number((totalPoints / totalUnits).toFixed(2)) : 0;
+    const gpaRaw = totalUnits ? (totalPoints / totalUnits) : 0;
+    const gpa = totalUnits ? gpaRaw.toFixed(1) : '0.0';
 
     return res.render('results/student-result-slip', {
       title: 'Result Slip',
@@ -246,7 +268,11 @@ export async function printSemesterResultSlip(req, res) {
       level,
       bio: bio || {},
       rows: out,
-      summary: { totalUnits, gpa },
+      summary: {
+        totalUnits,
+        gpa, // "4.0"
+        gpa_numeric: totalUnits ? Number(gpaRaw.toFixed(2)) : 0,
+      },
     });
   } catch (err) {
     console.error('printSemesterResultSlip error:', err);

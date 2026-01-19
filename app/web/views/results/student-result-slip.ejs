@@ -1,113 +1,206 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title><%= title || 'Result Slip' %></title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; color:#111; }
-    .hdr { display:flex; align-items:center; justify-content:space-between; }
-    .school { font-size: 18px; font-weight: 800; }
-    .meta { margin-top: 8px; font-size: 13px; }
+    @page { size: A4; margin: 14mm; }
+    body { font-family: Arial, sans-serif; color:#111; margin:0; }
+
+    .doc { position: relative; min-height: 100vh; }
     .watermark {
       position: fixed;
-      top: 40%;
-      left: 10%;
-      right: 10%;
-      text-align: center;
-      font-size: 56px;
-      color: rgba(200,0,0,0.10);
-      transform: rotate(-20deg);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-25deg);
+      font-size: 64px;
+      color: rgba(0,0,0,0.06);
+      font-weight: 700;
       z-index: 0;
+      white-space: nowrap;
       pointer-events: none;
-      font-weight: 900;
+      text-align: center;
+      line-height: 1.1;
     }
-    table { width: 100%; border-collapse: collapse; margin-top: 14px; z-index: 1; position: relative; }
-    th, td { border: 1px solid #333; padding: 7px; font-size: 12px; }
-    th { background:#f2f2f2; text-align:left; }
-    .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; display:inline-block; }
-    .interim { background:#fff3cd; }
-    .approved { background:#d1e7dd; }
-    .foot { margin-top: 16px; font-size: 12px; }
-    .small { font-size: 11px; color:#444; }
+    .watermark .wm-sub { font-size: 20px; font-weight: 900; color: rgba(0,0,0,0.08); }
+
+    .content { position: relative; z-index: 1; }
+
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 2px solid #0b5ed7;
+      padding-bottom: 10px; margin-bottom: 10px;
+    }
+    .header-left { display:flex; align-items:center; gap:10px; }
+    .logo {
+      width: 55px; height: 55px; object-fit: contain;
+    }
+    .school-title { margin:0; font-size: 18px; font-weight: 800; }
+    .school-sub { margin:2px 0 0 0; font-size: 12px; color:#444; }
+    .doc-title { margin:0; text-align: right; }
+    .doc-title h2 { margin:0; font-size: 18px; font-weight: 800; }
+    .doc-title .small { margin-top: 3px; font-size: 12px; color:#444; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0 12px 0;
+      font-size: 12px;
+    }
+    .meta .box {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .meta .row { display:flex; justify-content: space-between; gap: 10px; }
+    .meta .row span:first-child { color:#444; }
+    .meta .row span:last-child { font-weight: 700; text-align:right; }
+
+    table { width:100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    thead th {
+      background: #0b5ed7; color: #fff;
+      padding: 8px; border: 1px solid #0b5ed7;
+      text-align: left;
+    }
+    tbody td {
+      border: 1px solid #ddd;
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+    tbody tr:nth-child(even) { background: #fafafa; }
+
+    .summary {
+      margin-top: 12px;
+      display:flex; justify-content: space-between; gap: 10px;
+      font-size: 12px;
+    }
+    .summary .box {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+      background: #f7fbff;
+      flex: 1;
+    }
+    .summary .big { font-size: 16px; font-weight: 800; }
+
+    .note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #b58900;
+      font-weight: 700;
+    }
+
+    .footer {
+      margin-top: 18px;
+      display:flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color:#444;
+      border-top: 1px dashed #ccc;
+      padding-top: 8px;
+    }
+
     @media print {
-      .no-print { display:none; }
+      .no-print { display:none !important; }
     }
   </style>
 </head>
 <body>
+  <div class="doc">
+    <div class="watermark">
+      IJERO COLLEGE
+      <div class="wm-sub">RESULT SLIP (FOR STUDENT USE ONLY)</div>
+    </div>
 
-<div class="watermark">NOT AN OFFICIAL TRANSCRIPT</div>
+    <div class="content">
+      <div class="header">
+        <div class="header-left">
+          <img class="logo" src="/public/img/logo.png" alt="Logo" />
+          <div>
+            <p class="school-title">IJERO COLLEGE PORTAL</p>
+            <p class="school-sub">Result Slip</p>
+          </div>
+        </div>
 
-<div class="hdr">
-  <div>
-    <div class="school"><%= (bio && bio.school_name) ? bio.school_name : 'College Portal' %></div>
-    <div class="small">Result Slip (For Student Use Only)</div>
+        <div class="doc-title">
+          <h2>Semester Result Slip</h2>
+          <div class="small">
+            Session: <b><%= sessionName || '' %></b> &nbsp; | &nbsp;
+            Semester: <b><%= semesterName || '' %></b> &nbsp; | &nbsp;
+            Level: <b><%= level || '' %></b>
+          </div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="box">
+          <div class="row"><span>Student Name</span><span><%= (bio && (bio.first_name || bio.middle_name || bio.last_name)) ? `${bio.first_name||''} ${bio.middle_name||''} ${bio.last_name||''}`.replace(/\s+/g,' ').trim() : '' %></span></div>
+          <div class="row"><span>Matric No</span><span><%= (bio && bio.matric_number) ? bio.matric_number : '' %></span></div>
+          <div class="row"><span>Phone</span><span><%= (bio && bio.phone) ? bio.phone : '' %></span></div>
+        </div>
+        <div class="box">
+          <div class="row"><span>School</span><span><%= (bio && bio.school_name) ? bio.school_name : '' %></span></div>
+          <div class="row"><span>Department</span><span><%= (bio && bio.department_name) ? bio.department_name : '' %></span></div>
+          <div class="row"><span>Programme</span><span><%= (bio && bio.programme_name) ? bio.programme_name : '' %></span></div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:38px;">#</th>
+            <th>Course</th>
+            <th style="width:70px;">Code</th>
+            <th style="width:52px;">Units</th>
+            <th style="width:45px;">CA1</th>
+            <th style="width:45px;">CA2</th>
+            <th style="width:45px;">CA3</th>
+            <th style="width:55px;">Exam</th>
+            <th style="width:55px;">Total</th>
+            <th style="width:55px;">Grade</th>
+            <th style="width:140px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (rows || []).forEach((r, idx) => { %>
+            <tr>
+              <td><%= idx + 1 %></td>
+              <td><%= r.course_title || '' %></td>
+              <td><%= r.course_code || '' %></td>
+              <td><%= r.units || 0 %></td>
+              <td><%= r.ca1 %></td>
+              <td><%= r.ca2 %></td>
+              <td><%= r.ca3 %></td>
+              <td><%= r.exam %></td>
+              <td><b><%= r.total %></b></td>
+              <td><b><%= r.grade %></b></td>
+              <td><%= r.statusLabel || '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <div class="summary">
+        <div class="box">
+          <div>Total Units</div>
+          <div class="big"><%= (summary && summary.totalUnits != null) ? summary.totalUnits : 0 %></div>
+        </div>
+        <div class="box">
+          <div>GPA</div>
+          <div class="big"><%= (summary && summary.gpa != null) ? summary.gpa : '0.0' %></div>
+        </div>
+      </div>
+
+      <div class="note">NOTE: This is not an official transcript.</div>
+
+      <div class="footer">
+        <div>Generated: <%= new Date().toLocaleString() %></div>
+        <div>IJERO College Portal</div>
+      </div>
+    </div>
   </div>
-  <div class="no-print">
-    <button onclick="window.print()">Print / Save as PDF</button>
-  </div>
-</div>
-
-<div class="meta">
-  <div><b>Session:</b> <%= sessionName %> &nbsp; | &nbsp; <b>Semester:</b> <%= semesterName %> &nbsp; | &nbsp; <b>Level:</b> <%= level %></div>
-  <hr/>
-  <div><b>Name:</b>
-    <%= [bio.first_name, bio.middle_name, bio.last_name].filter(Boolean).join(' ') %>
-  </div>
-  <div><b>Matric:</b> <%= bio.matric_number || '' %> &nbsp; | &nbsp; <b>Email:</b> <%= bio.email || '' %> &nbsp; | &nbsp; <b>Phone:</b> <%= bio.phone || '' %></div>
-  <div><b>Department:</b> <%= bio.department_name || '' %> &nbsp; | &nbsp; <b>Programme:</b> <%= bio.programme_name || '' %></div>
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>Course</th>
-      <th>Code</th>
-      <th>Units</th>
-      <th>CA1</th>
-      <th>CA2</th>
-      <th>CA3</th>
-      <th>Exam</th>
-      <th>Total</th>
-      <th>Grade</th>
-      <th>Status</th>
-      <th>Uploaded At</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% if (!rows || !rows.length) { %>
-      <tr><td colspan="12" style="text-align:center;">No results found.</td></tr>
-    <% } else { %>
-      <% rows.forEach((r, i) => { %>
-        <tr>
-          <td><%= i+1 %></td>
-          <td><%= r.course_title %></td>
-          <td><%= r.course_code %></td>
-          <td><%= r.units %></td>
-          <td><%= r.ca1 %></td>
-          <td><%= r.ca2 %></td>
-          <td><%= r.ca3 %></td>
-          <td><%= r.exam %></td>
-          <td><b><%= r.total %></b></td>
-          <td><b><%= r.grade %></b></td>
-          <td>
-            <% const isApproved = String(r.statusLabel || '').toUpperCase().includes('APPROVED'); %>
-            <span class="badge <%= isApproved ? 'approved' : 'interim' %>">
-              <%= r.statusLabel %>
-            </span>
-          </td>
-          <td><%= r.uploaded_at ? new Date(r.uploaded_at).toLocaleString() : '' %></td>
-        </tr>
-      <% }) %>
-    <% } %>
-  </tbody>
-</table>
-
-<div class="foot">
-  <div><b>Total Units:</b> <%= summary.totalUnits %> &nbsp; | &nbsp; <b>GPA:</b> <%= summary.gpa %></div>
-  <div class="small">This slip is generated from portal data and is <b>NOT</b> an official transcript.</div>
-</div>
-
 </body>
 </html>
