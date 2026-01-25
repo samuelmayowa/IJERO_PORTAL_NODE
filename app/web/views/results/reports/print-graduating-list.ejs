@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Graduating List</title>
+  <style>
+    body{ font-family: Arial, sans-serif; font-size: 12px; }
+    h2{ margin: 0 0 8px; }
+    table{ width:100%; border-collapse: collapse; }
+    th,td{ border:1px solid #333; padding:6px; }
+    th{ background:#f3f3f3; }
+  </style>
+</head>
+<body>
+  <h2>Graduating List</h2>
+  <p>Rows: <b><%= (rows||[]).length %></b></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Matric</th><th>Full Name</th><th>School</th><th>Department</th><th>Programme</th><th>CGPA</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (rows||[]).forEach((r,i)=>{ %>
+        <tr>
+          <td><%= i+1 %></td>
+          <td><%= r.matric %></td>
+          <td><%= r.full_name %></td>
+          <td><%= r.school %></td>
+          <td><%= r.department %></td>
+          <td><%= r.programme %></td>
+          <td><b><%= r.cgpa %></b></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <script>window.print();</script>
+</body>
+</html>

@@ -51,10 +51,8 @@ import studentLectureVenueRoutes from './app/web/routes/student-lecture-venue.ro
 import studentAttendanceReportRoutes from './app/web/routes/student-attendance-report.routes.js';
 import resultsUploadRoutes from './app/web/routes/results-upload.routes.js';
 import studentResultsRoutes from './app/web/routes/student-results.routes.js';
-
-
-
-
+import staffResultsApprovalRoutes from "./app/web/routes/staff/results-approval.routes.js";
+import staffResultsReportsRoutes from "./app/web/routes/staff/results-reports.routes.js";
 
 
 // -------------------------------------------------------------
@@ -497,6 +495,23 @@ app.use(
   requireRole('staff', 'admin', 'hod', 'registry', 'lecturer', 'dean', 'superadmin', 'administrator'),
   resultsUploadRoutes
 );
+
+app.use(
+  "/staff/results/approve",
+  (req, res, next) => { res.locals.layout = "layouts/adminlte"; next(); },
+  ensureUserForViews,
+  requireRole("staff", "admin", "hod", "registry", "lecturer", "dean", "superadmin", "administrator", "bursary"),
+  staffResultsApprovalRoutes
+);
+
+app.use(
+  "/staff/results/reports",
+  (req, res, next) => { res.locals.layout = "layouts/adminlte"; next(); },
+  ensureUserForViews,
+  requireRole("staff", "admin", "hod", "registry", "lecturer", "dean", "superadmin", "administrator", "bursary"),
+  staffResultsReportsRoutes
+);
+
 
 // ✅ Staff routes
 app.use(

@@ -1,0 +1,146 @@
+<div class="container-fluid">
+  <h3 class="mb-3">Master Mark Sheet</h3>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">Session</label>
+          <select id="sessionId" class="form-select">
+            <option value="">-- Select --</option>
+            <% (sessions || []).forEach(s => { %>
+              <option value="<%= s.id %>"><%= s.name %> <%= s.is_current ? "(Current)" : "" %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Semester</label>
+          <select id="semester" class="form-select">
+            <option value="">-- Select --</option>
+            <% (semesters || []).forEach(x => { %>
+              <option value="<%= x.value %>"><%= x.label %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Level</label>
+          <select id="level" class="form-select">
+            <option value="">-- Select --</option>
+            <% (levels || []).forEach(l => { %>
+              <option value="<%= l %>"><%= l %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Course ID</label>
+          <input id="courseId" class="form-control" placeholder="e.g. 3" />
+        </div>
+
+        <div class="col-md-1">
+          <label class="form-label">Batch ID</label>
+          <input id="batchId" class="form-control" placeholder="e.g. 1" />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Status</label>
+          <select id="statusMode" class="form-select">
+            <option value="approved">Approved only</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <button class="btn btn-primary" id="btnApply">Apply</button>
+        <a class="btn btn-outline-success" id="btnCsv" href="#">Export CSV</a>
+        <a class="btn btn-outline-success" id="btnXlsx" href="#">Export Excel</a>
+        <a class="btn btn-outline-danger" id="btnPdf" href="#" target="_blank">Export PDF</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Matric</th>
+              <th>Full Name</th>
+              <th>Reg Type</th>
+              <th>Units</th>
+              <th>CA1</th><th>CA2</th><th>CA3</th>
+              <th>Exam</th>
+              <th>Total</th>
+              <th>Grade</th>
+              <th>GP</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="12" class="text-center text-muted">No records</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+  function qs(){
+    const q = new URLSearchParams({
+      sessionId: $("sessionId").value,
+      semester: $("semester").value,
+      level: $("level").value,
+      courseId: $("courseId").value.trim(),
+      batchId: $("batchId").value.trim(),
+      statusMode: $("statusMode").value
+    });
+    return q.toString();
+  }
+
+  function wireExports(){
+    $("btnCsv").href = "/staff/results/reports/master-mark-sheet/export.csv?" + qs();
+    $("btnXlsx").href = "/staff/results/reports/master-mark-sheet/export.xlsx?" + qs();
+    $("btnPdf").href = "/staff/results/reports/master-mark-sheet/print?" + qs();
+  }
+
+  async function load(){
+    wireExports();
+    const r = await fetch("/staff/results/reports/master-mark-sheet/api?" + qs(), { headers: { "Accept":"application/json" }});
+    const j = await r.json();
+    const tbody = $("rows");
+    if(!j.ok){
+      tbody.innerHTML = `<tr><td colspan="12" class="text-danger text-center">${esc(j.message||"Error")}</td></tr>`;
+      return;
+    }
+    const rows = j.rows || [];
+    if(!rows.length){
+      tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted">${esc(j.meta?.message || "No records")}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((x,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(x.matric)}</td>
+        <td>${esc(x.full_name)}</td>
+        <td>${esc(x.reg_type)}</td>
+        <td>${esc(x.units)}</td>
+        <td>${esc(x.ca1)}</td><td>${esc(x.ca2)}</td><td>${esc(x.ca3)}</td>
+        <td>${esc(x.exam)}</td>
+        <td><b>${esc(x.total)}</b></td>
+        <td>${esc(x.grade)}</td>
+        <td>${esc(x.gp)}</td>
+      </tr>
+    `).join("");
+  }
+
+  $("btnApply").addEventListener("click", load);
+  wireExports();
+</script>

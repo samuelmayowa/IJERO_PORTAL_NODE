@@ -1,0 +1,158 @@
+<div class="container-fluid">
+  <h3 class="mb-3">Approve Result</h3>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">Session</label>
+          <select id="sessionId" class="form-select">
+            <option value="">All</option>
+            <% (sessions || []).forEach(s => { %>
+              <option value="<%= s.id %>"><%= s.name %> <%= s.is_current ? "(Current)" : "" %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Semester</label>
+          <select id="semester" class="form-select">
+            <option value="">All</option>
+            <% (semesters || []).forEach(x => { %>
+              <option value="<%= x.value %>"><%= x.label %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Level</label>
+          <select id="level" class="form-select">
+            <option value="">All</option>
+            <% (levels || []).forEach(l => { %>
+              <option value="<%= l %>"><%= l %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Course ID (optional)</label>
+          <input id="courseId" class="form-control" placeholder="e.g. 3" />
+        </div>
+
+        <div class="col-md-2">
+          <button id="btnApply" class="btn btn-primary w-100">Apply</button>
+        </div>
+      </div>
+
+      <div class="row g-2 mt-2">
+        <div class="col-md-4">
+          <label class="form-label">Status (optional override)</label>
+          <input id="status" class="form-control" placeholder="Leave blank for your stage statuses" />
+          <small class="text-muted">Example: UPLOADED, HOD_APPROVED, DEAN_APPROVED, BUSINESS_APPROVED, FINAL</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    Your role: <b><%= role.toUpperCase() %></b> —
+    Approve → <b><%= stage.approveTo %></b>,
+    Reject → <b><%= stage.rejectTo %></b>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Course</th>
+              <th>Session</th>
+              <th>Semester</th>
+              <th>Level</th>
+              <th>Batch</th>
+              <th>Rows</th>
+              <th>Status</th>
+              <th>Uploaded At</th>
+              <th style="width: 220px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="10" class="text-center text-muted">No data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+  async function loadBatches(){
+    const qs = new URLSearchParams({
+      sessionId: $("sessionId").value,
+      semester: $("semester").value,
+      level: $("level").value,
+      courseId: $("courseId").value.trim(),
+      status: $("status").value.trim()
+    });
+
+    const r = await fetch(`/staff/results/approve/api/batches?` + qs.toString(), { headers: { "Accept": "application/json" }});
+    const j = await r.json();
+    const tbody = $("rows");
+
+    if(!j.ok){
+      tbody.innerHTML = `<tr><td colspan="10" class="text-danger text-center">${esc(j.message || "Error")}</td></tr>`;
+      return;
+    }
+
+    const rows = j.data || [];
+    if(!rows.length){
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No records</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map((x, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><b>${esc(x.course_code || "")}</b> — ${esc(x.course_title || "")}<br/>
+            <small class="text-muted">${esc(x.school_name || "")} / ${esc(x.department_name || "")}</small>
+        </td>
+        <td>${esc(x.session_id)}</td>
+        <td>${esc(x.semester)}</td>
+        <td>${esc(x.level)}</td>
+        <td>${esc(x.batch_id)}</td>
+        <td>${esc(x.rows_in_results)}</td>
+        <td><span class="badge bg-secondary">${esc(x.status)}</span></td>
+        <td>${esc(x.uploaded_at || "")}</td>
+        <td>
+          <button class="btn btn-success btn-sm" onclick="takeAction(${x.id}, 'approve')">Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="takeAction(${x.id}, 'reject')">Reject</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  async function takeAction(batchId, action){
+    const remark = prompt(`Enter remark (optional) for ${action.toUpperCase()}:`) || "";
+    const r = await fetch(`/staff/results/approve/api/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ batchId, action, remark })
+    });
+    const j = await r.json();
+    if(!j.ok){
+      alert(j.message || "Action failed");
+      return;
+    }
+    alert(j.message || "Done");
+    loadBatches();
+  }
+
+  $("btnApply").addEventListener("click", loadBatches);
+  loadBatches();
+</script>

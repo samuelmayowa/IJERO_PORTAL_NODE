@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Master Mark Sheet</title>
+  <style>
+    body{ font-family: Arial, sans-serif; font-size: 12px; }
+    h2{ margin: 0 0 8px; }
+    table{ width:100%; border-collapse: collapse; }
+    th,td{ border:1px solid #333; padding:6px; }
+    th{ background:#f3f3f3; }
+  </style>
+</head>
+<body>
+  <h2>Master Mark Sheet</h2>
+  <p>
+    Rows: <b><%= (rows||[]).length %></b>
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Matric</th><th>Full Name</th><th>Reg</th><th>Units</th>
+        <th>CA1</th><th>CA2</th><th>CA3</th><th>Exam</th><th>Total</th><th>Grade</th><th>GP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (rows||[]).forEach((r,i)=>{ %>
+        <tr>
+          <td><%= i+1 %></td>
+          <td><%= r.matric %></td>
+          <td><%= r.full_name %></td>
+          <td><%= r.reg_type %></td>
+          <td><%= r.units %></td>
+          <td><%= r.ca1 %></td><td><%= r.ca2 %></td><td><%= r.ca3 %></td>
+          <td><%= r.exam %></td>
+          <td><b><%= r.total %></b></td>
+          <td><%= r.grade %></td>
+          <td><%= r.gp %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <script>window.print();</script>
+</body>
+</html>

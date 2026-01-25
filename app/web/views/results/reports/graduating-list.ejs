@@ -1,0 +1,115 @@
+<div class="container-fluid">
+  <h3 class="mb-3">Graduating List</h3>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Final Level</label>
+          <select id="level" class="form-select">
+            <option value="">-- Select --</option>
+            <% (levels || []).forEach(l => { %>
+              <option value="<%= l %>"><%= l %></option>
+            <% }) %>
+          </select>
+          <small class="text-muted">Typically ND2 / HND2</small>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Programme (optional, from student_imports)</label>
+          <input id="programme" class="form-control" placeholder="Exact programme name (optional)" />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Status</label>
+          <select id="statusMode" class="form-select">
+            <option value="approved">Approved only</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100" id="btnApply">Apply</button>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-success" id="btnCsv" href="#">Export CSV</a>
+        <a class="btn btn-outline-success" id="btnXlsx" href="#">Export Excel</a>
+        <a class="btn btn-outline-danger" id="btnPdf" href="#" target="_blank">Export PDF</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Matric</th>
+              <th>Full Name</th>
+              <th>School</th>
+              <th>Department</th>
+              <th>Programme</th>
+              <th>CGPA</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="7" class="text-center text-muted">No records</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+  function qs(){
+    return new URLSearchParams({
+      level: $("level").value,
+      programme: $("programme").value.trim(),
+      statusMode: $("statusMode").value
+    }).toString();
+  }
+
+  function wireExports(){
+    $("btnCsv").href = "/staff/results/reports/graduating-list/export.csv?" + qs();
+    $("btnXlsx").href = "/staff/results/reports/graduating-list/export.xlsx?" + qs();
+    $("btnPdf").href = "/staff/results/reports/graduating-list/print?" + qs();
+  }
+
+  async function load(){
+    wireExports();
+    const r = await fetch("/staff/results/reports/graduating-list/api?" + qs(), { headers: { "Accept":"application/json" }});
+    const j = await r.json();
+    const tbody = $("rows");
+    if(!j.ok){
+      tbody.innerHTML = `<tr><td colspan="7" class="text-danger text-center">${esc(j.message||"Error")}</td></tr>`;
+      return;
+    }
+    const rows = j.rows || [];
+    if(!rows.length){
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">${esc(j.meta?.message || "No records")}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((x,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(x.matric)}</td>
+        <td>${esc(x.full_name)}</td>
+        <td>${esc(x.school)}</td>
+        <td>${esc(x.department)}</td>
+        <td>${esc(x.programme)}</td>
+        <td><b>${esc(x.cgpa)}</b></td>
+      </tr>
+    `).join("");
+  }
+
+  $("btnApply").addEventListener("click", load);
+  wireExports();
+</script>
