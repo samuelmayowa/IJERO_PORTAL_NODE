@@ -269,8 +269,6 @@ export async function apiAddCourse(req, res) {
       return res.status(401).json({ ok: false, message: 'Not authenticated.' });
     }
 
-    // profile gate REMOVED – everyone allowed to add courses
-
     const { sessionId, semester, courseCode, regType } = req.body;
     if (!sessionId || !semester || !courseCode || !regType) {
       return res
@@ -279,10 +277,12 @@ export async function apiAddCourse(req, res) {
     }
 
     const trimmedCode = courseCode.trim().toUpperCase();
-    const regTypeNormalized =
-      regType.toUpperCase() === 'ELECTIVE' ? 'ELECTIVE' : 'MAIN';
+    const regTypeNormalized = (() => {
+      const validTypes = ['MAIN', 'ELECTIVE', 'CARRYOVER'];
+      const upper = regType.toUpperCase();
+      return validTypes.includes(upper) ? upper : 'MAIN';
+    })();
 
-    // Find course by code
     const [courses] = await pool.query(
       'SELECT id, code, title, unit, semester FROM courses WHERE code = ? LIMIT 1',
       [trimmedCode],
@@ -302,7 +302,6 @@ export async function apiAddCourse(req, res) {
       });
     }
 
-    // Check if registration is already locked
     const { isLocked, totalUnits } = await getRegistrationSummary(
       student.id,
       Number(sessionId),
@@ -316,7 +315,6 @@ export async function apiAddCourse(req, res) {
       });
     }
 
-    // Enforce max units per semester
     const newTotalUnits = totalUnits + (course.unit || 0);
     if (newTotalUnits > MAX_UNITS_PER_SEMESTER) {
       return res.status(400).json({
@@ -325,7 +323,6 @@ export async function apiAddCourse(req, res) {
       });
     }
 
-    // If course already registered, just update reg_type
     const [existingRows] = await pool.query(
       `
       SELECT id
