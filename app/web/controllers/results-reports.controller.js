@@ -3,7 +3,7 @@
 import xlsx from "xlsx";
 import pool from "../../core/db.js";
 
-/* ---------------- tiny utils ---------------- */
+/* ---------------- helpers ---------------- */
 
 function safeInt(v) {
   const n = Number.parseInt(String(v ?? ""), 10);
@@ -17,7 +17,6 @@ function safeStr(v) {
   return String(v ?? "").trim();
 }
 function nowStamp() {
-  // readable “Printed @ …” format
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   const dd = pad(d.getDate());
@@ -29,13 +28,30 @@ function nowStamp() {
   const mi = pad(d.getMinutes());
   return `${dd}/${mm}/${yy} ${hh}:${mi} ${ampm}`;
 }
+function levelToL(levelRaw) {
+  const level = String(levelRaw || "").toUpperCase();
+  const map = {
+    ND1: "100L",
+    ND2: "200L",
+    HND1: "300L",
+    HND2: "400L",
+    "100L": "100L",
+    "200L": "200L",
+    "300L": "300L",
+    "400L": "400L",
+  };
+  return map[level] || level;
+}
+function normalizeSemesterLabel(sem) {
+  const s = String(sem || "").toUpperCase();
+  if (s === "FIRST") return "FIRST SEMESTER";
+  if (s === "SECOND") return "SECOND SEMESTER";
+  return s;
+}
 
-/**
- * NOTE:
- * Your original file already had getRole/getStaffId/scopeSqlForRole.
- * I’m keeping them “safe” here: if role data isn’t present, no scope is applied.
- * This preserves existing behavior for admins and avoids breaking if session shape differs.
- */
+const INSTITUTION_NAME =
+  "EKITI STATE COLLEGE OF HEALTH SCIENCES AND TECHNOLOGY, IJERO-EKITI";
+
 function getRole(req) {
   return (
     req.session?.staffUser?.role ||
@@ -45,7 +61,6 @@ function getRole(req) {
     ""
   );
 }
-
 function getStaffId(req) {
   return (
     req.session?.staffUser?.id ||
@@ -57,14 +72,11 @@ function getStaffId(req) {
 }
 
 /**
- * Scope by staff department/school (best-effort, non-breaking):
- * - If we can’t resolve staff scope, we return empty scope (show all allowed by route auth).
- * - If you already had a stricter scope in your old file, paste it back here.
+ * Non-breaking scope: if your original file had stricter scoping, you can replace this.
+ * This implementation only scopes when we can resolve staff department/school.
  */
 async function scopeSqlForRole(conn, roleRaw, staffId) {
   const role = String(roleRaw || "").toUpperCase();
-
-  // roles that usually see everything
   const wideRoles = new Set([
     "ADMIN",
     "SUPERADMIN",
@@ -75,7 +87,6 @@ async function scopeSqlForRole(conn, roleRaw, staffId) {
   ]);
   if (wideRoles.has(role) || !staffId) return { sql: "", params: [] };
 
-  // Try to scope by staff.department_id if available
   try {
     const [srows] = await conn.query(
       `SELECT department_id, school_id FROM staff WHERE id = ? LIMIT 1`,
@@ -84,15 +95,12 @@ async function scopeSqlForRole(conn, roleRaw, staffId) {
     const s = srows?.[0];
     if (!s) return { sql: "", params: [] };
 
-    // If HOD/DEPT staff: limit to department courses
-    if (role.includes("HOD") || role.includes("DEPARTMENT")) {
-      if (s.department_id) return { sql: " AND c.department_id = ? ", params: [s.department_id] };
-      return { sql: "", params: [] };
+    if ((role.includes("HOD") || role.includes("DEPARTMENT")) && s.department_id) {
+      return { sql: " AND c.department_id = ? ", params: [s.department_id] };
     }
 
-    // If school-level staff: limit to departments under school if schema supports it
+    // school scope (if departments table has school_id)
     if (role.includes("SCHOOL") && s.school_id) {
-      // departments.school_id is common; if your schema differs, adjust here
       return { sql: " AND d.school_id = ? ", params: [s.school_id] };
     }
 
@@ -116,7 +124,6 @@ function baseLists() {
       { value: "SECOND", label: "Second" },
     ],
     levels: ["ND1", "ND2", "HND1", "HND2"],
-    approvedStatuses: ["BUSINESS_APPROVED", "FINAL", "REGISTRY_APPROVED"],
   };
 }
 
@@ -150,7 +157,7 @@ export async function reportsHome(req, res) {
 
 /* ---------------- A) MASTER MARK SHEET ---------------- */
 
-async function fetchMasterMarkSheet(req, res) {
+async function fetchMasterMarkSheet(req) {
   const conn = await pool.getConnection();
   try {
     const role = getRole(req);
@@ -208,30 +215,55 @@ async function fetchMasterMarkSheet(req, res) {
     `;
     const [rows] = await conn.query(sql, [...params, ...scopeParams]);
 
-    // extra meta for print header
-    const [[courseRow]] = await conn.query(
-      `SELECT id, code, title, units FROM courses WHERE id = ? LIMIT 1`,
-      [courseId]
-    );
     const [[sessionRow]] = await conn.query(
       `SELECT id, name FROM sessions WHERE id = ? LIMIT 1`,
       [sessionId]
     );
+    const [[courseRow]] = await conn.query(
+      `
+      SELECT
+        c.id, c.code, c.title, c.units,
+        d.name AS department_name,
+        sc.name AS school_name
+      FROM courses c
+      LEFT JOIN departments d ON d.id = c.department_id
+      LEFT JOIN schools sc ON sc.id = d.school_id
+      WHERE c.id = ? LIMIT 1
+      `,
+      [courseId]
+    );
+
+    // Simple summary for bottom block
+    const examined = rows?.length || 0;
+    const fail = (rows || []).filter((r) => safeFloat(r.gp) <= 0).length;
+    const pass = examined - fail;
+
+    const gradeCounts = {};
+    for (const r of rows || []) {
+      const g = String(r.grade || "").toUpperCase() || "N/A";
+      gradeCounts[g] = (gradeCounts[g] || 0) + 1;
+    }
 
     return {
       rows: rows || [],
       meta: {
+        institutionName: INSTITUTION_NAME,
         sessionId,
         sessionName: sessionRow?.name || "",
         semester,
+        semesterLabel: normalizeSemesterLabel(semester),
         level,
+        levelLabel: levelToL(level),
         courseId,
         courseCode: courseRow?.code || "",
         courseTitle: courseRow?.title || "",
         courseUnits: courseRow?.units ?? "",
+        schoolName: courseRow?.school_name || "",
+        departmentName: courseRow?.department_name || "",
         batchId,
         statusMode,
         printedAt: nowStamp(),
+        summary: { examined, pass, fail, gradeCounts },
       },
     };
   } finally {
@@ -252,7 +284,7 @@ export async function viewMasterMarkSheet(req, res) {
 
 export async function apiMasterMarkSheet(req, res) {
   try {
-    const out = await fetchMasterMarkSheet(req, res);
+    const out = await fetchMasterMarkSheet(req);
     res.json({ ok: true, ...out });
   } catch (e) {
     console.error("apiMasterMarkSheet error:", e);
@@ -261,7 +293,7 @@ export async function apiMasterMarkSheet(req, res) {
 }
 
 export async function exportMasterMarkSheetCsv(req, res) {
-  const out = await fetchMasterMarkSheet(req, res);
+  const out = await fetchMasterMarkSheet(req);
   const rows = (out.rows || []).map((r) => ({
     matric: r.matric,
     full_name: r.full_name,
@@ -275,14 +307,26 @@ export async function exportMasterMarkSheetCsv(req, res) {
     grade: r.grade,
     gp: r.gp,
   }));
-  const headers = ["matric", "full_name", "reg_type", "units", "ca1", "ca2", "ca3", "exam", "total", "grade", "gp"];
+  const headers = [
+    "matric",
+    "full_name",
+    "reg_type",
+    "units",
+    "ca1",
+    "ca2",
+    "ca3",
+    "exam",
+    "total",
+    "grade",
+    "gp",
+  ];
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="master_mark_sheet.csv"`);
   res.send(asCsv(rows, headers));
 }
 
 export async function exportMasterMarkSheetExcel(req, res) {
-  const out = await fetchMasterMarkSheet(req, res);
+  const out = await fetchMasterMarkSheet(req);
   const rows = (out.rows || []).map((r) => ({
     matric: r.matric,
     full_name: r.full_name,
@@ -296,23 +340,38 @@ export async function exportMasterMarkSheetExcel(req, res) {
     grade: r.grade,
     gp: r.gp,
   }));
-  const headers = ["matric", "full_name", "reg_type", "units", "ca1", "ca2", "ca3", "exam", "total", "grade", "gp"];
+  const headers = [
+    "matric",
+    "full_name",
+    "reg_type",
+    "units",
+    "ca1",
+    "ca2",
+    "ca3",
+    "exam",
+    "total",
+    "grade",
+    "gp",
+  ];
   sendExcel(res, "MasterMarkSheet", rows, headers, "master_mark_sheet.xlsx");
 }
 
 export async function printMasterMarkSheet(req, res) {
-  const out = await fetchMasterMarkSheet(req, res);
+  const out = await fetchMasterMarkSheet(req);
   res.render("results/reports/print-master-mark-sheet", { layout: false, ...out });
 }
 
 /* ---------------- B) SEMESTER RESULT ---------------- */
 
 /**
- * Adds `sheet` details for printing without breaking existing `rows` summary:
- * rows: [{matric, full_name, total_units, gpa}]
- * sheet: { courses, detailRows, gradeScale }
+ * Previous definition (your clarified rule):
+ * - If printing FIRST semester:
+ *     Previous = cumulative of all earlier sessions for that student/level (if none => 0)
+ * - If printing SECOND semester:
+ *     Previous = FIRST semester totals of the same session+level
+ * Cumulative always includes earlier sessions + (FIRST of current session if SECOND) + CURRENT.
  */
-async function fetchSemesterResult(req, res) {
+async function fetchSemesterResult(req) {
   const conn = await pool.getConnection();
   try {
     const role = getRole(req);
@@ -330,20 +389,39 @@ async function fetchSemesterResult(req, res) {
     const { sql: scopeSql, params: scopeParams } = await scopeSqlForRole(conn, role, staffId);
 
     let statusSql = "";
-    const approvedStatusSql = " AND rb.status IN ('BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
-    if (statusMode === "approved") statusSql += approvedStatusSql;
+    if (statusMode === "approved") {
+      statusSql += " AND rb.status IN ('BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+    }
 
-    // session display
     const [[sessionRow]] = await conn.query(
       `SELECT id, name FROM sessions WHERE id = ? LIMIT 1`,
       [sessionId]
     );
-    const sessionName = sessionRow?.name || "";
 
-    // 1) Courses in this semester/level/session (for dynamic columns)
+    // Header school/department (best-effort from courses)
+    const [[hdrRow]] = await conn.query(
+      `
+      SELECT
+        sc.name AS school_name,
+        d.name AS department_name
+      FROM result_batches rb
+      JOIN courses c ON c.id = rb.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      LEFT JOIN schools sc ON sc.id = d.school_id
+      WHERE rb.session_id = ?
+        AND rb.semester = ?
+        AND rb.level = ?
+        ${statusSql}
+        ${scopeSql}
+      LIMIT 1
+      `,
+      [sessionId, semester, level, ...scopeParams]
+    );
+
+    // 1) course columns (include title for bottom course list)
     const [courseCols] = await conn.query(
       `
-      SELECT DISTINCT c.id, c.code, c.units
+      SELECT DISTINCT c.id, c.code, c.title, c.units
       FROM result_batches rb
       JOIN courses c ON c.id = rb.course_id
       LEFT JOIN departments d ON d.id = c.department_id
@@ -360,14 +438,17 @@ async function fetchSemesterResult(req, res) {
     const courses = (courseCols || []).map((c) => ({
       id: c.id,
       code: c.code,
+      title: c.title || "",
       units: safeFloat(c.units),
     }));
+    const sheetTotalUnits = courses.reduce((a, c) => a + safeFloat(c.units), 0);
 
-    // 2) CURRENT totals (also forms your existing summary rows)
+    // 2) CURRENT totals
     const [currentAgg] = await conn.query(
       `
       SELECT
         pu.id AS student_id,
+        pu.username AS student_username,
         pu.matric_number AS matric,
         CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS full_name,
         SUM(c.units) AS tlu,
@@ -391,24 +472,56 @@ async function fetchSemesterResult(req, res) {
 
     const currentRows = currentAgg || [];
     const studentIds = currentRows.map((r) => r.student_id);
+
     if (!studentIds.length) {
       return {
         rows: [],
-        meta: { sessionId, sessionName, semester, level, statusMode, printedAt: nowStamp() },
-        sheet: { courses, detailRows: [], gradeScale: [] },
+        meta: {
+          institutionName: INSTITUTION_NAME,
+          sessionId,
+          sessionName: sessionRow?.name || "",
+          semester,
+          semesterLabel: normalizeSemesterLabel(semester),
+          level,
+          levelLabel: levelToL(level),
+          schoolName: hdrRow?.school_name || "",
+          departmentName: hdrRow?.department_name || "",
+          programmeName: "",
+          statusMode,
+          printedAt: nowStamp(),
+        },
+        sheet: { courses, detailRows: [], totalUnits: sheetTotalUnits, summary: null },
       };
     }
 
-    // 3) CURRENT per-course grades (only current semester columns)
+    // Programme best-effort: from student_imports (if consistent)
+    const [progRows] = await conn.query(
+      `
+      SELECT DISTINCT si.programme
+      FROM public_users pu
+      JOIN student_imports si ON si.student_email = pu.username
+      WHERE pu.id IN (${studentIds.map(() => "?").join(",")})
+        AND si.programme IS NOT NULL AND si.programme <> ''
+      LIMIT 2
+      `,
+      studentIds
+    );
+    const programmeName =
+      (progRows || []).length === 1 ? (progRows[0]?.programme || "") : "";
+
+    // 3) CURRENT per-course grade + points
     const [currentGrades] = await conn.query(
       `
       SELECT
         cr.student_id,
         rb.course_id,
+        c.code,
+        c.units,
         cr.grade,
         cr.points
       FROM course_results cr
       JOIN result_batches rb ON rb.id = cr.result_batch_id
+      JOIN courses c ON c.id = rb.course_id
       WHERE rb.session_id = ?
         AND rb.semester = ?
         AND rb.level = ?
@@ -418,14 +531,22 @@ async function fetchSemesterResult(req, res) {
       [sessionId, semester, level, ...studentIds]
     );
 
-    const gradeMap = new Map(); // studentId -> Map(courseId -> grade)
+    const gradeMap = new Map(); // sid -> Map(courseId -> grade)
+    const currentFailedMap = new Map(); // sid -> [{code, units}]
     for (const g of currentGrades || []) {
       if (!gradeMap.has(g.student_id)) gradeMap.set(g.student_id, new Map());
       gradeMap.get(g.student_id).set(g.course_id, g.grade || "");
+
+      if (safeFloat(g.points) <= 0) {
+        if (!currentFailedMap.has(g.student_id)) currentFailedMap.set(g.student_id, []);
+        currentFailedMap.get(g.student_id).push({
+          code: g.code,
+          units: safeFloat(g.units),
+        });
+      }
     }
 
-    // 4) PREVIOUS CARRY (all earlier sessions): used as Previous when printing FIRST semester,
-    //    and also used in CUMULATIVE for SECOND semester
+    // 4) Previous carry (all earlier sessions totals) => used for FIRST semester Previous + cumulative
     const [prevCarryAgg] = await conn.query(
       `
       SELECT
@@ -443,7 +564,6 @@ async function fetchSemesterResult(req, res) {
       `,
       [sessionId, ...studentIds]
     );
-
     const prevCarry = new Map();
     for (const r of prevCarryAgg || []) {
       prevCarry.set(r.student_id, {
@@ -453,7 +573,7 @@ async function fetchSemesterResult(req, res) {
       });
     }
 
-    // 5) PREVIOUS SEMESTER totals (FIRST semester of same session+level) for when printing SECOND semester
+    // 5) Previous semester totals (FIRST of same session+level) => used for SECOND semester Previous + cumulative
     let prevSem = new Map();
     if (semester === "SECOND") {
       const [prevSemAgg] = await conn.query(
@@ -486,16 +606,18 @@ async function fetchSemesterResult(req, res) {
       }
     }
 
-    // 6) OUTSTANDING (failed courses) up to this point:
-    // - include all earlier sessions always
-    // - include current session FIRST if printing SECOND
-    // - include current session current semester always
-    const includeFirstInCurrentSession = semester === "SECOND";
-    const semesterWhere = includeFirstInCurrentSession
-      ? " (rb.session_id < ? OR (rb.session_id = ? AND rb.semester IN ('FIRST','SECOND'))) "
-      : " (rb.session_id < ? OR (rb.session_id = ? AND rb.semester = 'FIRST')) "; // for FIRST semester print, only FIRST in current session
+    // 6) Outstanding (previous failures BEFORE current semester):
+    // FIRST: earlier sessions only
+    // SECOND: earlier sessions + FIRST semester of current session
+    const prevWhere =
+      semester === "SECOND"
+        ? "(rb.session_id < ? OR (rb.session_id = ? AND rb.semester = 'FIRST'))"
+        : "(rb.session_id < ?)";
 
-    const [outstandingRows] = await conn.query(
+    const prevParams =
+      semester === "SECOND" ? [sessionId, sessionId, ...studentIds] : [sessionId, ...studentIds];
+
+    const [prevFails] = await conn.query(
       `
       SELECT
         cr.student_id,
@@ -504,46 +626,25 @@ async function fetchSemesterResult(req, res) {
       FROM course_results cr
       JOIN result_batches rb ON rb.id = cr.result_batch_id
       JOIN courses c ON c.id = rb.course_id
-      WHERE ${semesterWhere}
+      WHERE ${prevWhere}
         ${statusSql}
         AND cr.points <= 0
         AND cr.student_id IN (${studentIds.map(() => "?").join(",")})
       ORDER BY c.code ASC
       `,
-      includeFirstInCurrentSession
-        ? [sessionId, sessionId, ...studentIds]
-        : [sessionId, sessionId, ...studentIds]
+      prevParams
     );
 
-    const outstandingMap = new Map(); // studentId -> [{code, units}]
-    for (const r of outstandingRows || []) {
-      if (!outstandingMap.has(r.student_id)) outstandingMap.set(r.student_id, []);
-      const arr = outstandingMap.get(r.student_id);
-      // de-dupe by code
+    const prevOutstandingMap = new Map();
+    for (const r of prevFails || []) {
+      if (!prevOutstandingMap.has(r.student_id)) prevOutstandingMap.set(r.student_id, []);
+      const arr = prevOutstandingMap.get(r.student_id);
       if (!arr.some((x) => x.code === r.code)) {
         arr.push({ code: r.code, units: safeFloat(r.units) });
       }
     }
 
-    // 7) grade scale mapping from data (non-breaking, no dependency on grade_scales schema)
-    const [gradeScaleRows] = await conn.query(
-      `
-      SELECT DISTINCT cr.grade, cr.points
-      FROM course_results cr
-      JOIN result_batches rb ON rb.id = cr.result_batch_id
-      WHERE rb.session_id = ?
-        AND rb.semester = ?
-        AND rb.level = ?
-        ${statusSql}
-      ORDER BY cr.points DESC
-      `,
-      [sessionId, semester, level]
-    );
-    const gradeScale = (gradeScaleRows || [])
-      .filter((g) => g.grade)
-      .map((g) => ({ grade: g.grade, points: safeFloat(g.points) }));
-
-    // Build summary rows (existing behavior)
+    // Summary rows (existing behavior: matric, full_name, total_units, gpa)
     const summaryRows = currentRows.map((r) => {
       const tlu = safeFloat(r.tlu);
       const tup = safeFloat(r.tup);
@@ -556,7 +657,7 @@ async function fetchSemesterResult(req, res) {
       };
     });
 
-    // Build detailed print rows
+    // detail rows for print
     const detailRows = currentRows.map((r, idx) => {
       const sid = r.student_id;
 
@@ -570,11 +671,9 @@ async function fetchSemesterResult(req, res) {
       const carry = prevCarry.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
       const ps = prevSem.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
 
-      // Previous column rules
       const prev = semester === "SECOND" ? ps : carry;
       const prevGpa = prev.tlu > 0 ? prev.tup / prev.tlu : 0;
 
-      // Cumulative is always: carry + (FIRST of current session if printing SECOND) + current
       const cum = {
         tcp: carry.tcp + (semester === "SECOND" ? ps.tcp : 0) + cur.tcp,
         tlu: carry.tlu + (semester === "SECOND" ? ps.tlu : 0) + cur.tlu,
@@ -582,11 +681,13 @@ async function fetchSemesterResult(req, res) {
       };
       const cumGpa = cum.tlu > 0 ? cum.tup / cum.tlu : 0;
 
-      const out = outstandingMap.get(sid) || [];
-      const passRepeat = out.length ? "FAIL" : "PASS";
-
       const gForStudent = gradeMap.get(sid) || new Map();
       const grades = courses.map((c) => gForStudent.get(c.id) || "");
+
+      const carryOver = currentFailedMap.get(sid) || [];
+      const outstanding = prevOutstandingMap.get(sid) || [];
+
+      const passRepeat = carryOver.length || outstanding.length ? "FAIL" : "PASS";
 
       return {
         sn: idx + 1,
@@ -596,18 +697,61 @@ async function fetchSemesterResult(req, res) {
         current: { ...cur, gpa: Number(curGpa.toFixed(2)) },
         previous: { ...prev, gpa: Number(prevGpa.toFixed(2)) },
         cumulative: { ...cum, gpa: Number(cumGpa.toFixed(2)) },
-        outstanding: out,
+        carryOver,
+        outstanding,
         passRepeat,
       };
     });
 
+    // Summary-of-results block counts (based on CUMULATIVE GPA)
+    const classifyCgpa = (cgpa) => {
+      const g = safeFloat(cgpa);
+      if (g >= 3.5) return "DISTINCTION";
+      if (g >= 3.0) return "UPPER";
+      if (g >= 2.5) return "LOWER";
+      if (g >= 1.5) return "PASS";
+      return "FAIL";
+    };
+
+    const summary = {
+      examined: detailRows.length,
+      distinction: 0,
+      upper: 0,
+      lower: 0,
+      pass: 0,
+      fail: 0,
+      total: detailRows.length,
+    };
+    for (const r of detailRows) {
+      const cat = classifyCgpa(r.cumulative.gpa);
+      if (cat === "DISTINCTION") summary.distinction += 1;
+      else if (cat === "UPPER") summary.upper += 1;
+      else if (cat === "LOWER") summary.lower += 1;
+      else if (cat === "PASS") summary.pass += 1;
+      else summary.fail += 1;
+    }
+
     return {
       rows: summaryRows,
-      meta: { sessionId, sessionName, semester, level, statusMode, printedAt: nowStamp() },
+      meta: {
+        institutionName: INSTITUTION_NAME,
+        sessionId,
+        sessionName: sessionRow?.name || "",
+        semester,
+        semesterLabel: normalizeSemesterLabel(semester),
+        level,
+        levelLabel: levelToL(level),
+        schoolName: hdrRow?.school_name || "",
+        departmentName: hdrRow?.department_name || "",
+        programmeName,
+        statusMode,
+        printedAt: nowStamp(),
+      },
       sheet: {
         courses,
+        totalUnits: sheetTotalUnits,
         detailRows,
-        gradeScale,
+        summary,
       },
     };
   } finally {
@@ -628,7 +772,7 @@ export async function viewSemesterResult(req, res) {
 
 export async function apiSemesterResult(req, res) {
   try {
-    const out = await fetchSemesterResult(req, res);
+    const out = await fetchSemesterResult(req);
     res.json({ ok: true, ...out });
   } catch (e) {
     console.error("apiSemesterResult error:", e);
@@ -637,7 +781,7 @@ export async function apiSemesterResult(req, res) {
 }
 
 export async function exportSemesterResultCsv(req, res) {
-  const out = await fetchSemesterResult(req, res);
+  const out = await fetchSemesterResult(req);
   const rows = out.rows || [];
   const headers = ["matric", "full_name", "total_units", "gpa"];
   res.setHeader("Content-Type", "text/csv");
@@ -646,20 +790,20 @@ export async function exportSemesterResultCsv(req, res) {
 }
 
 export async function exportSemesterResultExcel(req, res) {
-  const out = await fetchSemesterResult(req, res);
+  const out = await fetchSemesterResult(req);
   const rows = out.rows || [];
   const headers = ["matric", "full_name", "total_units", "gpa"];
   sendExcel(res, "SemesterResult", rows, headers, "semester_result.xlsx");
 }
 
 export async function printSemesterResult(req, res) {
-  const out = await fetchSemesterResult(req, res);
+  const out = await fetchSemesterResult(req);
   res.render("results/reports/print-semester-result", { layout: false, ...out });
 }
 
 /* ---------------- C) GRADUATING LIST ---------------- */
 
-async function fetchGraduatingList(req, res) {
+async function fetchGraduatingList(req) {
   const conn = await pool.getConnection();
   try {
     const role = getRole(req);
@@ -726,9 +870,27 @@ async function fetchGraduatingList(req, res) {
       };
     });
 
+    // meta header best-effort if consistent
+    const schoolSet = new Set(outRows.map((r) => r.school).filter(Boolean));
+    const deptSet = new Set(outRows.map((r) => r.department).filter(Boolean));
+    const progSet = new Set(outRows.map((r) => r.programme).filter(Boolean));
+
+    const schoolName = schoolSet.size === 1 ? [...schoolSet][0] : "";
+    const departmentName = deptSet.size === 1 ? [...deptSet][0] : "";
+    const programmeName = programmeText || (progSet.size === 1 ? [...progSet][0] : "");
+
     return {
       rows: outRows,
-      meta: { level, programme: programmeText, statusMode, printedAt: nowStamp() },
+      meta: {
+        institutionName: INSTITUTION_NAME,
+        level,
+        levelLabel: levelToL(level),
+        schoolName,
+        departmentName,
+        programmeName,
+        statusMode,
+        printedAt: nowStamp(),
+      },
     };
   } finally {
     conn.release();
@@ -745,7 +907,7 @@ export async function viewGraduatingList(req, res) {
 
 export async function apiGraduatingList(req, res) {
   try {
-    const out = await fetchGraduatingList(req, res);
+    const out = await fetchGraduatingList(req);
     res.json({ ok: true, ...out });
   } catch (e) {
     console.error("apiGraduatingList error:", e);
@@ -754,7 +916,7 @@ export async function apiGraduatingList(req, res) {
 }
 
 export async function exportGraduatingListCsv(req, res) {
-  const out = await fetchGraduatingList(req, res);
+  const out = await fetchGraduatingList(req);
   const rows = out.rows || [];
   const headers = ["matric", "full_name", "school", "department", "programme", "cgpa"];
   res.setHeader("Content-Type", "text/csv");
@@ -763,13 +925,13 @@ export async function exportGraduatingListCsv(req, res) {
 }
 
 export async function exportGraduatingListExcel(req, res) {
-  const out = await fetchGraduatingList(req, res);
+  const out = await fetchGraduatingList(req);
   const rows = out.rows || [];
   const headers = ["matric", "full_name", "school", "department", "programme", "cgpa"];
   sendExcel(res, "GraduatingList", rows, headers, "graduating_list.xlsx");
 }
 
 export async function printGraduatingList(req, res) {
-  const out = await fetchGraduatingList(req, res);
+  const out = await fetchGraduatingList(req);
   res.render("results/reports/print-graduating-list", { layout: false, ...out });
 }

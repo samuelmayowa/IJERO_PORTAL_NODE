@@ -2,114 +2,160 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Semester Result</title>
+  <title>Semester Result Sheet</title>
   <style>
     @page { size: A4 landscape; margin: 8mm; }
+
     * { box-sizing: border-box; }
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #111;
-      margin: 0;
+    body{
+      font-family: "Times New Roman", Times, serif;
+      color:#111;
+      margin:0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
       position: relative;
     }
 
-    /* watermark (similar idea to student slip) */
+    /* Watermark */
     body::before{
       content:"";
       position: fixed;
       inset: 0;
       background: url("/public/img/logo.png") no-repeat center center;
-      background-size: 55%;
-      opacity: 0.06;
+      background-size: 70%;
+      opacity: 0.07;
       pointer-events: none;
       z-index: 0;
     }
 
-    .page { position: relative; z-index: 1; }
+    .page{
+      position: relative;
+      z-index: 1;
+      page-break-after: always;
+      min-height: 190mm;
+      padding-bottom: 12mm; /* room for footer */
+    }
+    .page.last{ page-break-after: auto; }
 
-    .header {
-      display: grid;
-      grid-template-columns: 90px 1fr 220px;
-      gap: 10px;
-      align-items: center;
+    .header-top{
+      display:grid;
+      grid-template-columns: 110px 1fr 110px;
+      align-items:center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .logo img{
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      display:block;
+      margin: 0 auto;
+    }
+
+    .title{
+      text-align:center;
+      line-height: 1.2;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .title .line{ display:block; }
+    .title .small{ font-size: 12px; font-weight: 700; }
+    .title .tiny{ font-size: 12px; font-weight: 700; }
+
+    .top-rule{
+      border-top: 2px solid #111;
+      margin: 4px 0 6px;
+    }
+
+    .class-block{
+      width: 340px;
+      font-size: 12px;
       margin-bottom: 6px;
-      border-bottom: 2px solid #111;
-      padding-bottom: 6px;
     }
-    .logo img { width: 80px; height: 80px; object-fit: contain; }
-    .title { text-align: center; }
-    .title h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
-    .title h2 { margin: 2px 0 0; font-size: 14px; font-weight: 700; }
-    .title .sub { margin-top: 3px; font-size: 12px; }
-    .meta {
-      text-align: right;
-      font-size: 11px;
-      line-height: 1.3;
+    .class-block .cap{
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 2px;
     }
+    .class-block .row{ display:flex; justify-content: space-between; }
 
-    table.grid {
-      width: 100%;
+    table.grid{
+      width:100%;
       border-collapse: collapse;
       table-layout: fixed;
       font-size: 10px;
     }
-    table.grid th, table.grid td {
+    table.grid th, table.grid td{
       border: 1px solid #111;
-      padding: 3px 4px;
+      padding: 2px 3px;
       vertical-align: middle;
       word-wrap: break-word;
     }
-    thead th {
-      background: #f2f2f2;
+    table.grid thead th{
       font-weight: 700;
       text-transform: uppercase;
-      text-align: center;
+      text-align:center;
     }
-    .left { text-align: left; }
-    .center { text-align: center; }
-    .right { text-align: right; }
+    .left{ text-align:left; }
+    .center{ text-align:center; }
+    .small{ font-size: 9px; }
 
-    /* ensure header repeats on page breaks */
-    thead { display: table-header-group; }
-    tfoot { display: table-footer-group; }
-    tr { page-break-inside: avoid; }
+    .footer{
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 2mm;
+      display:flex;
+      justify-content: center;
+      gap: 90px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .footer .right{ margin-left:auto; }
 
-    .small { font-size: 9px; }
-
-    .footer-grid{
-      margin-top: 8px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    /* Bottom blocks (last page) */
+    .bottom-wrap{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: 420px 280px 360px;
       gap: 10px;
-      align-items: start;
+      align-items:start;
     }
-    .box{
-      border: 1px solid #111;
-      padding: 6px;
-      font-size: 10px;
-    }
-    .box h3{
-      margin: 0 0 6px;
-      font-size: 11px;
+    .box-title{
+      background:#000;
+      color:#fff;
+      font-weight: 700;
+      text-align:center;
+      padding: 3px 0;
+      font-size: 12px;
       text-transform: uppercase;
-      border-bottom: 1px solid #111;
-      padding-bottom: 4px;
     }
-    table.mini{
-      width: 100%;
+    table.box{
+      width:100%;
       border-collapse: collapse;
-      font-size: 10px;
+      table-layout: fixed;
+      font-size: 12px;
     }
-    table.mini th, table.mini td{
+    table.box th, table.box td{
       border: 1px solid #111;
-      padding: 3px 4px;
-      text-align: center;
+      padding: 2px 4px;
     }
-    .note{
-      font-size: 10px;
-      margin-top: 6px;
+    .sig-row{
+      margin-top: 26px;
+      display:flex;
+      justify-content: space-between;
+      gap: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .sig{
+      width: 22%;
+      text-align:center;
+    }
+    .sig .line{
+      border-top: 1px solid #111;
+      margin: 22px 0 6px;
     }
   </style>
 </head>
@@ -119,157 +165,248 @@
   const m = meta || {};
   const s = sheet || {};
   const courses = s.courses || [];
-  const detailRows = s.detailRows || [];
+  const rows = s.detailRows || [];
+  const summary = s.summary || { examined: 0, distinction: 0, upper: 0, lower: 0, pass: 0, fail: 0, total: 0 };
 
-  const fmt2 = (n) => Number(safeNum(n)).toFixed(2);
-  function safeNum(x){ const v = Number(x); return Number.isFinite(v) ? v : 0; }
+  // Manual pagination to match sample: reserve last page for bottom blocks
+  const FULL_PAGE_ROWS = 33;
+  const LAST_PAGE_ROWS = 10;
+
+  let pages = [];
+  if (rows.length <= LAST_PAGE_ROWS) {
+    pages = [rows];
+  } else {
+    const last = rows.slice(rows.length - LAST_PAGE_ROWS);
+    const rest = rows.slice(0, rows.length - LAST_PAGE_ROWS);
+    for (let i = 0; i < rest.length; i += FULL_PAGE_ROWS) {
+      pages.push(rest.slice(i, i + FULL_PAGE_ROWS));
+    }
+    pages.push(last);
+  }
+
+  const totalPages = pages.length;
+
+  const semTitle = (m.semesterLabel || m.semester || "").toUpperCase();
+  const sessionName = (m.sessionName || m.sessionId || "").toUpperCase();
+  const levelLabel = (m.levelLabel || m.level || "").toUpperCase();
+
+  const schoolName = (m.schoolName || "").toUpperCase();
+  const deptName = (m.departmentName || "").toUpperCase();
+  const progName = (m.programmeName || "").toUpperCase();
+
+  const carryToText = (arr) => (arr || []).map(x => `${x.code} ${x.units}`).join(" ");
+
+  const fmt2 = (n) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v.toFixed(2) : "0.00";
+  };
 %>
 
-<div class="page">
-  <div class="header">
-    <div class="logo">
-      <img src="/public/img/logo.png" alt="Logo"/>
-    </div>
+<% pages.forEach((pageRows, pi) => { 
+     const pageNo = pi + 1;
+     const isFirst = (pi === 0);
+     const isLast = (pi === pages.length - 1);
+%>
 
-    <div class="title">
-      <h1>IJERO COLLEGE</h1>
-      <h2><%= (m.semester || "") %> SEMESTER RESULT SHEET</h2>
-      <div class="sub">
-        Session: <strong><%= m.sessionName || m.sessionId || "" %></strong>
-        &nbsp; | &nbsp; Level: <strong><%= m.level || "" %></strong>
+  <div class="page <%= isLast ? 'last' : '' %>">
+
+    <% if (isFirst) { %>
+      <div class="header-top">
+        <div class="logo"><img src="/public/img/logo.png" alt="Logo"/></div>
+
+        <div class="title">
+          <span class="line"><%= (m.institutionName || "IJERO COLLEGE").toUpperCase() %></span>
+          <% if (schoolName) { %><span class="line small"><%= schoolName %></span><% } %>
+          <% if (deptName) { %><span class="line small"><%= ("DEPARTMENT OF " + deptName) %></span><% } %>
+          <% if (progName) { %><span class="line small"><%= progName %></span><% } %>
+          <span class="line tiny"><%= semTitle %> RESULT, <%= sessionName %> ACADEMIC SESSION</span>
+          <span class="line tiny"><%= levelLabel %></span>
+        </div>
+
+        <div class="logo"><img src="/public/img/logo.png" alt="Logo"/></div>
       </div>
-    </div>
 
-    <div class="meta">
-      <div><strong>Printed @</strong> <%= m.printedAt || "" %></div>
-      <div>Status Mode: <strong><%= (m.statusMode || "all").toUpperCase() %></strong></div>
-      <div class="small">Tip: disable browser headers/footers for best match to sample.</div>
-    </div>
-  </div>
+      <div class="top-rule"></div>
 
-  <table class="grid">
-    <thead>
-      <tr>
-        <th rowspan="2" style="width:34px">S/N</th>
-        <th rowspan="2" style="width:110px">Matric No</th>
-        <th rowspan="2" style="width:200px">Name</th>
+      <div class="class-block">
+        <div class="cap">CLASSIFICATION OF GRADE</div>
+        <div class="row"><span>3.50 - 4.00</span><span>Distinction</span></div>
+        <div class="row"><span>3.00 - 3.49</span><span>Upper Credit</span></div>
+        <div class="row"><span>2.50 - 2.99</span><span>Lower Credit</span></div>
+        <div class="row"><span>1.50 - 2.49</span><span>Pass</span></div>
+        <div class="row"><span>0.00 - 1.49</span><span>Fail</span></div>
+      </div>
+    <% } %>
 
-        <% courses.forEach(c => { %>
-          <th class="center"><%= c.code %></th>
-        <% }) %>
-
-        <th colspan="4">Current</th>
-        <th colspan="4">Previous</th>
-        <th colspan="4">Cumulative</th>
-        <th rowspan="2" style="width:210px">Outstanding (Carry Over)</th>
-        <th rowspan="2" style="width:90px">Pass/Repeat</th>
-      </tr>
-
-      <tr>
-        <% courses.forEach(c => { %>
-          <th class="center"><%= c.units %></th>
-        <% }) %>
-
-        <th style="width:55px">TCP</th>
-        <th style="width:55px">TLU</th>
-        <th style="width:60px">TUP</th>
-        <th style="width:55px">GPA</th>
-
-        <th style="width:55px">TCP</th>
-        <th style="width:55px">TLU</th>
-        <th style="width:60px">TUP</th>
-        <th style="width:55px">GPA</th>
-
-        <th style="width:55px">TCP</th>
-        <th style="width:55px">TLU</th>
-        <th style="width:60px">TUP</th>
-        <th style="width:55px">GPA</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      <% if (!detailRows.length) { %>
+    <table class="grid">
+      <thead>
         <tr>
-          <td class="center" colspan="<%= 3 + courses.length + 4 + 4 + 4 + 2 %>">
-            No data for selected filters.
-          </td>
+          <th rowspan="3" style="width:34px">S/N</th>
+          <th rowspan="3" style="width:120px">Matric No</th>
+          <th rowspan="3" style="width:220px">Name</th>
+
+          <th colspan="<%= courses.length %>">CURRENT SEMESTER/COURSE CODES/UNITS</th>
+
+          <th colspan="4">CURRENT</th>
+          <th colspan="4">PREVIOUS</th>
+          <th colspan="4">CUMMULATIVE</th>
+
+          <th rowspan="3" style="width:140px">CARRY OVER</th>
+          <th rowspan="3" style="width:90px">PASS/REPEAT</th>
+          <th rowspan="3" style="width:140px">OUTSTANDING</th>
         </tr>
-      <% } %>
 
-      <% detailRows.forEach(r => { %>
         <tr>
-          <td class="center"><%= r.sn %></td>
-          <td class="left"><%= r.matric %></td>
-          <td class="left"><%= r.full_name %></td>
-
-          <% (r.grades || []).forEach(g => { %>
-            <td class="center"><%= g || "" %></td>
+          <% courses.forEach(c => { %>
+            <th><%= c.code %></th>
           <% }) %>
 
-          <td class="center"><%= r.current.tcp %></td>
-          <td class="center"><%= r.current.tlu %></td>
-          <td class="center"><%= r.current.tup %></td>
-          <td class="center"><%= fmt2(r.current.gpa) %></td>
+          <th rowspan="2" style="width:42px">TCP</th>
+          <th rowspan="2" style="width:42px">TLU</th>
+          <th rowspan="2" style="width:55px">TUP</th>
+          <th rowspan="2" style="width:45px">GPA</th>
 
-          <td class="center"><%= r.previous.tcp %></td>
-          <td class="center"><%= r.previous.tlu %></td>
-          <td class="center"><%= r.previous.tup %></td>
-          <td class="center"><%= fmt2(r.previous.gpa) %></td>
+          <th rowspan="2" style="width:42px">TCP</th>
+          <th rowspan="2" style="width:42px">TLU</th>
+          <th rowspan="2" style="width:55px">TUP</th>
+          <th rowspan="2" style="width:45px">GPA</th>
 
-          <td class="center"><%= r.cumulative.tcp %></td>
-          <td class="center"><%= r.cumulative.tlu %></td>
-          <td class="center"><%= r.cumulative.tup %></td>
-          <td class="center"><%= fmt2(r.cumulative.gpa) %></td>
+          <th rowspan="2" style="width:42px">TCP</th>
+          <th rowspan="2" style="width:42px">TLU</th>
+          <th rowspan="2" style="width:55px">TUP</th>
+          <th rowspan="2" style="width:45px">GPA</th>
+        </tr>
 
-          <td class="left small">
-            <% if ((r.outstanding || []).length) { %>
-              <% r.outstanding.forEach((o, i) => { %>
-                <%= o.code %>(<%= o.units %>)<%= (i < r.outstanding.length - 1) ? ", " : "" %>
+        <tr>
+          <% courses.forEach(c => { %>
+            <th><%= c.units %></th>
+          <% }) %>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% pageRows.forEach(r => { %>
+          <tr>
+            <td class="center"><%= r.sn %></td>
+            <td class="left"><%= r.matric %></td>
+            <td class="left"><%= r.full_name %></td>
+
+            <% (r.grades || []).forEach(g => { %>
+              <td class="center"><%= g || "" %></td>
+            <% }) %>
+
+            <td class="center"><%= r.current.tcp %></td>
+            <td class="center"><%= r.current.tlu %></td>
+            <td class="center"><%= r.current.tup %></td>
+            <td class="center"><%= fmt2(r.current.gpa) %></td>
+
+            <td class="center"><%= r.previous.tcp %></td>
+            <td class="center"><%= r.previous.tlu %></td>
+            <td class="center"><%= r.previous.tup %></td>
+            <td class="center"><%= fmt2(r.previous.gpa) %></td>
+
+            <td class="center"><%= r.cumulative.tcp %></td>
+            <td class="center"><%= r.cumulative.tlu %></td>
+            <td class="center"><%= r.cumulative.tup %></td>
+            <td class="center"><%= fmt2(r.cumulative.gpa) %></td>
+
+            <td class="left small"><%= carryToText(r.carryOver) %></td>
+            <td class="center"><strong><%= r.passRepeat %></strong></td>
+            <td class="left small"><%= carryToText(r.outstanding) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <% if (isLast) { %>
+      <div class="bottom-wrap">
+
+        <div>
+          <div class="box-title">COURSE TITTLE &nbsp;&nbsp;&nbsp;&nbsp; CODES &nbsp;&nbsp;&nbsp;&nbsp; UNITS</div>
+          <table class="box">
+            <thead>
+              <tr>
+                <th style="width:40px">S/N</th>
+                <th>COURSE TITTLE</th>
+                <th style="width:90px">CODES</th>
+                <th style="width:60px">UNITS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% courses.forEach((c, i) => { %>
+                <tr>
+                  <td class="center"><%= i + 1 %></td>
+                  <td class="left"><%= (c.title || "").toUpperCase() %></td>
+                  <td class="center"><%= c.code %></td>
+                  <td class="center"><%= c.units %></td>
+                </tr>
               <% }) %>
-            <% } %>
-          </td>
-          <td class="center"><strong><%= r.passRepeat %></strong></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+              <tr>
+                <td class="center" colspan="3"><strong>TOTAL UNITS</strong></td>
+                <td class="center"><strong><%= (s.totalUnits || 0) %></strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-  <div class="footer-grid">
-    <div class="box">
-      <h3>Grade Interpretation</h3>
-      <table class="mini">
-        <thead>
-          <tr><th>Grade</th><th>Point</th></tr>
-        </thead>
-        <tbody>
-          <% (s.gradeScale || []).forEach(g => { %>
-            <tr>
-              <td><%= g.grade %></td>
-              <td><%= g.points %></td>
-            </tr>
-          <% }) %>
-          <% if (!(s.gradeScale || []).length) { %>
-            <tr><td colspan="2">No grade scale found for this selection.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-      <div class="note">
-        CURRENT totals are computed using results inside the selected semester only. PREVIOUS follows your rule:
-        FIRST semester = cumulative of prior sessions; SECOND semester = FIRST semester totals (same session+level).
+        <div>
+          <div class="box-title">SUMMARY OF RESULTS</div>
+          <table class="box">
+            <tbody>
+              <tr><td>No. OF EXAMINED</td><td class="center"><%= summary.examined %></td></tr>
+              <tr><td>No. DISTINCTION</td><td class="center"><%= summary.distinction %></td></tr>
+              <tr><td>No. UPPER CREDIT</td><td class="center"><%= summary.upper %></td></tr>
+              <tr><td>No. OF LOWER CREDIT</td><td class="center"><%= summary.lower %></td></tr>
+              <tr><td>No. OF PASSES</td><td class="center"><%= summary.pass %></td></tr>
+              <tr><td>No. OF FAIL</td><td class="center"><%= summary.fail %></td></tr>
+              <tr><td><strong>TOTAL</strong></td><td class="center"><strong><%= summary.total %></strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <div class="box-title">GRADE INTERPRETATION</div>
+          <table class="box">
+            <tbody>
+              <tr><td class="center">70 - 100</td><td class="center">A</td><td class="center">4</td></tr>
+              <tr><td class="center">65 - 69</td><td class="center">B</td><td class="center">3.5</td></tr>
+              <tr><td class="center">60 - 64</td><td class="center">C</td><td class="center">3</td></tr>
+              <tr><td class="center">55 - 59</td><td class="center">D</td><td class="center">2.5</td></tr>
+              <tr><td class="center">50 - 54</td><td class="center">E</td><td class="center">2</td></tr>
+              <tr><td class="center">0 - 49</td><td class="center">F</td><td class="center">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+
       </div>
+
+      <div class="sig-row">
+        <div class="sig">
+          <div class="line"></div>
+          MRS. A.M. OLUSUYI<br/>H.O.D
+        </div>
+        <div class="sig">
+          <div class="line"></div>
+          DR.(MRS) M.E. OGUNRINDE<br/>DEAN
+        </div>
+        <div class="sig">
+          <div class="line"></div>
+          MRS. C.A. OGUNSAKIN<br/>REGISTRAR
+        </div>
+        <div class="sig">
+          <div class="line"></div>
+          DR(MRS) C.O. ADEBAYO<br/>PROVOST
+        </div>
+      </div>
+    <% } %>
+
+    <div class="footer">
+      <div>Page- <%= pageNo %>/<%= totalPages %></div>
+      <div>Printed @ <%= (m.printedAt || "") %></div>
     </div>
 
-    <div class="box">
-      <h3>Legend</h3>
-      <div class="small">
-        <strong>TLU</strong> = Total Load Units attempted<br/>
-        <strong>TUP</strong> = Total Unit Points = Σ(units × grade_point)<br/>
-        <strong>GPA</strong> = TUP / TLU<br/>
-        <strong>TCP</strong> = Total Credit Units Passed (points &gt; 0)
-      </div>
-    </div>
   </div>
+<% }) %>
 
-</div>
 </body>
 </html>
