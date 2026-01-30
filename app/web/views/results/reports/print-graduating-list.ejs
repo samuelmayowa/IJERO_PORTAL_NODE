@@ -1,41 +1,130 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>Graduating List</title>
   <style>
-    body{ font-family: Arial, sans-serif; font-size: 12px; }
-    h2{ margin: 0 0 8px; }
-    table{ width:100%; border-collapse: collapse; }
-    th,td{ border:1px solid #333; padding:6px; }
-    th{ background:#f3f3f3; }
+    @page { size: A4 landscape; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body{
+      font-family: Arial, Helvetica, sans-serif;
+      color:#111;
+      margin:0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      position: relative;
+    }
+
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      background: url("/public/img/logo.png") no-repeat center center;
+      background-size: 55%;
+      opacity: 0.06;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page{ position: relative; z-index: 1; }
+
+    .header{
+      display:grid;
+      grid-template-columns: 90px 1fr 240px;
+      gap:10px;
+      align-items:center;
+      border-bottom:2px solid #111;
+      padding: 6px 0;
+      margin-bottom: 6px;
+    }
+    .logo img{ width:80px; height:80px; object-fit:contain; }
+    .title{ text-align:center; }
+    .title h1{ margin:0; font-size:18px; letter-spacing:0.5px; }
+    .title h2{ margin:2px 0 0; font-size:14px; font-weight:700; }
+    .title .sub{ margin-top:3px; font-size:12px; }
+    .meta{
+      text-align:right;
+      font-size:11px;
+      line-height:1.3;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      font-size:10px;
+    }
+    th, td{
+      border:1px solid #111;
+      padding:3px 4px;
+      vertical-align:middle;
+      word-wrap:break-word;
+    }
+    thead th{
+      background:#f2f2f2;
+      text-transform:uppercase;
+      text-align:center;
+    }
+    .left{ text-align:left; }
+    .center{ text-align:center; }
+    thead{ display: table-header-group; }
+    tr{ page-break-inside: avoid; }
   </style>
 </head>
 <body>
-  <h2>Graduating List</h2>
-  <p>Rows: <b><%= (rows||[]).length %></b></p>
+<% const m = meta || {}; const rowsSafe = rows || []; %>
+
+<div class="page">
+  <div class="header">
+    <div class="logo"><img src="/public/img/logo.png" alt="Logo"/></div>
+
+    <div class="title">
+      <h1>IJERO COLLEGE</h1>
+      <h2>GRADUATING LIST</h2>
+      <div class="sub">
+        Level: <strong><%= m.level || "" %></strong>
+        <% if (m.programme) { %>
+          &nbsp; | &nbsp; Programme: <strong><%= m.programme %></strong>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div><strong>Printed @</strong> <%= m.printedAt || "" %></div>
+      <div>Status Mode: <strong><%= (m.statusMode || "all").toUpperCase() %></strong></div>
+    </div>
+  </div>
 
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Matric</th><th>Full Name</th><th>School</th><th>Department</th><th>Programme</th><th>CGPA</th>
+        <th style="width:40px">#</th>
+        <th style="width:130px">Matric</th>
+        <th style="width:240px">Full Name</th>
+        <th>School</th>
+        <th>Department</th>
+        <th>Programme</th>
+        <th style="width:70px">CGPA</th>
       </tr>
     </thead>
     <tbody>
-      <% (rows||[]).forEach((r,i)=>{ %>
+      <% if (!rowsSafe.length) { %>
+        <tr><td class="center" colspan="7">No data for selected filters.</td></tr>
+      <% } %>
+
+      <% rowsSafe.forEach((r, i) => { %>
         <tr>
-          <td><%= i+1 %></td>
-          <td><%= r.matric %></td>
-          <td><%= r.full_name %></td>
-          <td><%= r.school %></td>
-          <td><%= r.department %></td>
-          <td><%= r.programme %></td>
-          <td><b><%= r.cgpa %></b></td>
+          <td class="center"><%= i + 1 %></td>
+          <td class="left"><%= r.matric %></td>
+          <td class="left"><%= r.full_name %></td>
+          <td class="left"><%= r.school %></td>
+          <td class="left"><%= r.department %></td>
+          <td class="left"><%= r.programme %></td>
+          <td class="center"><%= r.cgpa %></td>
         </tr>
       <% }) %>
     </tbody>
   </table>
+</div>
 
-  <script>window.print();</script>
 </body>
 </html>
