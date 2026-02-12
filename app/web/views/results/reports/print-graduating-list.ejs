@@ -1,325 +1,181 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Graduating List</title>
-  <style>
-    @page { size: A4 landscape; margin: 8mm; }
-    * { box-sizing: border-box; }
-    body{
-      font-family: "Times New Roman", Times, serif;
-      color:#111;
-      margin:0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-      position: relative;
-    }
-    body::before{
-      content:"";
-      position: fixed;
-      inset: 0;
-      background: url("/public/img/logo.png") no-repeat center center;
-      background-size: 70%;
-      opacity: 0.07;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .page{
-      position: relative;
-      z-index: 1;
-      page-break-after: always;
-      min-height: 190mm;
-      padding-bottom: 12mm;
-    }
-    .page.last{ page-break-after: auto; }
 
-    .header-top{
-      display:grid;
-      grid-template-columns: 110px 1fr 110px;
-      align-items:center;
-      gap: 8px;
-      margin-bottom: 4px;
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+    .wrap { padding: 10px 12px; }
+
+    .header {
+      display: grid;
+      grid-template-columns: 70px 1fr 220px;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 2px solid #111;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
     }
-    .logo img{
-      width: 90px;
-      height: 90px;
+    .logo {
+      width: 70px; height: 70px;
       object-fit: contain;
-      display:block;
-      margin: 0 auto;
     }
-    .title{
-      text-align:center;
-      line-height: 1.2;
-      font-weight: 700;
+    .titleBlock h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .titleBlock .inst {
       font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin: 0 0 2px 0;
+    }
+    .titleBlock .sub {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
       text-transform: uppercase;
     }
-    .title .line{ display:block; }
-    .title .small{ font-size: 12px; font-weight: 700; }
-    .top-rule{ border-top: 2px solid #111; margin: 4px 0 6px; }
 
-    .class-block{
-      width: 340px;
-      font-size: 12px;
-      margin-bottom: 6px;
+    .metaBox {
+      font-size: 11px;
+      line-height: 1.35;
+      border: 1px solid #333;
+      padding: 8px 10px;
+      border-radius: 6px;
     }
-    .class-block .cap{ font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-    .class-block .row{ display:flex; justify-content: space-between; }
+    .metaRow { display: flex; justify-content: space-between; gap: 10px; }
+    .metaRow b { font-weight: 700; }
 
-    table.grid{
-      width:100%;
+    .notice {
+      border: 1px dashed #b00;
+      color: #b00;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin: 10px 0 14px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 12px;
+      font-size: 11px;
     }
-    table.grid th, table.grid td{
+    thead { display: table-header-group; }
+    th, td {
       border: 1px solid #111;
-      padding: 2px 3px;
+      padding: 5px 6px;
       vertical-align: middle;
       word-wrap: break-word;
     }
-    table.grid thead th{
-      font-weight: 700;
+    th {
+      background: #f0f0f0;
       text-transform: uppercase;
-      text-align:center;
+      font-size: 10px;
+      letter-spacing: 0.2px;
     }
-    .left{ text-align:left; }
-    .center{ text-align:center; }
+    td.num { text-align: right; }
+    td.center { text-align: center; }
+    tr { page-break-inside: avoid; }
 
-    .footer{
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 2mm;
-      display:flex;
-      justify-content: center;
-      gap: 90px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .bottom-wrap{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 360px 360px 360px;
-      gap: 10px;
-      align-items:start;
-    }
-    .box-title{
-      background:#000;
-      color:#fff;
-      font-weight: 700;
-      text-align:center;
-      padding: 3px 0;
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-    table.box{
-      width:100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 12px;
-    }
-    table.box th, table.box td{
-      border: 1px solid #111;
-      padding: 2px 4px;
-    }
-
-    .sig-row{
-      margin-top: 26px;
-      display:flex;
-      justify-content: space-between;
-      gap: 20px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .sig{
-      width: 22%;
-      text-align:center;
-    }
-    .sig .line{
-      border-top: 1px solid #111;
-      margin: 22px 0 6px;
-    }
+    .small { font-size: 10px; color: #333; }
   </style>
 </head>
+
 <body>
 <%
   const m = meta || {};
-  const rows = rows || [];
+  const dataRows = Array.isArray(rows) ? rows : [];
+  const msg = (m && m.message) ? String(m.message) : "";
 
-  // paginate to keep bottom blocks/signatures on last page
-  const FULL_PAGE_ROWS = 45;
-  const LAST_PAGE_ROWS = 20;
+  const safe = (v, fallback = "") => (v === 0 ? "0" : (v ?? fallback));
+  const upper = (v) => String(v || "").toUpperCase();
 
-  let pages = [];
-  if (rows.length <= LAST_PAGE_ROWS) pages = [rows];
-  else {
-    const last = rows.slice(rows.length - LAST_PAGE_ROWS);
-    const rest = rows.slice(0, rows.length - LAST_PAGE_ROWS);
-    for (let i = 0; i < rest.length; i += FULL_PAGE_ROWS) pages.push(rest.slice(i, i + FULL_PAGE_ROWS));
-    pages.push(last);
-  }
-  const totalPages = pages.length;
-
-  const classifyCgpa = (cgpa) => {
-    const g = Number(cgpa);
-    if (!Number.isFinite(g)) return "FAIL";
-    if (g >= 3.5) return "DISTINCTION";
-    if (g >= 3.0) return "UPPER";
-    if (g >= 2.5) return "LOWER";
-    if (g >= 1.5) return "PASS";
-    return "FAIL";
-  };
-
-  const summary = {
-    examined: rows.length,
-    distinction: 0,
-    upper: 0,
-    lower: 0,
-    pass: 0,
-    fail: 0,
-    total: rows.length
-  };
-  rows.forEach(r => {
-    const cat = classifyCgpa(r.cgpa);
-    if (cat === "DISTINCTION") summary.distinction++;
-    else if (cat === "UPPER") summary.upper++;
-    else if (cat === "LOWER") summary.lower++;
-    else if (cat === "PASS") summary.pass++;
-    else summary.fail++;
-  });
-
-  const schoolName = String(m.schoolName || "").toUpperCase();
-  const deptName = String(m.departmentName || "").toUpperCase();
-  const progName = String(m.programmeName || "").toUpperCase();
+  const level = upper(m.levelLabel || m.level || "");
+  const schoolName = String(m.schoolName || "");
+  const departmentName = String(m.departmentName || "");
+  const programmeName = String(m.programmeName || "");
+  const printedAt = String(m.printedAt || "");
 %>
 
-<% pages.forEach((pageRows, pi) => {
-     const pageNo = pi + 1;
-     const isFirst = (pi === 0);
-     const isLast = (pi === pages.length - 1);
-%>
-
-<div class="page <%= isLast ? 'last' : '' %>">
-
-  <% if (isFirst) { %>
-    <div class="header-top">
-      <div class="logo"><img src="/public/img/logo.png" alt="Logo"/></div>
-
-      <div class="title">
-        <span class="line"><%= (m.institutionName || "IJERO COLLEGE").toUpperCase() %></span>
-        <% if (schoolName) { %><span class="line small"><%= schoolName %></span><% } %>
-        <% if (deptName) { %><span class="line small"><%= ("DEPARTMENT OF " + deptName) %></span><% } %>
-        <% if (progName) { %><span class="line small"><%= progName %></span><% } %>
-        <span class="line">GRADUATING LIST</span>
-        <span class="line small">LEVEL: <%= String(m.levelLabel || m.level || "").toUpperCase() %></span>
-      </div>
-
-      <div class="logo"><img src="/public/img/logo.png" alt="Logo"/></div>
+<div class="wrap">
+  <div class="header">
+    <img class="logo" src="/public/img/logo.png" alt="Logo"/>
+    <div class="titleBlock">
+      <p class="inst"><%= upper(m.institutionName || "INSTITUTION") %></p>
+      <h1>Graduating List</h1>
+      <p class="sub"><%= level ? ("Level: " + level) : "" %></p>
     </div>
 
-    <div class="top-rule"></div>
-
-    <div class="class-block">
-      <div class="cap">CLASSIFICATION OF GRADE</div>
-      <div class="row"><span>3.50 - 4.00</span><span>Distinction</span></div>
-      <div class="row"><span>3.00 - 3.49</span><span>Upper Credit</span></div>
-      <div class="row"><span>2.50 - 2.99</span><span>Lower Credit</span></div>
-      <div class="row"><span>1.50 - 2.49</span><span>Pass</span></div>
-      <div class="row"><span>0.00 - 1.49</span><span>Fail</span></div>
+    <div class="metaBox">
+      <div class="metaRow"><span><b>Level:</b></span><span><%= level %></span></div>
+      <div class="metaRow"><span><b>Status:</b></span><span><%= upper(m.statusMode || "") %></span></div>
+      <div class="metaRow"><span><b>Printed:</b></span><span><%= printedAt %></span></div>
     </div>
-  <% } %>
-
-  <table class="grid">
-    <thead>
-      <tr>
-        <th style="width:45px">S/N</th>
-        <th style="width:140px">Matric</th>
-        <th style="width:280px">Full Name</th>
-        <th>School</th>
-        <th>Department</th>
-        <th>Programme</th>
-        <th style="width:80px">CGPA</th>
-        <th style="width:120px">Class</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (!pageRows.length) { %>
-        <tr><td class="center" colspan="8">No data for selected filters.</td></tr>
-      <% } %>
-
-      <% pageRows.forEach((r, i) => { %>
-        <tr>
-          <td class="center"><%= (pi === 0 ? i + 1 : (pi * 1000) + i + 1) %></td>
-          <td class="left"><%= r.matric %></td>
-          <td class="left"><%= r.full_name %></td>
-          <td class="left"><%= r.school %></td>
-          <td class="left"><%= r.department %></td>
-          <td class="left"><%= r.programme %></td>
-          <td class="center"><%= r.cgpa %></td>
-          <td class="center"><%= classifyCgpa(r.cgpa) %></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-
-  <% if (isLast) { %>
-    <div class="bottom-wrap">
-      <div>
-        <div class="box-title">SUMMARY</div>
-        <table class="box">
-          <tbody>
-            <tr><td>No. OF EXAMINED</td><td class="center"><%= summary.examined %></td></tr>
-            <tr><td>No. DISTINCTION</td><td class="center"><%= summary.distinction %></td></tr>
-            <tr><td>No. UPPER CREDIT</td><td class="center"><%= summary.upper %></td></tr>
-            <tr><td>No. OF LOWER CREDIT</td><td class="center"><%= summary.lower %></td></tr>
-            <tr><td>No. OF PASSES</td><td class="center"><%= summary.pass %></td></tr>
-            <tr><td>No. OF FAIL</td><td class="center"><%= summary.fail %></td></tr>
-            <tr><td><strong>TOTAL</strong></td><td class="center"><strong><%= summary.total %></strong></td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div>
-        <div class="box-title">GRADE INTERPRETATION</div>
-        <table class="box">
-          <tbody>
-            <tr><td class="center">70 - 100</td><td class="center">A</td><td class="center">4</td></tr>
-            <tr><td class="center">65 - 69</td><td class="center">B</td><td class="center">3.5</td></tr>
-            <tr><td class="center">60 - 64</td><td class="center">C</td><td class="center">3</td></tr>
-            <tr><td class="center">55 - 59</td><td class="center">D</td><td class="center">2.5</td></tr>
-            <tr><td class="center">50 - 54</td><td class="center">E</td><td class="center">2</td></tr>
-            <tr><td class="center">0 - 49</td><td class="center">F</td><td class="center">0</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div>
-        <div class="box-title">NOTE</div>
-        <table class="box">
-          <tbody>
-            <tr><td>This list is styled to match the Master Mark Sheet format and includes classification by CGPA.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="sig-row">
-      <div class="sig"><div class="line"></div>MRS. A.M. OLUSUYI<br/>H.O.D</div>
-      <div class="sig"><div class="line"></div>DR.(MRS) M.E. OGUNRINDE<br/>DEAN</div>
-      <div class="sig"><div class="line"></div>MRS. C.A. OGUNSAKIN<br/>REGISTRAR</div>
-      <div class="sig"><div class="line"></div>DR(MRS) C.O. ADEBAYO<br/>PROVOST</div>
-    </div>
-  <% } %>
-
-  <div class="footer">
-    <div>Page- <%= pageNo %>/<%= totalPages %></div>
-    <div>Printed @ <%= (m.printedAt || "") %></div>
   </div>
 
-</div>
-<% }) %>
+  <% if (schoolName || departmentName || programmeName) { %>
+    <div class="small" style="margin: 0 0 8px 0;">
+      <% if (schoolName) { %><b>School:</b> <%= schoolName %> &nbsp;&nbsp; | &nbsp;&nbsp;<% } %>
+      <% if (departmentName) { %><b>Department:</b> <%= departmentName %> &nbsp;&nbsp; | &nbsp;&nbsp;<% } %>
+      <% if (programmeName) { %><b>Programme:</b> <%= programmeName %><% } %>
+    </div>
+  <% } %>
 
+  <% if (msg) { %>
+    <div class="notice"><%= msg %></div>
+  <% } %>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40px;">S/N</th>
+        <th style="width: 115px;">Matric No</th>
+        <th>Full Name</th>
+        <th style="width: 120px;">School</th>
+        <th style="width: 130px;">Department</th>
+        <th style="width: 140px;">Programme</th>
+        <th style="width: 60px;">CGPA</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <% if (!dataRows.length) { %>
+        <tr>
+          <td colspan="7" class="center" style="padding: 14px; font-weight: 700;">
+            No records to display.
+          </td>
+        </tr>
+      <% } else { %>
+        <% dataRows.forEach((r, idx) => { %>
+          <tr>
+            <td class="center"><%= idx + 1 %></td>
+            <td><%= safe(r.matric) %></td>
+            <td><%= safe(r.full_name) %></td>
+            <td><%= safe(r.school) %></td>
+            <td><%= safe(r.department) %></td>
+            <td><%= safe(r.programme) %></td>
+            <td class="num"><%= safe(r.cgpa, "") %></td>
+          </tr>
+        <% }) %>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  window.addEventListener('load', () => {
+    try { window.print(); } catch (e) {}
+  });
+</script>
 </body>
 </html>
