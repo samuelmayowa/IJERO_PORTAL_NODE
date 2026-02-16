@@ -1,8 +1,17 @@
+<%
+// app/web/views/results/approve-results.ejs
+// This template assumes your main layout already includes Bootstrap (or similar) + sidebar.
+// Keep content-only (no <html> wrapper) to avoid breaking express-ejs-layouts.
+const title = pageTitle || "Approve Result";
+const roleLabel = role || "HOD";
+const csrf = (typeof csrfToken !== "undefined" && csrfToken) ? csrfToken : (locals && locals.csrfToken ? locals.csrfToken : "");
+%>
+
 <div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
-      <h1 class="h3 mb-0">Approve Result</h1>
-      <div class="text-muted" style="font-size: 13px;">Review uploaded batches and approve/reject based on your role.</div>
+      <h2 class="mb-0"><%= title %></h2>
+      <small class="text-muted">Review uploaded batches and approve/reject based on your role.</small>
     </div>
   </div>
 
@@ -10,120 +19,88 @@
     <div class="card-body">
       <div class="row g-3">
         <div class="col-md-3">
-          <label class="form-label fw-bold">Session</label>
-          <select id="sessionId" class="form-control">
+          <label class="form-label">Session</label>
+          <select id="sessionId" class="form-select">
             <option value="ALL">All</option>
             <% (sessions || []).forEach(s => { %>
-              <option value="<%= s.id %>" <%= s.is_current ? 'selected' : '' %>><%= s.name %><%= s.is_current ? ' (Current)' : '' %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="col-md-2">
-          <label class="form-label fw-bold">Semester</label>
-          <select id="semester" class="form-control">
-            <% (semesters || []).forEach(x => { %>
-              <option value="<%= x.value %>" <%= x.value === 'ALL' ? '' : '' %>><%= x.label %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="col-md-2">
-          <label class="form-label fw-bold">Level</label>
-          <select id="level" class="form-control">
-            <% (levels || []).forEach(x => { %>
-              <option value="<%= x.value %>"><%= x.label %></option>
+              <option value="<%= s.id %>">
+                <%= s.name %><%= s.isCurrent ? " (Current)" : "" %>
+              </option>
             <% }) %>
           </select>
         </div>
 
         <div class="col-md-3">
-          <label class="form-label fw-bold">Course (optional)</label>
-          <select id="courseId" class="form-control">
+          <label class="form-label">Semester</label>
+          <select id="semester" class="form-select">
             <option value="ALL">All</option>
+            <option value="FIRST">First</option>
+            <option value="SECOND">Second</option>
           </select>
-          <div class="text-muted" style="font-size:12px;">Dropdown shows courses in your scope.</div>
         </div>
 
         <div class="col-md-2">
-          <label class="form-label fw-bold">Apply</label>
-          <button id="btnApply" class="btn btn-primary w-100">Apply</button>
+          <label class="form-label">Level</label>
+          <select id="level" class="form-select">
+            <option value="ALL">All</option>
+            <option value="ND1">ND1</option>
+            <option value="ND2">ND2</option>
+            <option value="HND1">HND1</option>
+            <option value="HND2">HND2</option>
+            <option value="100L">100L</option>
+            <option value="200L">200L</option>
+            <option value="300L">300L</option>
+            <option value="400L">400L</option>
+          </select>
         </div>
 
-        <div class="col-md-8 mt-2">
-          <label class="form-label fw-bold">Status (optional override)</label>
+        <div class="col-md-4">
+          <label class="form-label">Course (optional)</label>
+          <select id="courseId" class="form-select">
+            <option value="ALL">All</option>
+          </select>
+          <small class="text-muted">Dropdown shows courses currently awaiting your approval.</small>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Status (optional override)</label>
           <input id="statusOverride" class="form-control" placeholder="Leave blank for your stage statuses" />
-          <div class="text-muted" style="font-size:12px;">
+          <small class="text-muted">
             Example: UPLOADED, HOD_APPROVED, DEAN_APPROVED, BUSINESS_APPROVED, FINAL
-          </div>
+          </small>
+        </div>
+
+        <div class="col-12 d-flex justify-content-end">
+          <button id="btnApply" class="btn btn-primary">Apply</button>
         </div>
       </div>
     </div>
   </div>
 
   <div class="alert alert-info">
-    <b>Your role:</b> Approve → moves to your next stage, Reject → moves to your reject stage.
-    <span class="ms-2">(Use <b>View</b> before approving.)</span>
+    Your role: <b><%= roleLabel %></b> — Approve → next stage, Reject → reject stage.
   </div>
 
-  <!-- PENDING -->
-  <div class="card mb-4">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <div class="fw-bold">Pending / In-review Uploads</div>
-      <div class="text-muted" style="font-size: 12px;">These are awaiting your action.</div>
-    </div>
-    <div class="card-body p-0">
+  <div class="card">
+    <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-striped mb-0">
+        <table class="table table-bordered table-striped align-middle mb-0">
           <thead>
             <tr>
-              <th style="width:50px;">#</th>
+              <th style="width:60px">#</th>
               <th>Course</th>
-              <th>Session</th>
-              <th>Semester</th>
-              <th>Level</th>
-              <th>Batch</th>
-              <th>Rows</th>
-              <th>Status</th>
-              <th>Uploaded At</th>
-              <th style="width:220px;">Action</th>
+              <th style="width:90px">Session</th>
+              <th style="width:100px">Semester</th>
+              <th style="width:90px">Level</th>
+              <th style="width:90px">Batch</th>
+              <th style="width:80px">Rows</th>
+              <th style="width:120px">Status</th>
+              <th style="width:170px">Uploaded At</th>
+              <th style="width:220px">Action</th>
             </tr>
           </thead>
-          <tbody id="pendingBody">
-            <tr><td colspan="10" class="text-center p-4 text-muted">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- RECENTLY APPROVED -->
-  <div class="card mb-5">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <div class="fw-bold">Recently Approved Results</div>
-      <div class="text-muted" style="font-size: 12px;">Latest approved items (based on your role scope).</div>
-    </div>
-
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-bordered mb-0">
-          <thead>
-            <tr>
-              <th style="width:50px;">#</th>
-              <th>Course</th>
-              <th>Session</th>
-              <th>Semester</th>
-              <th>Level</th>
-              <th>Batch</th>
-              <th>Rows</th>
-              <th>Status</th>
-              <th>Uploaded At</th>
-              <th>Approved Date</th>
-              <th style="width:110px;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="recentBody">
-            <tr><td colspan="11" class="text-center p-4 text-muted">Loading…</td></tr>
+          <tbody id="tbody">
+            <tr><td colspan="10" class="text-center text-muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -132,203 +109,143 @@
 </div>
 
 <script>
-  const elSession = document.getElementById("sessionId");
-  const elSemester = document.getElementById("semester");
-  const elLevel = document.getElementById("level");
-  const elCourse = document.getElementById("courseId");
-  const elStatusOverride = document.getElementById("statusOverride");
+  const csrfToken = <%- JSON.stringify(csrf || "") %>;
 
-  const pendingBody = document.getElementById("pendingBody");
-  const recentBody = document.getElementById("recentBody");
+  const $ = (id) => document.getElementById(id);
 
-  function qs(params) {
-    const usp = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
-      if (v === undefined || v === null) return;
-      usp.set(k, v);
-    });
-    return usp.toString();
+  function q() {
+    return {
+      sessionId: $("sessionId").value,
+      semester: $("semester").value,
+      level: $("level").value,
+      courseId: $("courseId").value,
+      statusOverride: $("statusOverride").value.trim()
+    };
   }
 
-  function filters() {
-    const sessionId = elSession.value || "ALL";
-    const semester = (elSemester.value || "ALL").toUpperCase();
-    const level = elLevel.value || "ALL";
-    const courseId = elCourse.value || "ALL";
-    return { sessionId, semester, level, courseId };
+  async function fetchJSON(url, opts) {
+    const res = await fetch(url, opts);
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      // Usually indicates CSRF block/redirect – show the first part of response for debugging
+      const txt = await res.text();
+      throw new Error(`Expected JSON but got: ${res.status}. ${txt.slice(0, 120)}`);
+    }
+    return res.json();
+  }
+
+  function buildQS(obj) {
+    const p = new URLSearchParams();
+    Object.keys(obj).forEach(k => {
+      if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") p.set(k, obj[k]);
+    });
+    return p.toString();
+  }
+
+  async function loadCourses() {
+    const { sessionId, semester, level } = q();
+    const url = `/staff/results/approve/api/courses?` + buildQS({ sessionId, semester, level });
+    const rows = await fetchJSON(url);
+    const sel = $("courseId");
+    const current = sel.value || "ALL";
+    sel.innerHTML = `<option value="ALL">All</option>` + rows.map(r =>
+      `<option value="${r.id}">${r.code} — ${r.title}</option>`
+    ).join("");
+    // try to keep selection
+    sel.value = [...sel.options].some(o => o.value === current) ? current : "ALL";
   }
 
   function fmtDate(v) {
     if (!v) return "";
-    try {
-      const d = new Date(v);
-      if (Number.isNaN(d.getTime())) return String(v);
-      return d.toLocaleString();
-    } catch {
-      return String(v);
-    }
+    try { return new Date(v).toLocaleString(); } catch { return String(v); }
   }
 
-  async function loadCourses() {
-    const f = filters();
-    const url = `/staff/results/approve/api/courses?` + qs({
-      sessionId: f.sessionId,
-      semester: f.semester,
-      level: f.level
-    });
+  async function loadBatches() {
+    const { sessionId, semester, level, courseId } = q();
+    const url = `/staff/results/approve/api/list?` + buildQS({ sessionId, semester, level, courseId });
+    const rows = await fetchJSON(url);
 
-    const res = await fetch(url);
-    const data = await res.json().catch(() => []);
-    const prev = elCourse.value || "ALL";
-
-    elCourse.innerHTML = `<option value="ALL">All</option>`;
-    (data || []).forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.label || (c.code + " — " + c.title);
-      elCourse.appendChild(opt);
-    });
-
-    // restore selection if possible
-    const exists = Array.from(elCourse.options).some(o => o.value === prev);
-    elCourse.value = exists ? prev : "ALL";
-  }
-
-  function renderPending(rows) {
-    if (!rows || !rows.length) {
-      pendingBody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-muted">No records</td></tr>`;
+    const tbody = $("tbody");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No records</td></tr>`;
       return;
     }
 
-    pendingBody.innerHTML = rows.map((r, idx) => {
-      const course = `${r.courseCode || ""} — ${r.courseTitle || ""}`.trim();
+    tbody.innerHTML = rows.map((r, idx) => {
+      const courseLabel = `${r.courseCode || ""} — ${r.courseTitle || ""}<div class="text-muted" style="font-size:12px">${r.schoolName || ""} / ${r.deptName || ""}</div>`;
+      const batch = r.batch_id ?? "";
+      const rowsCount = r.rows_in_results ?? 0;
+
       const viewUrl = `/staff/results/approve/view?batchId=${encodeURIComponent(r.id)}`;
 
       return `
         <tr>
           <td>${idx + 1}</td>
-          <td>
-            <div class="fw-bold">${course}</div>
-            <div class="text-muted" style="font-size:12px;">${r.schoolName || ""} / ${r.deptName || ""}</div>
-          </td>
-          <td>${r.sessionId ?? ""}</td>
+          <td>${courseLabel}</td>
+          <td>${r.session_id ?? ""}</td>
           <td>${r.semester ?? ""}</td>
           <td>${r.level ?? ""}</td>
-          <td>${r.batchId ?? ""}</td>
-          <td>${r.rows ?? 0}</td>
+          <td>${batch}</td>
+          <td>${rowsCount}</td>
           <td><span class="badge bg-secondary">${r.status ?? ""}</span></td>
-          <td>${fmtDate(r.uploadedAt)}</td>
+          <td>${fmtDate(r.uploaded_at)}</td>
           <td>
-            <a class="btn btn-sm btn-outline-secondary me-1" target="_blank" href="${viewUrl}">View</a>
-            <button class="btn btn-sm btn-success me-1" onclick="doAction(${r.id}, 'approve')">Approve</button>
-            <button class="btn btn-sm btn-danger" onclick="doAction(${r.id}, 'reject')">Reject</button>
+            <a class="btn btn-sm btn-outline-dark me-2" target="_blank" href="${viewUrl}">View</a>
+            <button class="btn btn-sm btn-success me-1" onclick="takeAction(${r.id}, 'approve')">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="takeAction(${r.id}, 'reject')">Reject</button>
           </td>
         </tr>
       `;
     }).join("");
   }
 
-  function renderRecent(rows) {
-    if (!rows || !rows.length) {
-      recentBody.innerHTML = `<tr><td colspan="11" class="text-center p-4 text-muted">No recently approved records</td></tr>`;
-      return;
+  async function takeAction(batchId, action) {
+    const remark = prompt(`Enter remark (optional) for ${action.toUpperCase()}:`, "") || "";
+
+    try {
+      const payload = { batchId, action, remark };
+
+      const data = await fetchJSON(`/staff/results/approve/api/action`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // csurf accepts 'csrf-token' header by default
+          "csrf-token": csrfToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!data.ok) {
+        alert(data.error || "Action failed");
+        return;
+      }
+
+      await loadCourses();
+      await loadBatches();
+    } catch (e) {
+      console.error(e);
+      alert(String(e.message || e));
     }
-
-    recentBody.innerHTML = rows.map((r, idx) => {
-      const course = `${r.courseCode || ""} — ${r.courseTitle || ""}`.trim();
-      const viewUrl = `/staff/results/approve/view?batchId=${encodeURIComponent(r.id)}`;
-
-      return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td>
-            <div class="fw-bold">${course}</div>
-            <div class="text-muted" style="font-size:12px;">${r.schoolName || ""} / ${r.deptName || ""}</div>
-          </td>
-          <td>${r.sessionId ?? ""}</td>
-          <td>${r.semester ?? ""}</td>
-          <td>${r.level ?? ""}</td>
-          <td>${r.batchId ?? ""}</td>
-          <td>${r.rows ?? 0}</td>
-          <td><span class="badge bg-success">${r.status ?? ""}</span></td>
-          <td>${fmtDate(r.uploadedAt)}</td>
-          <td>${fmtDate(r.approvedAt)}</td>
-          <td>
-            <a class="btn btn-sm btn-outline-secondary" target="_blank" href="${viewUrl}">View</a>
-          </td>
-        </tr>
-      `;
-    }).join("");
   }
 
-  async function loadPending() {
-    const f = filters();
-    const url = `/staff/results/approve/api/list?` + qs({
-      sessionId: f.sessionId,
-      semester: f.semester,
-      level: f.level,
-      courseId: f.courseId
-    });
-
-    const res = await fetch(url);
-    const data = await res.json().catch(() => []);
-    renderPending(data);
-  }
-
-  async function loadRecent() {
-    const f = filters();
-    const url = `/staff/results/approve/api/list?` + qs({
-      mode: "recent",
-      sessionId: f.sessionId,
-      semester: f.semester,
-      level: f.level,
-      courseId: f.courseId
-    });
-
-    const res = await fetch(url);
-    const data = await res.json().catch(() => []);
-    renderRecent(data);
-  }
-
-  async function refreshAll() {
-    pendingBody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-muted">Loading…</td></tr>`;
-    recentBody.innerHTML = `<tr><td colspan="11" class="text-center p-4 text-muted">Loading…</td></tr>`;
-    await loadCourses();
-    await loadPending();
-    await loadRecent();
-  }
-
-  async function doAction(batchId, action) {
-    const remark = prompt(`Enter remark (optional) for ${action.toUpperCase()}:`) || "";
-    const statusOverride = (elStatusOverride.value || "").trim();
-
-    const res = await fetch("/staff/results/approve/api/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        batchId,
-        action,
-        remark,
-        statusOverride: statusOverride || null
-      })
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      alert(data?.error || "Request failed");
-      return;
+  $("btnApply").addEventListener("click", async () => {
+    try {
+      await loadCourses();
+      await loadBatches();
+    } catch (e) {
+      console.error(e);
+      alert(String(e.message || e));
     }
-
-    await refreshAll();
-  }
-
-  document.getElementById("btnApply").addEventListener("click", async () => {
-    await refreshAll();
   });
 
   // initial load
   (async () => {
-    await refreshAll();
+    try {
+      await loadCourses();
+      await loadBatches();
+    } catch (e) {
+      console.error(e);
+      $("tbody").innerHTML = `<tr><td colspan="10" class="text-center text-danger">Failed to load. Check server logs.</td></tr>`;
+    }
   })();
 </script>
