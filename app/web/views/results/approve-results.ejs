@@ -1,72 +1,83 @@
 <div class="container-fluid">
-  <h3 class="mb-3">Approve Result</h3>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Approve Result</h1>
+      <div class="text-muted" style="font-size: 13px;">Review uploaded batches and approve/reject based on your role.</div>
+    </div>
+  </div>
 
   <div class="card mb-3">
     <div class="card-body">
-      <div class="row g-2 align-items-end">
+      <div class="row g-3">
         <div class="col-md-3">
-          <label class="form-label">Session</label>
-          <select id="sessionId" class="form-select">
-            <option value="">All</option>
+          <label class="form-label fw-bold">Session</label>
+          <select id="sessionId" class="form-control">
+            <option value="ALL">All</option>
             <% (sessions || []).forEach(s => { %>
-              <option value="<%= s.id %>"><%= s.name %> <%= s.is_current ? "(Current)" : "" %></option>
+              <option value="<%= s.id %>" <%= s.is_current ? 'selected' : '' %>><%= s.name %><%= s.is_current ? ' (Current)' : '' %></option>
             <% }) %>
           </select>
         </div>
 
         <div class="col-md-2">
-          <label class="form-label">Semester</label>
-          <select id="semester" class="form-select">
-            <option value="">All</option>
+          <label class="form-label fw-bold">Semester</label>
+          <select id="semester" class="form-control">
             <% (semesters || []).forEach(x => { %>
+              <option value="<%= x.value %>" <%= x.value === 'ALL' ? '' : '' %>><%= x.label %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-bold">Level</label>
+          <select id="level" class="form-control">
+            <% (levels || []).forEach(x => { %>
               <option value="<%= x.value %>"><%= x.label %></option>
             <% }) %>
           </select>
         </div>
 
-        <div class="col-md-2">
-          <label class="form-label">Level</label>
-          <select id="level" class="form-select">
-            <option value="">All</option>
-            <% (levels || []).forEach(l => { %>
-              <option value="<%= l %>"><%= l %></option>
-            <% }) %>
-          </select>
-        </div>
-
         <div class="col-md-3">
-          <label class="form-label">Course ID (optional)</label>
-          <input id="courseId" class="form-control" placeholder="e.g. 3" />
+          <label class="form-label fw-bold">Course (optional)</label>
+          <select id="courseId" class="form-control">
+            <option value="ALL">All</option>
+          </select>
+          <div class="text-muted" style="font-size:12px;">Dropdown shows courses in your scope.</div>
         </div>
 
         <div class="col-md-2">
+          <label class="form-label fw-bold">Apply</label>
           <button id="btnApply" class="btn btn-primary w-100">Apply</button>
         </div>
-      </div>
 
-      <div class="row g-2 mt-2">
-        <div class="col-md-4">
-          <label class="form-label">Status (optional override)</label>
-          <input id="status" class="form-control" placeholder="Leave blank for your stage statuses" />
-          <small class="text-muted">Example: UPLOADED, HOD_APPROVED, DEAN_APPROVED, BUSINESS_APPROVED, FINAL</small>
+        <div class="col-md-8 mt-2">
+          <label class="form-label fw-bold">Status (optional override)</label>
+          <input id="statusOverride" class="form-control" placeholder="Leave blank for your stage statuses" />
+          <div class="text-muted" style="font-size:12px;">
+            Example: UPLOADED, HOD_APPROVED, DEAN_APPROVED, BUSINESS_APPROVED, FINAL
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="alert alert-info">
-    Your role: <b><%= role.toUpperCase() %></b> —
-    Approve → <b><%= stage.approveTo %></b>,
-    Reject → <b><%= stage.rejectTo %></b>
+    <b>Your role:</b> Approve → moves to your next stage, Reject → moves to your reject stage.
+    <span class="ms-2">(Use <b>View</b> before approving.)</span>
   </div>
 
-  <div class="card">
-    <div class="card-body">
+  <!-- PENDING -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-bold">Pending / In-review Uploads</div>
+      <div class="text-muted" style="font-size: 12px;">These are awaiting your action.</div>
+    </div>
+    <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-          <thead class="table-light">
+        <table class="table table-striped mb-0">
+          <thead>
             <tr>
-              <th>#</th>
+              <th style="width:50px;">#</th>
               <th>Course</th>
               <th>Session</th>
               <th>Semester</th>
@@ -75,11 +86,44 @@
               <th>Rows</th>
               <th>Status</th>
               <th>Uploaded At</th>
-              <th style="width: 220px;">Action</th>
+              <th style="width:220px;">Action</th>
             </tr>
           </thead>
-          <tbody id="rows">
-            <tr><td colspan="10" class="text-center text-muted">No data</td></tr>
+          <tbody id="pendingBody">
+            <tr><td colspan="10" class="text-center p-4 text-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENTLY APPROVED -->
+  <div class="card mb-5">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-bold">Recently Approved Results</div>
+      <div class="text-muted" style="font-size: 12px;">Latest approved items (based on your role scope).</div>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-bordered mb-0">
+          <thead>
+            <tr>
+              <th style="width:50px;">#</th>
+              <th>Course</th>
+              <th>Session</th>
+              <th>Semester</th>
+              <th>Level</th>
+              <th>Batch</th>
+              <th>Rows</th>
+              <th>Status</th>
+              <th>Uploaded At</th>
+              <th>Approved Date</th>
+              <th style="width:110px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="recentBody">
+            <tr><td colspan="11" class="text-center p-4 text-muted">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -88,71 +132,203 @@
 </div>
 
 <script>
-  const $ = (id) => document.getElementById(id);
+  const elSession = document.getElementById("sessionId");
+  const elSemester = document.getElementById("semester");
+  const elLevel = document.getElementById("level");
+  const elCourse = document.getElementById("courseId");
+  const elStatusOverride = document.getElementById("statusOverride");
 
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+  const pendingBody = document.getElementById("pendingBody");
+  const recentBody = document.getElementById("recentBody");
 
-  async function loadBatches(){
-    const qs = new URLSearchParams({
-      sessionId: $("sessionId").value,
-      semester: $("semester").value,
-      level: $("level").value,
-      courseId: $("courseId").value.trim(),
-      status: $("status").value.trim()
+  function qs(params) {
+    const usp = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === undefined || v === null) return;
+      usp.set(k, v);
     });
-
-    const r = await fetch(`/staff/results/approve/api/batches?` + qs.toString(), { headers: { "Accept": "application/json" }});
-    const j = await r.json();
-    const tbody = $("rows");
-
-    if(!j.ok){
-      tbody.innerHTML = `<tr><td colspan="10" class="text-danger text-center">${esc(j.message || "Error")}</td></tr>`;
-      return;
-    }
-
-    const rows = j.data || [];
-    if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No records</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = rows.map((x, i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td><b>${esc(x.course_code || "")}</b> — ${esc(x.course_title || "")}<br/>
-            <small class="text-muted">${esc(x.school_name || "")} / ${esc(x.department_name || "")}</small>
-        </td>
-        <td>${esc(x.session_id)}</td>
-        <td>${esc(x.semester)}</td>
-        <td>${esc(x.level)}</td>
-        <td>${esc(x.batch_id)}</td>
-        <td>${esc(x.rows_in_results)}</td>
-        <td><span class="badge bg-secondary">${esc(x.status)}</span></td>
-        <td>${esc(x.uploaded_at || "")}</td>
-        <td>
-          <button class="btn btn-success btn-sm" onclick="takeAction(${x.id}, 'approve')">Approve</button>
-          <button class="btn btn-danger btn-sm" onclick="takeAction(${x.id}, 'reject')">Reject</button>
-        </td>
-      </tr>
-    `).join("");
+    return usp.toString();
   }
 
-  async function takeAction(batchId, action){
+  function filters() {
+    const sessionId = elSession.value || "ALL";
+    const semester = (elSemester.value || "ALL").toUpperCase();
+    const level = elLevel.value || "ALL";
+    const courseId = elCourse.value || "ALL";
+    return { sessionId, semester, level, courseId };
+  }
+
+  function fmtDate(v) {
+    if (!v) return "";
+    try {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleString();
+    } catch {
+      return String(v);
+    }
+  }
+
+  async function loadCourses() {
+    const f = filters();
+    const url = `/staff/results/approve/api/courses?` + qs({
+      sessionId: f.sessionId,
+      semester: f.semester,
+      level: f.level
+    });
+
+    const res = await fetch(url);
+    const data = await res.json().catch(() => []);
+    const prev = elCourse.value || "ALL";
+
+    elCourse.innerHTML = `<option value="ALL">All</option>`;
+    (data || []).forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.label || (c.code + " — " + c.title);
+      elCourse.appendChild(opt);
+    });
+
+    // restore selection if possible
+    const exists = Array.from(elCourse.options).some(o => o.value === prev);
+    elCourse.value = exists ? prev : "ALL";
+  }
+
+  function renderPending(rows) {
+    if (!rows || !rows.length) {
+      pendingBody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-muted">No records</td></tr>`;
+      return;
+    }
+
+    pendingBody.innerHTML = rows.map((r, idx) => {
+      const course = `${r.courseCode || ""} — ${r.courseTitle || ""}`.trim();
+      const viewUrl = `/staff/results/approve/view?batchId=${encodeURIComponent(r.id)}`;
+
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <div class="fw-bold">${course}</div>
+            <div class="text-muted" style="font-size:12px;">${r.schoolName || ""} / ${r.deptName || ""}</div>
+          </td>
+          <td>${r.sessionId ?? ""}</td>
+          <td>${r.semester ?? ""}</td>
+          <td>${r.level ?? ""}</td>
+          <td>${r.batchId ?? ""}</td>
+          <td>${r.rows ?? 0}</td>
+          <td><span class="badge bg-secondary">${r.status ?? ""}</span></td>
+          <td>${fmtDate(r.uploadedAt)}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-secondary me-1" target="_blank" href="${viewUrl}">View</a>
+            <button class="btn btn-sm btn-success me-1" onclick="doAction(${r.id}, 'approve')">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="doAction(${r.id}, 'reject')">Reject</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderRecent(rows) {
+    if (!rows || !rows.length) {
+      recentBody.innerHTML = `<tr><td colspan="11" class="text-center p-4 text-muted">No recently approved records</td></tr>`;
+      return;
+    }
+
+    recentBody.innerHTML = rows.map((r, idx) => {
+      const course = `${r.courseCode || ""} — ${r.courseTitle || ""}`.trim();
+      const viewUrl = `/staff/results/approve/view?batchId=${encodeURIComponent(r.id)}`;
+
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <div class="fw-bold">${course}</div>
+            <div class="text-muted" style="font-size:12px;">${r.schoolName || ""} / ${r.deptName || ""}</div>
+          </td>
+          <td>${r.sessionId ?? ""}</td>
+          <td>${r.semester ?? ""}</td>
+          <td>${r.level ?? ""}</td>
+          <td>${r.batchId ?? ""}</td>
+          <td>${r.rows ?? 0}</td>
+          <td><span class="badge bg-success">${r.status ?? ""}</span></td>
+          <td>${fmtDate(r.uploadedAt)}</td>
+          <td>${fmtDate(r.approvedAt)}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-secondary" target="_blank" href="${viewUrl}">View</a>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function loadPending() {
+    const f = filters();
+    const url = `/staff/results/approve/api/list?` + qs({
+      sessionId: f.sessionId,
+      semester: f.semester,
+      level: f.level,
+      courseId: f.courseId
+    });
+
+    const res = await fetch(url);
+    const data = await res.json().catch(() => []);
+    renderPending(data);
+  }
+
+  async function loadRecent() {
+    const f = filters();
+    const url = `/staff/results/approve/api/list?` + qs({
+      mode: "recent",
+      sessionId: f.sessionId,
+      semester: f.semester,
+      level: f.level,
+      courseId: f.courseId
+    });
+
+    const res = await fetch(url);
+    const data = await res.json().catch(() => []);
+    renderRecent(data);
+  }
+
+  async function refreshAll() {
+    pendingBody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-muted">Loading…</td></tr>`;
+    recentBody.innerHTML = `<tr><td colspan="11" class="text-center p-4 text-muted">Loading…</td></tr>`;
+    await loadCourses();
+    await loadPending();
+    await loadRecent();
+  }
+
+  async function doAction(batchId, action) {
     const remark = prompt(`Enter remark (optional) for ${action.toUpperCase()}:`) || "";
-    const r = await fetch(`/staff/results/approve/api/action`, {
+    const statusOverride = (elStatusOverride.value || "").trim();
+
+    const res = await fetch("/staff/results/approve/api/action", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ batchId, action, remark })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        batchId,
+        action,
+        remark,
+        statusOverride: statusOverride || null
+      })
     });
-    const j = await r.json();
-    if(!j.ok){
-      alert(j.message || "Action failed");
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      alert(data?.error || "Request failed");
       return;
     }
-    alert(j.message || "Done");
-    loadBatches();
+
+    await refreshAll();
   }
 
-  $("btnApply").addEventListener("click", loadBatches);
-  loadBatches();
+  document.getElementById("btnApply").addEventListener("click", async () => {
+    await refreshAll();
+  });
+
+  // initial load
+  (async () => {
+    await refreshAll();
+  })();
 </script>
