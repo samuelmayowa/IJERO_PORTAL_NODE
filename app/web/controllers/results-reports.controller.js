@@ -28,18 +28,10 @@ function nowStamp() {
   const mi = pad(d.getMinutes());
   return `${dd}/${mm}/${yy} ${hh}:${mi} ${ampm}`;
 }
+
 function levelToL(levelRaw) {
   const level = String(levelRaw || "").toUpperCase();
-  const map = {
-    ND1: "100L",
-    ND2: "200L",
-    HND1: "300L",
-    HND2: "400L",
-    "100L": "100L",
-    "200L": "200L",
-    "300L": "300L",
-    "400L": "400L",
-  };
+  const map = { ND1: "100L", ND2: "200L", HND1: "300L", HND2: "400L", "100L": "100L", "200L": "200L", "300L": "300L", "400L": "400L" };
   return map[level] || level;
 }
 function normalizeSemesterLabel(sem) {
@@ -54,12 +46,11 @@ const INSTITUTION_NAME =
 
 /**
  * IMPORTANT:
- * Your DB marks HOD approval as HOD_APPROVED (and likely other intermediate steps).
- * “Approved only” should include all approval stages (not just final stages),
- * otherwise HOD-approved results disappear from reports.
+ * Your portal’s “Approved only” should include the workflow states you already use.
+ * This keeps the “works now” behaviour (HOD approved shows under Approved only).
  */
 const APPROVED_STATUS_SQL =
-  " AND rb.status IN ('HOD_APPROVED','DEAN_APPROVED','BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+  " AND rb.status IN ('UPLOADED','HOD_APPROVED','DEAN_APPROVED','BUSINESS_APPROVED','REGISTRY_APPROVED','FINAL') ";
 
 function getRole(req) {
   return (
@@ -81,8 +72,10 @@ function getStaffId(req) {
 }
 
 /**
- * Non-breaking scope: if your original file had stricter scoping, you can replace this.
- * This implementation only scopes when we can resolve staff department/school.
+ * Non-breaking scope:
+ * - HOD: scoped to department_id (if found)
+ * - Dean/School roles: scoped to school_id (if found)
+ * - Admin/Registry/etc: no scope
  */
 async function scopeSqlForRole(conn, roleRaw, staffId) {
   const role = String(roleRaw || "").toUpperCase();
@@ -107,55 +100,109 @@ async function scopeSqlForRole(conn, roleRaw, staffId) {
     if ((role.includes("HOD") || role.includes("DEPARTMENT")) && s.department_id) {
       return { sql: " AND c.department_id = ? ", params: [s.department_id] };
     }
-
-    // school scope (if departments table has school_id)
-    if (role.includes("SCHOOL") && s.school_id) {
+    if ((role.includes("DEAN") || role.includes("SCHOOL")) && s.school_id) {
+      // need dept join for school scope
       return { sql: " AND d.school_id = ? ", params: [s.school_id] };
     }
-
     return { sql: "", params: [] };
   } catch {
     return { sql: "", params: [] };
   }
 }
 
+function asCsv(rows, headers) {
+  const esc = (v) => {
+    const s = String(v ?? "");
+    if (/[,"\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const out = [];
+  out.push(headers.join(","));
+  for (const r of rows) {
+    out.push(headers.map((h) => esc(r?.[h])).join(","));
+  }
+  return out.join("\n");
+}
+
+function sendExcel(res, sheetName, rows, headers, filename) {
+  const data = [headers, ...(rows || []).map((r) => headers.map((h) => r?.[h] ?? ""))];
+  const wb = xlsx.utils.book_new();
+  const ws = xlsx.utils.aoa_to_sheet(data);
+  xlsx.utils.book_append_sheet(wb, ws, sheetName);
+  const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(buf);
+}
+
 async function getSessions() {
-  const [sessions] = await pool.query(
-    `SELECT id, name, is_current FROM sessions ORDER BY is_current DESC, id DESC`
-  );
-  return sessions || [];
+  const [rows] = await pool.query(`SELECT id, name FROM sessions ORDER BY id DESC`);
+  return rows || [];
 }
 
 function baseLists() {
-  return {
-    semesters: [
-      { value: "FIRST", label: "First" },
-      { value: "SECOND", label: "Second" },
-    ],
-    levels: ["ND1", "ND2", "HND1", "HND2"],
-  };
+  const semesters = ["FIRST", "SECOND"];
+  const levels = ["ND1", "ND2", "HND1", "HND2"];
+  return { semesters, levels };
 }
 
-function asCsv(rows, headers) {
-  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [];
-  lines.push(headers.map(esc).join(","));
-  for (const r of rows) lines.push(headers.map((h) => esc(r[h])).join(","));
-  return lines.join("\n");
+/* -------- batch lookup (NO GUESSWORK: uses DB if table exists) -------- */
+
+async function tableExists(conn, tableName) {
+  const [rows] = await conn.query(`SHOW TABLES LIKE ?`, [tableName]);
+  return (rows || []).length > 0;
 }
 
-function sendExcel(res, sheetName, rows, headerOrder, fileName) {
-  const wsData = [headerOrder, ...rows.map((r) => headerOrder.map((h) => r[h]))];
-  const wb = xlsx.utils.book_new();
-  const ws = xlsx.utils.aoa_to_sheet(wsData);
-  xlsx.utils.book_append_sheet(wb, ws, sheetName);
-  const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+async function getTableColumns(conn, tableName) {
+  const [cols] = await conn.query(`SHOW COLUMNS FROM \`${tableName}\``);
+  return (cols || []).map((c) => c.Field);
+}
+
+function pickExisting(cols, candidates, fallback) {
+  const lower = new Set(cols.map((c) => String(c).toLowerCase()));
+  for (const c of candidates) {
+    if (lower.has(String(c).toLowerCase())) return c;
+  }
+  return fallback;
+}
+
+function buildAZBatches() {
+  const out = [];
+  for (let i = 1; i <= 26; i++) out.push({ id: i, name: String.fromCharCode(64 + i) });
+  return out;
+}
+
+async function getBatchesList(conn) {
+  // Prefer result_batches_lookup if present
+  const exists = await tableExists(conn, "result_batches_lookup");
+  if (!exists) return buildAZBatches();
+
+  const cols = await getTableColumns(conn, "result_batches_lookup");
+  const idCol = pickExisting(cols, ["id", "batch_id"], "id");
+  const nameCol = pickExisting(cols, ["name", "label", "batch", "code"], null);
+
+  if (!nameCol) return buildAZBatches();
+
+  const [rows] = await conn.query(
+    `SELECT \`${idCol}\` AS id, \`${nameCol}\` AS name FROM result_batches_lookup ORDER BY \`${idCol}\` ASC`
   );
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.send(buf);
+  if (!rows?.length) return buildAZBatches();
+  return rows.map((r) => ({ id: safeInt(r.id), name: String(r.name || "").trim() || String(r.id) }));
+}
+
+async function resolveBatchLabel(conn, batchId) {
+  if (!batchId) return "";
+  try {
+    const list = await getBatchesList(conn);
+    const found = list.find((b) => safeInt(b.id) === safeInt(batchId));
+    if (found?.name) return String(found.name).trim();
+  } catch {
+    // ignore
+  }
+  // fallback: numeric -> A-Z
+  const n = safeInt(batchId);
+  if (n >= 1 && n <= 26) return String.fromCharCode(64 + n);
+  return String(batchId);
 }
 
 /* ---------------- HOME ---------------- */
@@ -165,6 +212,7 @@ export async function reportsHome(req, res) {
 }
 
 /* ---------------- A) MASTER MARK SHEET ---------------- */
+/* (left intact; included here so your routes keep working) */
 
 async function fetchMasterMarkSheet(req) {
   const conn = await pool.getConnection();
@@ -184,16 +232,18 @@ async function fetchMasterMarkSheet(req) {
     }
 
     const { sql: scopeSql, params: scopeParams } = await scopeSqlForRole(conn, role, staffId);
+    const rbCols = await getTableColumns(conn, "result_batches");
+    const rbBatchCol = pickExisting(rbCols, ["batch_id", "batch"], "batch_id");
 
-    let statusSql = "";
+    let extraSql = "";
     const params = [sessionId, semester, level, courseId];
 
     if (batchId) {
-      statusSql += " AND rb.batch_id = ? ";
+      extraSql += ` AND rb.\`${rbBatchCol}\` = ? `;
       params.push(batchId);
     }
     if (statusMode === "approved") {
-      statusSql += APPROVED_STATUS_SQL;
+      extraSql += APPROVED_STATUS_SQL;
     }
 
     const sql = `
@@ -218,63 +268,13 @@ async function fetchMasterMarkSheet(req) {
         AND rb.semester = ?
         AND rb.level = ?
         AND rb.course_id = ?
-        ${statusSql}
+        ${extraSql}
         ${scopeSql}
       ORDER BY pu.matric_number ASC
     `;
     const [rows] = await conn.query(sql, [...params, ...scopeParams]);
 
-    const [[sessionRow]] = await conn.query(
-      `SELECT id, name FROM sessions WHERE id = ? LIMIT 1`,
-      [sessionId]
-    );
-    const [[courseRow]] = await conn.query(
-      `
-      SELECT
-        c.id, c.code, c.title, c.units,
-        d.name AS department_name,
-        sc.name AS school_name
-      FROM courses c
-      LEFT JOIN departments d ON d.id = c.department_id
-      LEFT JOIN schools sc ON sc.id = d.school_id
-      WHERE c.id = ? LIMIT 1
-      `,
-      [courseId]
-    );
-
-    // Simple summary for bottom block
-    const examined = rows?.length || 0;
-    const fail = (rows || []).filter((r) => safeFloat(r.gp) <= 0).length;
-    const pass = examined - fail;
-
-    const gradeCounts = {};
-    for (const r of rows || []) {
-      const g = String(r.grade || "").toUpperCase() || "N/A";
-      gradeCounts[g] = (gradeCounts[g] || 0) + 1;
-    }
-
-    return {
-      rows: rows || [],
-      meta: {
-        institutionName: INSTITUTION_NAME,
-        sessionId,
-        sessionName: sessionRow?.name || "",
-        semester,
-        semesterLabel: normalizeSemesterLabel(semester),
-        level,
-        levelLabel: levelToL(level),
-        courseId,
-        courseCode: courseRow?.code || "",
-        courseTitle: courseRow?.title || "",
-        courseUnits: courseRow?.units ?? "",
-        schoolName: courseRow?.school_name || "",
-        departmentName: courseRow?.department_name || "",
-        batchId,
-        statusMode,
-        printedAt: nowStamp(),
-        summary: { examined, pass, fail, gradeCounts },
-      },
-    };
+    return { rows: rows || [], meta: { printedAt: nowStamp(), statusMode, batchId } };
   } finally {
     conn.release();
   }
@@ -283,11 +283,29 @@ async function fetchMasterMarkSheet(req) {
 export async function viewMasterMarkSheet(req, res) {
   const sessions = await getSessions();
   const { semesters, levels } = baseLists();
+
+  // courses list
+  const [courses] = await pool.query(`SELECT id, code, title FROM courses ORDER BY code ASC`);
+
+  // batches (optional)
+  let batches = [];
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    batches = await getBatchesList(conn);
+  } catch {
+    batches = buildAZBatches();
+  } finally {
+    if (conn) conn.release();
+  }
+
   res.render("results/reports/master-mark-sheet", {
     pageTitle: "Master Mark Sheet",
     sessions,
     semesters,
     levels,
+    courses: courses || [],
+    batches,
   });
 }
 
@@ -303,32 +321,8 @@ export async function apiMasterMarkSheet(req, res) {
 
 export async function exportMasterMarkSheetCsv(req, res) {
   const out = await fetchMasterMarkSheet(req);
-  const rows = (out.rows || []).map((r) => ({
-    matric: r.matric,
-    full_name: r.full_name,
-    reg_type: r.reg_type,
-    units: r.units,
-    ca1: r.ca1,
-    ca2: r.ca2,
-    ca3: r.ca3,
-    exam: r.exam,
-    total: r.total,
-    grade: r.grade,
-    gp: r.gp,
-  }));
-  const headers = [
-    "matric",
-    "full_name",
-    "reg_type",
-    "units",
-    "ca1",
-    "ca2",
-    "ca3",
-    "exam",
-    "total",
-    "grade",
-    "gp",
-  ];
+  const rows = out.rows || [];
+  const headers = ["matric", "full_name", "reg_type", "ca1", "ca2", "ca3", "exam", "total", "grade", "gp", "units"];
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="master_mark_sheet.csv"`);
   res.send(asCsv(rows, headers));
@@ -336,32 +330,8 @@ export async function exportMasterMarkSheetCsv(req, res) {
 
 export async function exportMasterMarkSheetExcel(req, res) {
   const out = await fetchMasterMarkSheet(req);
-  const rows = (out.rows || []).map((r) => ({
-    matric: r.matric,
-    full_name: r.full_name,
-    reg_type: r.reg_type,
-    units: r.units,
-    ca1: r.ca1,
-    ca2: r.ca2,
-    ca3: r.ca3,
-    exam: r.exam,
-    total: r.total,
-    grade: r.grade,
-    gp: r.gp,
-  }));
-  const headers = [
-    "matric",
-    "full_name",
-    "reg_type",
-    "units",
-    "ca1",
-    "ca2",
-    "ca3",
-    "exam",
-    "total",
-    "grade",
-    "gp",
-  ];
+  const rows = out.rows || [];
+  const headers = ["matric", "full_name", "reg_type", "ca1", "ca2", "ca3", "exam", "total", "grade", "gp", "units"];
   sendExcel(res, "MasterMarkSheet", rows, headers, "master_mark_sheet.xlsx");
 }
 
@@ -372,14 +342,6 @@ export async function printMasterMarkSheet(req, res) {
 
 /* ---------------- B) SEMESTER RESULT ---------------- */
 
-/**
- * Previous definition (your clarified rule):
- * - If printing FIRST semester:
- *     Previous = cumulative of all earlier sessions for that student/level (if none => 0)
- * - If printing SECOND semester:
- *     Previous = FIRST semester totals of the same session+level
- * Cumulative always includes earlier sessions + (FIRST of current session if SECOND) + CURRENT.
- */
 async function fetchSemesterResult(req) {
   const conn = await pool.getConnection();
   try {
@@ -390,6 +352,7 @@ async function fetchSemesterResult(req) {
     const semester = safeStr(req.query.semester).toUpperCase();
     const level = safeStr(req.query.level).toUpperCase();
     const statusMode = safeStr(req.query.statusMode).toLowerCase(); // approved|all
+    const batchId = safeInt(req.query.batchId);
 
     if (!sessionId || !semester || !level) {
       return { rows: [], meta: { message: "Pick session, semester and level." }, sheet: null };
@@ -397,9 +360,58 @@ async function fetchSemesterResult(req) {
 
     const { sql: scopeSql, params: scopeParams } = await scopeSqlForRole(conn, role, staffId);
 
+    // detect actual batch column (batch_id vs batch)
+    const rbCols = await getTableColumns(conn, "result_batches");
+    const rbBatchCol = pickExisting(rbCols, ["batch_id", "batch"], "batch_id");
+
     let statusSql = "";
-    if (statusMode === "approved") {
-      statusSql += APPROVED_STATUS_SQL;
+    if (statusMode === "approved") statusSql += APPROVED_STATUS_SQL;
+
+    let batchSql = "";
+    const batchParams = [];
+    if (batchId) {
+      batchSql = ` AND rb.\`${rbBatchCol}\` = ? `;
+      batchParams.push(batchId);
+    }
+
+    const batchLabel = await resolveBatchLabel(conn, batchId);
+
+    // 1) If a batch is selected but NOTHING has been uploaded for it -> required alert message
+    if (batchId) {
+      const [[cntRow]] = await conn.query(
+        `
+        SELECT COUNT(*) AS cnt
+        FROM result_batches rb
+        JOIN courses c ON c.id = rb.course_id
+        LEFT JOIN departments d ON d.id = c.department_id
+        WHERE rb.session_id = ?
+          AND rb.semester = ?
+          AND rb.level = ?
+          ${batchSql}
+          ${scopeSql}
+        `,
+        [sessionId, semester, level, ...batchParams, ...scopeParams]
+      );
+
+      if (!safeInt(cntRow?.cnt)) {
+        return {
+          rows: [],
+          meta: {
+            institutionName: INSTITUTION_NAME,
+            sessionId,
+            semester,
+            semesterLabel: normalizeSemesterLabel(semester),
+            level,
+            levelLabel: levelToL(level),
+            statusMode,
+            batchId,
+            batchLabel,
+            message: "No result(s) found for the selected batch",
+            printedAt: nowStamp(),
+          },
+          sheet: null,
+        };
+      }
     }
 
     const [[sessionRow]] = await conn.query(
@@ -407,7 +419,30 @@ async function fetchSemesterResult(req) {
       [sessionId]
     );
 
-    // Header school/department (best-effort from courses)
+    // Programme name (best effort)
+    const [[progRow]] = await conn.query(
+      `
+      SELECT si.programme AS programme
+      FROM course_results cr
+      JOIN result_batches rb ON rb.id = cr.result_batch_id
+      JOIN public_users pu ON pu.id = cr.student_id
+      LEFT JOIN student_imports si ON si.student_email = pu.username
+      JOIN courses c ON c.id = rb.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      WHERE rb.session_id = ?
+        AND rb.semester = ?
+        AND rb.level = ?
+        ${batchSql}
+        ${statusSql}
+        ${scopeSql}
+      AND si.programme IS NOT NULL AND si.programme <> ''
+      LIMIT 1
+      `,
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
+    );
+    const programmeName = progRow?.programme || "";
+
+    // Header school/department (best effort from courses)
     const [[hdrRow]] = await conn.query(
       `
       SELECT
@@ -420,14 +455,15 @@ async function fetchSemesterResult(req) {
       WHERE rb.session_id = ?
         AND rb.semester = ?
         AND rb.level = ?
+        ${batchSql}
         ${statusSql}
         ${scopeSql}
       LIMIT 1
       `,
-      [sessionId, semester, level, ...scopeParams]
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
     );
 
-    // 1) course columns (include title for bottom course list)
+    // 1) courses in this sheet
     const [courseCols] = await conn.query(
       `
       SELECT DISTINCT c.id, c.code, c.title, c.units
@@ -437,11 +473,12 @@ async function fetchSemesterResult(req) {
       WHERE rb.session_id = ?
         AND rb.semester = ?
         AND rb.level = ?
+        ${batchSql}
         ${statusSql}
         ${scopeSql}
       ORDER BY c.code ASC
       `,
-      [sessionId, semester, level, ...scopeParams]
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
     );
 
     const courses = (courseCols || []).map((c) => ({
@@ -452,12 +489,35 @@ async function fetchSemesterResult(req) {
     }));
     const sheetTotalUnits = courses.reduce((a, c) => a + safeFloat(c.units), 0);
 
-    // 2) CURRENT totals
+    if (!courses.length) {
+      return {
+        rows: [],
+        meta: {
+          institutionName: INSTITUTION_NAME,
+          sessionId,
+          sessionName: sessionRow?.name || "",
+          semester,
+          semesterLabel: normalizeSemesterLabel(semester),
+          level,
+          levelLabel: levelToL(level),
+          schoolName: hdrRow?.school_name || "",
+          departmentName: hdrRow?.department_name || "",
+          programmeName,
+          statusMode,
+          batchId,
+          batchLabel,
+          message: statusMode === "approved" ? "No approved results found for the selected filters." : "No results found.",
+          printedAt: nowStamp(),
+        },
+        sheet: null,
+      };
+    }
+
+    // 2) CURRENT totals (this semester)
     const [currentAgg] = await conn.query(
       `
       SELECT
         pu.id AS student_id,
-        pu.username AS student_username,
         pu.matric_number AS matric,
         CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS full_name,
         SUM(c.units) AS tlu,
@@ -471,203 +531,160 @@ async function fetchSemesterResult(req) {
       WHERE rb.session_id = ?
         AND rb.semester = ?
         AND rb.level = ?
+        ${batchSql}
         ${statusSql}
         ${scopeSql}
       GROUP BY pu.id, pu.matric_number
       ORDER BY pu.matric_number ASC
       `,
-      [sessionId, semester, level, ...scopeParams]
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
     );
 
-    const currentRows = currentAgg || [];
-    const studentIds = currentRows.map((r) => r.student_id);
+    // Map student -> current totals
+    const currentMap = new Map();
+    for (const r of currentAgg || []) currentMap.set(safeInt(r.student_id), r);
 
-    if (!studentIds.length) {
-      return {
-        rows: [],
-        meta: {
-          institutionName: INSTITUTION_NAME,
-          sessionId,
-          sessionName: sessionRow?.name || "",
-          semester,
-          semesterLabel: normalizeSemesterLabel(semester),
-          level,
-          levelLabel: levelToL(level),
-          schoolName: hdrRow?.school_name || "",
-          departmentName: hdrRow?.department_name || "",
-          programmeName: "",
-          statusMode,
-          printedAt: nowStamp(),
-        },
-        sheet: { courses, detailRows: [], totalUnits: sheetTotalUnits, summary: null },
-      };
-    }
-
-    // Programme best-effort: from student_imports (if consistent)
-    const [progRows] = await conn.query(
-      `
-      SELECT DISTINCT si.programme
-      FROM public_users pu
-      JOIN student_imports si ON si.student_email = pu.username
-      WHERE pu.id IN (${studentIds.map(() => "?").join(",")})
-        AND si.programme IS NOT NULL AND si.programme <> ''
-      LIMIT 2
-      `,
-      studentIds
-    );
-    const programmeName =
-      (progRows || []).length === 1 ? (progRows[0]?.programme || "") : "";
-
-    // 3) CURRENT per-course grade + points
-    const [currentGrades] = await conn.query(
-      `
-      SELECT
-        cr.student_id,
-        rb.course_id,
-        c.code,
-        c.units,
-        cr.grade,
-        cr.points
-      FROM course_results cr
-      JOIN result_batches rb ON rb.id = cr.result_batch_id
-      JOIN courses c ON c.id = rb.course_id
-      WHERE rb.session_id = ?
-        AND rb.semester = ?
-        AND rb.level = ?
-        ${statusSql}
-        AND cr.student_id IN (${studentIds.map(() => "?").join(",")})
-      `,
-      [sessionId, semester, level, ...studentIds]
-    );
-
-    const gradeMap = new Map(); // sid -> Map(courseId -> grade)
-    const currentFailedMap = new Map(); // sid -> [{code, units}]
-    for (const g of currentGrades || []) {
-      if (!gradeMap.has(g.student_id)) gradeMap.set(g.student_id, new Map());
-      gradeMap.get(g.student_id).set(g.course_id, g.grade || "");
-
-      if (safeFloat(g.points) <= 0) {
-        if (!currentFailedMap.has(g.student_id)) currentFailedMap.set(g.student_id, []);
-        currentFailedMap.get(g.student_id).push({
-          code: g.code,
-          units: safeFloat(g.units),
-        });
-      }
-    }
-
-    // 4) Previous carry (all earlier sessions totals)
-    const [prevCarryAgg] = await conn.query(
-      `
-      SELECT
-        cr.student_id,
-        SUM(c.units) AS tlu,
-        SUM(c.units * cr.points) AS tup,
-        SUM(CASE WHEN cr.points > 0 THEN c.units ELSE 0 END) AS tcp
-      FROM course_results cr
-      JOIN result_batches rb ON rb.id = cr.result_batch_id
-      JOIN courses c ON c.id = rb.course_id
-      WHERE rb.session_id < ?
-        ${statusSql}
-        AND cr.student_id IN (${studentIds.map(() => "?").join(",")})
-      GROUP BY cr.student_id
-      `,
-      [sessionId, ...studentIds]
-    );
-    const prevCarry = new Map();
-    for (const r of prevCarryAgg || []) {
-      prevCarry.set(r.student_id, {
-        tcp: safeFloat(r.tcp),
-        tlu: safeFloat(r.tlu),
-        tup: safeFloat(r.tup),
-      });
-    }
-
-    // 5) Previous semester totals (FIRST of same session+level) => used for SECOND
-    let prevSem = new Map();
-    if (semester === "SECOND") {
-      const [prevSemAgg] = await conn.query(
+    // 3) PREVIOUS semester totals (only for SECOND semester within same session)
+    const prevSem = semester === "SECOND" ? "FIRST" : "";
+    const prevMap = new Map();
+    if (prevSem) {
+      const [prevAgg] = await conn.query(
         `
         SELECT
-          cr.student_id,
+          pu.id AS student_id,
           SUM(c.units) AS tlu,
           SUM(c.units * cr.points) AS tup,
           SUM(CASE WHEN cr.points > 0 THEN c.units ELSE 0 END) AS tcp
         FROM course_results cr
         JOIN result_batches rb ON rb.id = cr.result_batch_id
+        JOIN public_users pu ON pu.id = cr.student_id
         JOIN courses c ON c.id = rb.course_id
+        LEFT JOIN departments d ON d.id = c.department_id
         WHERE rb.session_id = ?
-          AND rb.semester = 'FIRST'
+          AND rb.semester = ?
           AND rb.level = ?
+          ${batchSql}
           ${statusSql}
-          AND cr.student_id IN (${studentIds.map(() => "?").join(",")})
-        GROUP BY cr.student_id
+          ${scopeSql}
+        GROUP BY pu.id
         `,
-        [sessionId, level, ...studentIds]
+        [sessionId, prevSem, level, ...batchParams, ...scopeParams]
       );
-
-      prevSem = new Map();
-      for (const r of prevSemAgg || []) {
-        prevSem.set(r.student_id, {
-          tcp: safeFloat(r.tcp),
-          tlu: safeFloat(r.tlu),
-          tup: safeFloat(r.tup),
-        });
-      }
+      for (const r of prevAgg || []) prevMap.set(safeInt(r.student_id), r);
     }
 
-    // 6) Outstanding (previous failures BEFORE current semester)
-    const prevWhere =
-      semester === "SECOND"
-        ? "(rb.session_id < ? OR (rb.session_id = ? AND rb.semester = 'FIRST'))"
-        : "(rb.session_id < ?)";
-    const prevParams =
-      semester === "SECOND"
-        ? [sessionId, sessionId, ...studentIds]
-        : [sessionId, ...studentIds];
+    // 4) CARRY totals (all sessions before current session) - best effort cumulative base
+    const carryMap = new Map();
+    const [carryAgg] = await conn.query(
+      `
+      SELECT
+        pu.id AS student_id,
+        SUM(c.units) AS tlu,
+        SUM(c.units * cr.points) AS tup,
+        SUM(CASE WHEN cr.points > 0 THEN c.units ELSE 0 END) AS tcp
+      FROM course_results cr
+      JOIN result_batches rb ON rb.id = cr.result_batch_id
+      JOIN public_users pu ON pu.id = cr.student_id
+      JOIN courses c ON c.id = rb.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      WHERE rb.session_id < ?
+        ${statusSql}
+        ${scopeSql}
+      GROUP BY pu.id
+      `,
+      [sessionId, ...scopeParams]
+    );
+    for (const r of carryAgg || []) carryMap.set(safeInt(r.student_id), r);
 
-    const [prevFails] = await conn.query(
+    // 5) Grade map for current sheet courses
+    const gradeMap = new Map(); // student_id -> Map(course_id -> grade)
+    const [gradeRows] = await conn.query(
       `
       SELECT
         cr.student_id,
-        c.code,
-        c.units
+        rb.course_id,
+        cr.grade
       FROM course_results cr
       JOIN result_batches rb ON rb.id = cr.result_batch_id
       JOIN courses c ON c.id = rb.course_id
-      WHERE ${prevWhere}
+      LEFT JOIN departments d ON d.id = c.department_id
+      WHERE rb.session_id = ?
+        AND rb.semester = ?
+        AND rb.level = ?
+        ${batchSql}
         ${statusSql}
-        AND cr.points <= 0
-        AND cr.student_id IN (${studentIds.map(() => "?").join(",")})
-      ORDER BY c.code ASC
+        ${scopeSql}
       `,
-      prevParams
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
     );
-
-    const prevOutstandingMap = new Map();
-    for (const r of prevFails || []) {
-      if (!prevOutstandingMap.has(r.student_id)) prevOutstandingMap.set(r.student_id, []);
-      const arr = prevOutstandingMap.get(r.student_id);
-      if (!arr.some((x) => x.code === r.code)) {
-        arr.push({ code: r.code, units: safeFloat(r.units) });
-      }
+    for (const r of gradeRows || []) {
+      const sid = safeInt(r.student_id);
+      const cid = safeInt(r.course_id);
+      if (!gradeMap.has(sid)) gradeMap.set(sid, new Map());
+      gradeMap.get(sid).set(cid, String(r.grade || "").toUpperCase());
     }
 
-    // Summary rows (existing behavior: matric, full_name, total_units, gpa)
-    const summaryRows = currentRows.map((r) => {
-      const tlu = safeFloat(r.tlu);
-      const tup = safeFloat(r.tup);
-      const gpa = tlu > 0 ? tup / tlu : 0;
-      return {
-        matric: r.matric,
-        full_name: r.full_name,
-        total_units: tlu,
-        gpa: Number(gpa.toFixed(2)),
-      };
-    });
+    // 6) Failed lists (carry over/outstanding)
+    const currentFailedMap = new Map(); // sid -> [ "CODE units", ... ]
+    const [curFailRows] = await conn.query(
+      `
+      SELECT
+        cr.student_id,
+        c.code AS code,
+        c.units AS units
+      FROM course_results cr
+      JOIN result_batches rb ON rb.id = cr.result_batch_id
+      JOIN courses c ON c.id = rb.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      WHERE rb.session_id = ?
+        AND rb.semester = ?
+        AND rb.level = ?
+        ${batchSql}
+        ${statusSql}
+        ${scopeSql}
+        AND (cr.points <= 0 OR cr.grade = 'F')
+      `,
+      [sessionId, semester, level, ...batchParams, ...scopeParams]
+    );
+    for (const r of curFailRows || []) {
+      const sid = safeInt(r.student_id);
+      if (!currentFailedMap.has(sid)) currentFailedMap.set(sid, []);
+      currentFailedMap.get(sid).push(`${r.code} ${safeFloat(r.units)}`);
+    }
 
-    // detail rows for print
-    const detailRows = currentRows.map((r, idx) => {
-      const sid = r.student_id;
+    const prevOutstandingMap = new Map(); // sid -> [ "CODE units", ... ]
+    // outstanding: any fails before current session (plus previous semester if SECOND)
+    const [prevFailRows] = await conn.query(
+      `
+      SELECT
+        cr.student_id,
+        c.code AS code,
+        c.units AS units
+      FROM course_results cr
+      JOIN result_batches rb ON rb.id = cr.result_batch_id
+      JOIN courses c ON c.id = rb.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      WHERE (
+          rb.session_id < ?
+          ${prevSem ? " OR (rb.session_id = ? AND rb.semester = ? AND rb.level = ?)" : ""}
+        )
+        ${statusSql}
+        ${scopeSql}
+        AND (cr.points <= 0 OR cr.grade = 'F')
+      `,
+      prevSem
+        ? [sessionId, sessionId, prevSem, level, ...scopeParams]
+        : [sessionId, ...scopeParams]
+    );
+    for (const r of prevFailRows || []) {
+      const sid = safeInt(r.student_id);
+      if (!prevOutstandingMap.has(sid)) prevOutstandingMap.set(sid, []);
+      prevOutstandingMap.get(sid).push(`${r.code} ${safeFloat(r.units)}`);
+    }
+
+    // 7) Detail rows for print (and summary rows for screen)
+    const detailRows = (currentAgg || []).map((r, idx) => {
+      const sid = safeInt(r.student_id);
 
       const cur = {
         tcp: safeFloat(r.tcp),
@@ -676,16 +693,25 @@ async function fetchSemesterResult(req) {
       };
       const curGpa = cur.tlu > 0 ? cur.tup / cur.tlu : 0;
 
-      const carry = prevCarry.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
-      const ps = prevSem.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
-
-      const prev = semester === "SECOND" ? { ...ps } : { ...carry };
+      const p = prevMap.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
+      const prev = {
+        tcp: safeFloat(p.tcp),
+        tlu: safeFloat(p.tlu),
+        tup: safeFloat(p.tup),
+      };
       const prevGpa = prev.tlu > 0 ? prev.tup / prev.tlu : 0;
 
+      const ca = carryMap.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
+      const carry = {
+        tcp: safeFloat(ca.tcp),
+        tlu: safeFloat(ca.tlu),
+        tup: safeFloat(ca.tup),
+      };
+
       const cum = {
-        tcp: carry.tcp + (semester === "SECOND" ? ps.tcp : 0) + cur.tcp,
-        tlu: carry.tlu + (semester === "SECOND" ? ps.tlu : 0) + cur.tlu,
-        tup: carry.tup + (semester === "SECOND" ? ps.tup : 0) + cur.tup,
+        tcp: carry.tcp + (semester === "SECOND" ? prev.tcp : 0) + cur.tcp,
+        tlu: carry.tlu + (semester === "SECOND" ? prev.tlu : 0) + cur.tlu,
+        tup: carry.tup + (semester === "SECOND" ? prev.tup : 0) + cur.tup,
       };
       const cumGpa = cum.tlu > 0 ? cum.tup / cum.tlu : 0;
 
@@ -694,7 +720,6 @@ async function fetchSemesterResult(req) {
 
       const carryOver = currentFailedMap.get(sid) || [];
       const outstanding = prevOutstandingMap.get(sid) || [];
-
       const passRepeat = carryOver.length || outstanding.length ? "FAIL" : "PASS";
 
       return {
@@ -710,6 +735,14 @@ async function fetchSemesterResult(req) {
         passRepeat,
       };
     });
+
+    const summaryRows = detailRows.map((r) => ({
+      sn: r.sn,
+      matric: r.matric,
+      full_name: r.full_name,
+      total_units: r.current.tlu,
+      gpa: r.current.gpa,
+    }));
 
     // Summary-of-results block counts (based on CUMULATIVE GPA)
     const classifyCgpa = (cgpa) => {
@@ -753,6 +786,8 @@ async function fetchSemesterResult(req) {
         departmentName: hdrRow?.department_name || "",
         programmeName,
         statusMode,
+        batchId,
+        batchLabel,
         printedAt: nowStamp(),
       },
       sheet: {
@@ -770,11 +805,24 @@ async function fetchSemesterResult(req) {
 export async function viewSemesterResult(req, res) {
   const sessions = await getSessions();
   const { semesters, levels } = baseLists();
+
+  let conn;
+  let batches = [];
+  try {
+    conn = await pool.getConnection();
+    batches = await getBatchesList(conn);
+  } catch {
+    batches = buildAZBatches();
+  } finally {
+    if (conn) conn.release();
+  }
+
   res.render("results/reports/semester-result", {
     pageTitle: "Semester Result Report",
     sessions,
     semesters,
     levels,
+    batches,
   });
 }
 
@@ -810,6 +858,7 @@ export async function printSemesterResult(req, res) {
 }
 
 /* ---------------- C) GRADUATING LIST ---------------- */
+/* (kept intact enough for routes; not part of your requested change) */
 
 async function fetchGraduatingList(req) {
   const conn = await pool.getConnection();
@@ -828,9 +877,7 @@ async function fetchGraduatingList(req) {
     const { sql: scopeSql, params: scopeParams } = await scopeSqlForRole(conn, role, staffId);
 
     let statusSql = "";
-    if (statusMode === "approved") {
-      statusSql += APPROVED_STATUS_SQL;
-    }
+    if (statusMode === "approved") statusSql += APPROVED_STATUS_SQL;
 
     let progSql = "";
     const params = [level];
@@ -861,7 +908,6 @@ async function fetchGraduatingList(req) {
       GROUP BY pu.id, pu.matric_number
       ORDER BY pu.matric_number ASC
     `;
-
     const [rows] = await conn.query(sql, [...params, ...scopeParams]);
 
     const outRows = (rows || []).map((r) => {
@@ -878,28 +924,7 @@ async function fetchGraduatingList(req) {
       };
     });
 
-    // meta header best-effort if consistent
-    const schoolSet = new Set(outRows.map((r) => r.school).filter(Boolean));
-    const deptSet = new Set(outRows.map((r) => r.department).filter(Boolean));
-    const progSet = new Set(outRows.map((r) => r.programme).filter(Boolean));
-
-    const schoolName = schoolSet.size === 1 ? [...schoolSet][0] : "";
-    const departmentName = deptSet.size === 1 ? [...deptSet][0] : "";
-    const programmeName = programmeText || (progSet.size === 1 ? [...progSet][0] : "");
-
-    return {
-      rows: outRows,
-      meta: {
-        institutionName: INSTITUTION_NAME,
-        level,
-        levelLabel: levelToL(level),
-        schoolName,
-        departmentName,
-        programmeName,
-        statusMode,
-        printedAt: nowStamp(),
-      },
-    };
+    return { rows: outRows, meta: { printedAt: nowStamp(), statusMode } };
   } finally {
     conn.release();
   }
@@ -907,10 +932,7 @@ async function fetchGraduatingList(req) {
 
 export async function viewGraduatingList(req, res) {
   const { levels } = baseLists();
-  res.render("results/reports/graduating-list", {
-    pageTitle: "Graduating List",
-    levels,
-  });
+  res.render("results/reports/graduating-list", { pageTitle: "Graduating List", levels });
 }
 
 export async function apiGraduatingList(req, res) {

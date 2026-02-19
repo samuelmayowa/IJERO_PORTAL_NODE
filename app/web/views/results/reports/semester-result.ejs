@@ -1,72 +1,86 @@
 <div class="container-fluid">
-  <h3 class="mb-3">Semester Result Report</h3>
+  <h2 class="mb-3">Semester Result Report</h2>
 
   <div class="card mb-3">
     <div class="card-body">
-      <div class="row g-2 align-items-end">
-        <div class="col-md-4">
-          <label class="form-label">Session</label>
-          <select id="sessionId" class="form-select">
+      <div class="row align-items-end">
+        <div class="col-md-3 mb-2">
+          <label class="form-label fw-bold">Session</label>
+          <select class="form-select" id="sessionId">
             <option value="">-- Select --</option>
             <% (sessions || []).forEach(s => { %>
-              <option value="<%= s.id %>"><%= s.name %> <%= s.is_current ? "(Current)" : "" %></option>
+              <option value="<%= s.id %>"><%= s.name %></option>
             <% }) %>
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">Semester</label>
-          <select id="semester" class="form-select">
+        <div class="col-md-2 mb-2">
+          <label class="form-label fw-bold">Semester</label>
+          <select class="form-select" id="semester">
             <option value="">-- Select --</option>
-            <% (semesters || []).forEach(x => { %>
-              <option value="<%= x.value %>"><%= x.label %></option>
+            <% (semesters || []).forEach(sem => { %>
+              <option value="<%= sem %>"><%= (sem || '').charAt(0) + (sem || '').slice(1).toLowerCase() %></option>
             <% }) %>
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">Level</label>
-          <select id="level" class="form-select">
+        <div class="col-md-2 mb-2">
+          <label class="form-label fw-bold">Level</label>
+          <select class="form-select" id="level">
             <option value="">-- Select --</option>
-            <% (levels || []).forEach(l => { %>
-              <option value="<%= l %>"><%= l %></option>
+            <% (levels || []).forEach(lv => { %>
+              <option value="<%= lv %>"><%= lv %></option>
             <% }) %>
           </select>
         </div>
 
-        <div class="col-md-2">
-          <label class="form-label">Status</label>
-          <select id="statusMode" class="form-select">
-            <option value="approved">Approved only</option>
+        <div class="col-md-2 mb-2">
+          <label class="form-label fw-bold">Batch</label>
+          <select class="form-select" id="batchId">
+            <option value="">All</option>
+            <% (batches || []).forEach(b => { %>
+              <option value="<%= b.id %>"><%= b.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-3 mb-2">
+          <label class="form-label fw-bold">Status</label>
+          <select class="form-select" id="statusMode">
+            <option value="approved" selected>Approved only</option>
             <option value="all">All</option>
           </select>
         </div>
       </div>
 
-      <div class="mt-3 d-flex gap-2 flex-wrap">
+      <div class="mt-3">
         <button class="btn btn-primary" id="btnApply">Apply</button>
-        <a class="btn btn-outline-success" id="btnCsv" href="#">Export CSV</a>
-        <a class="btn btn-outline-success" id="btnXlsx" href="#">Export Excel</a>
-        <a class="btn btn-outline-danger" id="btnPdf" href="#" target="_blank">Export PDF</a>
+        <a class="btn btn-success" id="btnCsv" href="#" target="_blank" rel="noopener">Export CSV</a>
+        <a class="btn btn-success" id="btnExcel" href="#" target="_blank" rel="noopener">Export Excel</a>
+        <a class="btn btn-danger" id="btnPdf" href="#" target="_blank" rel="noopener">Export PDF</a>
       </div>
     </div>
   </div>
 
+  <div id="alertBox" class="mb-3"></div>
+
   <div class="card">
     <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-          <thead class="table-light">
+        <table class="table table-bordered align-middle">
+          <thead>
             <tr>
-              <th>#</th>
+              <th style="width:60px">#</th>
               <th>Matric</th>
               <th>Full Name</th>
-              <th>Total Units</th>
-              <th>GPA</th>
+              <th style="width:140px">Total Units</th>
+              <th style="width:120px">GPA</th>
             </tr>
           </thead>
-          <tbody id="rows">
-            <tr><td colspan="5" class="text-center text-muted">No records</td></tr>
+          <tbody id="tbody">
+            <tr>
+              <td colspan="5" class="text-center text-muted">No records</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -75,49 +89,113 @@
 </div>
 
 <script>
-  const $ = (id) => document.getElementById(id);
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+(function () {
+  const base = "/staff/results/reports/semester-result";
 
-  function qs(){
-    return new URLSearchParams({
-      sessionId: $("sessionId").value,
-      semester: $("semester").value,
-      level: $("level").value,
-      statusMode: $("statusMode").value
-    }).toString();
+  const els = {
+    sessionId: document.getElementById("sessionId"),
+    semester: document.getElementById("semester"),
+    level: document.getElementById("level"),
+    batchId: document.getElementById("batchId"),
+    statusMode: document.getElementById("statusMode"),
+    btnApply: document.getElementById("btnApply"),
+    btnCsv: document.getElementById("btnCsv"),
+    btnExcel: document.getElementById("btnExcel"),
+    btnPdf: document.getElementById("btnPdf"),
+    tbody: document.getElementById("tbody"),
+    alertBox: document.getElementById("alertBox"),
+  };
+
+  function qs(params) {
+    const usp = new URLSearchParams();
+    Object.keys(params).forEach((k) => {
+      const v = params[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") usp.set(k, v);
+    });
+    return usp.toString();
   }
 
-  function wireExports(){
-    $("btnCsv").href = "/staff/results/reports/semester-result/export.csv?" + qs();
-    $("btnXlsx").href = "/staff/results/reports/semester-result/export.xlsx?" + qs();
-    $("btnPdf").href = "/staff/results/reports/semester-result/print?" + qs();
+  function getParams() {
+    return {
+      sessionId: els.sessionId.value,
+      semester: els.semester.value,
+      level: els.level.value,
+      batchId: els.batchId.value,
+      statusMode: els.statusMode.value,
+    };
   }
 
-  async function load(){
-    wireExports();
-    const r = await fetch("/staff/results/reports/semester-result/api?" + qs(), { headers: { "Accept":"application/json" }});
-    const j = await r.json();
-    const tbody = $("rows");
-    if(!j.ok){
-      tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">${esc(j.message||"Error")}</td></tr>`;
+  function setAlert(type, message) {
+    if (!message) {
+      els.alertBox.innerHTML = "";
       return;
     }
-    const rows = j.rows || [];
-    if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">${esc(j.meta?.message || "No records")}</td></tr>`;
+    const cls = type === "danger" ? "alert-danger" : (type === "warning" ? "alert-warning" : "alert-info");
+    els.alertBox.innerHTML = `<div class="alert ${cls} mb-0">${message}</div>`;
+  }
+
+  function updateExportLinks(params) {
+    const q = qs(params);
+    els.btnCsv.href = `${base}/export.csv?${q}`;
+    els.btnExcel.href = `${base}/export.xlsx?${q}`;
+    els.btnPdf.href = `${base}/print?${q}`;
+  }
+
+  function renderRows(rows) {
+    if (!rows || !rows.length) {
+      els.tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records</td></tr>`;
       return;
     }
-    tbody.innerHTML = rows.map((x,i)=>`
+    els.tbody.innerHTML = rows.map(r => `
       <tr>
-        <td>${i+1}</td>
-        <td>${esc(x.matric)}</td>
-        <td>${esc(x.full_name)}</td>
-        <td>${esc(x.total_units)}</td>
-        <td><b>${esc(x.gpa)}</b></td>
+        <td>${r.sn ?? ""}</td>
+        <td>${r.matric ?? ""}</td>
+        <td>${r.full_name ?? ""}</td>
+        <td>${r.total_units ?? ""}</td>
+        <td>${r.gpa ?? ""}</td>
       </tr>
     `).join("");
   }
 
-  $("btnApply").addEventListener("click", load);
-  wireExports();
+  async function apply() {
+    const params = getParams();
+    updateExportLinks(params);
+    setAlert("", "");
+
+    if (!params.sessionId || !params.semester || !params.level) {
+      setAlert("warning", "Pick session, semester and level.");
+      renderRows([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${base}/api?${qs(params)}`, { headers: { "Accept": "application/json" } });
+      const data = await res.json();
+
+      // REQUIRED: if batch selected and nothing uploaded
+      if (data?.meta?.message === "No result(s) found for the selected batch") {
+        alert("No result(s) found for the selected batch");
+      }
+
+      if (data?.meta?.message) setAlert("info", data.meta.message);
+
+      renderRows(data?.rows || []);
+    } catch (e) {
+      console.error(e);
+      setAlert("danger", "Failed to load report.");
+      renderRows([]);
+    }
+  }
+
+  els.btnApply.addEventListener("click", apply);
+
+  // keep export links always in sync
+  ["change", "keyup"].forEach(evt => {
+    [els.sessionId, els.semester, els.level, els.batchId, els.statusMode].forEach(el => {
+      el.addEventListener(evt, () => updateExportLinks(getParams()));
+    });
+  });
+
+  updateExportLinks(getParams());
+})();
 </script>
