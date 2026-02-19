@@ -52,6 +52,15 @@ function normalizeSemesterLabel(sem) {
 const INSTITUTION_NAME =
   "EKITI STATE COLLEGE OF HEALTH SCIENCES AND TECHNOLOGY, IJERO-EKITI";
 
+/**
+ * IMPORTANT:
+ * Your DB marks HOD approval as HOD_APPROVED (and likely other intermediate steps).
+ * “Approved only” should include all approval stages (not just final stages),
+ * otherwise HOD-approved results disappear from reports.
+ */
+const APPROVED_STATUS_SQL =
+  " AND rb.status IN ('HOD_APPROVED','DEAN_APPROVED','BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+
 function getRole(req) {
   return (
     req.session?.staffUser?.role ||
@@ -184,7 +193,7 @@ async function fetchMasterMarkSheet(req) {
       params.push(batchId);
     }
     if (statusMode === "approved") {
-      statusSql += " AND rb.status IN ('BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+      statusSql += APPROVED_STATUS_SQL;
     }
 
     const sql = `
@@ -390,7 +399,7 @@ async function fetchSemesterResult(req) {
 
     let statusSql = "";
     if (statusMode === "approved") {
-      statusSql += " AND rb.status IN ('BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+      statusSql += APPROVED_STATUS_SQL;
     }
 
     const [[sessionRow]] = await conn.query(
@@ -546,7 +555,7 @@ async function fetchSemesterResult(req) {
       }
     }
 
-    // 4) Previous carry (all earlier sessions totals) => used for FIRST semester Previous + cumulative
+    // 4) Previous carry (all earlier sessions totals)
     const [prevCarryAgg] = await conn.query(
       `
       SELECT
@@ -573,7 +582,7 @@ async function fetchSemesterResult(req) {
       });
     }
 
-    // 5) Previous semester totals (FIRST of same session+level) => used for SECOND semester Previous + cumulative
+    // 5) Previous semester totals (FIRST of same session+level) => used for SECOND
     let prevSem = new Map();
     if (semester === "SECOND") {
       const [prevSemAgg] = await conn.query(
@@ -606,16 +615,15 @@ async function fetchSemesterResult(req) {
       }
     }
 
-    // 6) Outstanding (previous failures BEFORE current semester):
-    // FIRST: earlier sessions only
-    // SECOND: earlier sessions + FIRST semester of current session
+    // 6) Outstanding (previous failures BEFORE current semester)
     const prevWhere =
       semester === "SECOND"
         ? "(rb.session_id < ? OR (rb.session_id = ? AND rb.semester = 'FIRST'))"
         : "(rb.session_id < ?)";
-
     const prevParams =
-      semester === "SECOND" ? [sessionId, sessionId, ...studentIds] : [sessionId, ...studentIds];
+      semester === "SECOND"
+        ? [sessionId, sessionId, ...studentIds]
+        : [sessionId, ...studentIds];
 
     const [prevFails] = await conn.query(
       `
@@ -671,7 +679,7 @@ async function fetchSemesterResult(req) {
       const carry = prevCarry.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
       const ps = prevSem.get(sid) || { tcp: 0, tlu: 0, tup: 0 };
 
-      const prev = semester === "SECOND" ? ps : carry;
+      const prev = semester === "SECOND" ? { ...ps } : { ...carry };
       const prevGpa = prev.tlu > 0 ? prev.tup / prev.tlu : 0;
 
       const cum = {
@@ -821,7 +829,7 @@ async function fetchGraduatingList(req) {
 
     let statusSql = "";
     if (statusMode === "approved") {
-      statusSql += " AND rb.status IN ('BUSINESS_APPROVED','FINAL','REGISTRY_APPROVED') ";
+      statusSql += APPROVED_STATUS_SQL;
     }
 
     let progSql = "";
