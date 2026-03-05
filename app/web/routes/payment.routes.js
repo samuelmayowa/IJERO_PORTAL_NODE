@@ -32,3 +32,8 @@ r.get('/payment/remita/callback', remitaCallback);
 r.get('/payment/forward/:rrr', forwardToRemita);
 
 export default r;
+
+/**
+ * PURPOSE / FIXES:
+ * - No functional change; routes remain consistent with the controller’s ONLINE/BANK flows.
+ */

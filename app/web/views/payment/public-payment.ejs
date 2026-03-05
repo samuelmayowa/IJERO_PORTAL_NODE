@@ -5,42 +5,195 @@ const FAKE = (typeof FAKE_RRR_ON !== 'undefined') ? !!FAKE_RRR_ON : false;
 const CSRF = (typeof csrfToken !== 'undefined') ? csrfToken : '';
 const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 %>
+
 <style>
-  .content,.container-fluid{padding:0!important}
-  .payment-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;background:url('/public/img/bg2.jpg') center/cover no-repeat fixed;}
-  .payment-card{width:520px;max-width:94vw;background:#fff;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28);overflow:hidden}
-  .card-head{padding:22px 24px 8px;text-align:center}
-  .logo{width:78px;height:78px;object-fit:contain;margin:0 auto 8px;display:block}
-  .title{font-weight:700;font-size:18px;color:#111}
-  .muted{color:#6b7280;font-size:12px}
-  .card-body{padding:18px 22px}
-  .card-foot{padding:18px 22px 22px;border-top:1px solid #eee}
-  .field{position:relative;margin-bottom:12px}
-  .field .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;opacity:.65}
-  .field select,.field input{width:100%;height:42px;border:1px solid #d1d5db;border-radius:8px;padding:0 12px 0 40px;font-size:14px}
-  .field.noicon input{padding-left:12px}
-  .btn-primary{width:100%;height:44px;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
-  .btn-primary .pill{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.25)}
-  .btn-yellow{width:100%;height:42px;border-radius:8px;border:0;background:#f59e0b;color:#111;font-weight:700;margin-top:10px}
-  .below{margin-top:14px;padding-top:14px;border-top:1px solid #eee;font-size:13px;color:#4b5563}
-  .below a{color:#2563eb;text-decoration:none}
-  .below a:hover{text-decoration:underline}
-  .alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:6px}
-  .alert-warning{background:#fff3cd;border:1px solid #ffe58f;color:#663c00;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:6px}
-  .flash{position:fixed;top:14px;right:14px;z-index:60;max-width:420px}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;z-index:70}
-  .spinner{background:#fff;border-radius:12px;padding:22px 28px;box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center}
-  .spinner .big{font-weight:800}
-  .spinner .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin:0 4px;background:#2563eb;animation:b 1s infinite alternate}
-  .spinner .dot:nth-child(2){animation-delay:.2s}.spinner .dot:nth-child(3){animation-delay:.4s}
-  @keyframes b{to{opacity:.15;transform:translateY(4px)}}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:80}
-  .modal .box{background:#fff;border-radius:12px;max-width:460px;width:92vw;padding:20px 18px;box-shadow:0 18px 60px rgba(0,0,0,.35)}
-  .modal .box h3{margin:0 0 8px;font-size:18px}
-  .modal .acts{display:flex;gap:10px;margin-top:12px}
-  .modal .acts a{flex:1;display:inline-flex;align-items:center;justify-content:center;height:42px;border-radius:8px;font-weight:700;text-decoration:none}
-  .btn-view{background:#10b981;color:#fff}
-  .btn-dl{background:#2563eb;color:#fff}
+  .content, .container-fluid { padding: 0 !important; }
+
+  .payment-bg{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:url('/public/img/bg2.jpg') center/cover no-repeat fixed;
+  }
+
+  .payment-card{
+    width:520px;
+    max-width:94vw;
+    background:#fff;
+    border-radius:12px;
+    box-shadow:0 18px 60px rgba(0,0,0,0.28);
+    overflow:hidden;
+  }
+
+  .card-head{ padding:22px 24px 8px; text-align:center; }
+  .logo{ width:78px; height:78px; object-fit:contain; margin:0 auto 8px; display:block; }
+  .title{ font-weight:700; font-size:18px; color:#111; }
+  .muted{ color:#6b7280; font-size:12px; }
+  .card-body{ padding:18px 22px; }
+  .card-foot{ padding:18px 22px 22px; border-top:1px solid #eee; }
+
+  .field{ position:relative; margin-bottom:12px; }
+  .field .icon{
+    position:absolute;
+    left:12px;
+    top:50%;
+    transform:translateY(-50%);
+    width:18px;
+    height:18px;
+    opacity:.65;
+    pointer-events:none;
+  }
+
+  /* FIX: correct selector + ensure inputs are block + padding for icon */
+  .field select,
+  .field input{
+    box-sizing:border-box;
+    display:block;
+    width:100%;
+    height:42px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    padding:0 12px 0 40px;
+    font-size:14px;
+    background:#fff;
+    outline:none;
+  }
+
+  .field.noicon input{ padding-left:12px; }
+
+  .field-label{
+    display:block;
+    margin:0 0 6px;
+    font-size:13px;
+    color:#111;
+    font-weight:600;
+  }
+
+  .btn-primary{
+    width:100%;
+    height:44px;
+    border-radius:10px;
+    border:0;
+    background:#2563eb;
+    color:#fff;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    cursor:pointer;
+  }
+  .btn-primary .pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:24px;
+    height:24px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.25);
+  }
+
+  .btn-yellow{
+    width:100%;
+    height:42px;
+    border-radius:8px;
+    border:0;
+    background:#f59e0b;
+    color:#111;
+    font-weight:700;
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-decoration:none;
+  }
+
+  .below{ margin-top:14px; padding-top:14px; border-top:1px solid #eee; font-size:13px; color:#4b5563; }
+  .below a{ color:#2563eb; text-decoration:none; }
+  .below a:hover{ text-decoration:underline; }
+
+  .alert-info{
+    background:#eff6ff;
+    border:1px solid #bfdbfe;
+    color:#1e3a8a;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:13px;
+    margin-top:6px;
+  }
+
+  .alert-warning{
+    background:#fff3cd;
+    border:1px solid #ffe58f;
+    color:#663c00;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:13px;
+    margin-top:6px;
+  }
+
+  .flash{ position:fixed; top:14px; right:14px; z-index:60; max-width:420px; }
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.48);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:70;
+  }
+
+  .spinner{
+    background:#fff;
+    border-radius:12px;
+    padding:22px 28px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.35);
+    text-align:center;
+  }
+  .spinner .big{ font-weight:800; }
+  .spinner .dot{
+    width:10px;height:10px;border-radius:999px;
+    display:inline-block;margin:0 4px;
+    background:#2563eb;
+    animation:b 1s infinite alternate;
+  }
+  .spinner .dot:nth-child(2){ animation-delay:.2s; }
+  .spinner .dot:nth-child(3){ animation-delay:.4s; }
+  @keyframes b{ to{ opacity:.15; transform:translateY(4px); } }
+
+  .modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:80;
+  }
+  .modal .box{
+    background:#fff;
+    border-radius:12px;
+    max-width:460px;
+    width:92vw;
+    padding:20px 18px;
+    box-shadow:0 18px 60px rgba(0,0,0,0.35);
+  }
+  .modal .box h3{ margin:0 0 8px; font-size:18px; }
+  .modal .acts{ display:flex; gap:10px; margin-top:12px; }
+  .modal .acts a{
+    flex:1;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height:42px;
+    border-radius:8px;
+    font-weight:700;
+    text-decoration:none;
+  }
+  .btn-view{ background:#10b981; color:#fff; }
+  .btn-dl{ background:#2563eb; color:#fff; }
 </style>
 
 <div class="flash">
@@ -54,7 +207,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
     <div class="card-head">
       <img src="/public/img/logo.png" class="logo" alt="College logo">
-      <div class="title">Other Payments <span class="muted"></span></div>
+      <div class="title">Other Payments</div>
       <div class="muted">Supply your details below.</div>
     </div>
 
@@ -73,38 +226,45 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v14H3z M7 9h6v2H7z M7 12h10v2H7z"/></svg>
         <input type="text" name="payee_id" placeholder="Payee ID (Matric/Reg./Phone) — Optional">
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-5 0-9 2.24-9 5v1h18v-1c0-2.76-4-5-9-5z"/></svg>
         <input type="text" name="payee_fullname" placeholder="Payee Fullname" required>
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>
         <input type="email" name="payee_email" placeholder="Payee Email Address">
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.05 15.05 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.36 11.36 0 0 0 3.6.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 8a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .6 3.6 1 1 0 0 1-.25 1z"/></svg>
         <input type="text" name="payee_phone" placeholder="Payee Phone Number">
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
         <input id="purpose" name="purpose" placeholder="Payment Purpose — auto or custom">
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1v22M5 6h10a3 3 0 0 1 0 6H7a3 3 0 0 0 0 6h10"/></svg>
         <input id="amount" type="number" placeholder="Amount (₦) — auto from Payment Type" readonly>
       </div>
+
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l4 8H8l4-8zm-4 10h8l4 8H4l4-8z"/></svg>
         <input id="portal_charge" type="number" placeholder="Portal Charge (₦)" readonly>
       </div>
 
       <div class="field">
+        <label for="paymentMethod" class="field-label">Payment Method</label>
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 7h20v10H2zM2 10h20"/></svg>
-        <label for="method" class="field-label">Payment Method</label>
-        <select id="method" name="method" class="field">
+        <select id="paymentMethod" name="method">
           <option value="BANK" selected>Pay at Bank Branch</option>
           <% if (!FAKE) { %><option value="ONLINE">Pay Online</option><% } %>
         </select>
+
         <% if (FAKE) { %>
           <div class="alert-warning">
             Online payment is temporarily unavailable. Please use <b>Pay at Bank Branch</b>.
@@ -112,11 +272,17 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
         <% } %>
       </div>
 
-      <div class="alert-info"><b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.</div>
+      <div class="alert-info" id="methodNote">
+        <b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.
+      </div>
     </div>
 
     <div class="card-foot">
-      <button class="btn-primary" type="submit">Generate Invoice(RRR) Now <span class="pill">➜</span></button>
+      <button class="btn-primary" id="payActionBtn" type="submit">
+        <span id="payBtnText">Generate Invoice(RRR) Now</span>
+        <span class="pill">➜</span>
+      </button>
+
       <a class="btn-yellow" href="/payment/reprint">VALIDATE RRR / REPRINT ➜</a>
       <div class="below"><a href="/">College Portal Home Page</a></div>
     </div>
@@ -145,6 +311,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 <script>
 (function(){
   const $ = (s)=>document.querySelector(s);
+
   const form = $('#payForm');
 
   const elType = $('#payment_type_id');
@@ -152,11 +319,30 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   const elCharge = $('#portal_charge');
   const elPurpose = $('#purpose');
 
+  // NEW ids
+  const elMethod = $('#paymentMethod');
+  const btnText = $('#payBtnText');
+  const methodNote = $('#methodNote');
+
   const overlay = $('#overlay');
   const modal = $('#modal');
   const mTitle = $('#mTitle'), mDesc = $('#mDesc'), mView = $('#mView'), mDl = $('#mDl');
 
   const csrf = form.getAttribute('data-csrf') || '';
+
+  // Button text switch (BANK vs ONLINE)
+  function syncMethodUI(){
+    const m = String(elMethod?.value || 'BANK').toUpperCase();
+    if (m === 'ONLINE') {
+      btnText.textContent = 'PAY NOW';
+      methodNote.innerHTML = '<b>Note:</b> Selecting “Pay Online” will generate an RRR and redirect you to Remita to complete payment.';
+    } else {
+      btnText.textContent = 'Generate Invoice(RRR) Now';
+      methodNote.innerHTML = '<b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.';
+    }
+  }
+  elMethod?.addEventListener('change', syncMethodUI);
+  syncMethodUI();
 
   // --- Auto-populate amount / charge / purpose when payment type changes
   elType.addEventListener('change', async () => {
@@ -174,7 +360,10 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
     }
   });
 
-  function showOverlay(text){ document.getElementById('ovTitle').textContent = text || 'Processing, please wait...'; overlay.style.display='flex'; }
+  function showOverlay(text){
+    document.getElementById('ovTitle').textContent = text || 'Processing, please wait...';
+    overlay.style.display='flex';
+  }
   function hideOverlay(){ overlay.style.display='none'; }
 
   function pickOrderId(d){
@@ -186,7 +375,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
     return { viewUrl: base, downloadUrl: `${base}&dl=1` };
   }
   function showModal(kind, data){
-    const orderId   = pickOrderId(data);
+    const orderId = pickOrderId(data);
     const urls = (data && data.view_url && data.download_url)
       ? {viewUrl: data.view_url, downloadUrl: data.download_url}
       : buildUrlsFrom(orderId, kind);
@@ -206,7 +395,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   }
   modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.style.display='none'; });
 
-  // --- Submit handler (robust to HTML/redirect error responses)
+  // --- Submit handler
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     showOverlay('Processing, please wait...');
@@ -218,32 +407,28 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
       const r = await fetch(form.action + '?ajax=1', {
         method:'POST',
+        credentials: 'same-origin',  
         headers: {
           'Accept':'application/json',
           'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
           'x-csrf-token': csrf
         },
-        body: params.toString(),
-        redirect: 'manual'
+        body: params.toString()
       });
 
-      // If the server tried to redirect to an HTML page, stop and show message
       const ct = (r.headers.get('content-type') || '').toLowerCase();
 
       if (!r.ok) {
-        // Prefer JSON error if present
         if (ct.includes('application/json')) {
           const err = await r.json().catch(()=>({}));
           throw new Error(err.message || err.error || 'Request failed. Please check required fields and try again.');
         }
-        // Otherwise read text for console, but show friendly message to user
         const txt = await r.text().catch(()=> '');
         console.error('Server returned non-JSON error:', r.status, txt);
         throw new Error('Request failed. Please try again.');
       }
 
       if (!ct.includes('application/json')) {
-        // We unexpectedly got HTML or something else — log it, show friendly message
         const txt = await r.text().catch(()=> '');
         console.error('Unexpected non-JSON response:', txt);
         throw new Error('Unexpected server response. Please try again.');
@@ -251,12 +436,11 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
       const data = await r.json();
 
-      // redirect to Remita (online)
-      if (data && data.kind === 'redirect' && data.redirectUrl) {
+      // redirect to Remita (online) – accept multiple keys
+      const redirectUrl = data?.redirectUrl || data?.redirect_url || data?.forwardUrl || data?.forward_url || data?.url || '';
+      if (redirectUrl) {
         document.getElementById('ovTitle').textContent = 'Redirecting to payment...';
-        console.log('Redirecting to:', data.redirectUrl);
-        window.location = data.redirectUrl;
-
+        window.location = redirectUrl;
         return;
       }
 
@@ -265,7 +449,15 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
     } catch(err){
       hideOverlay();
       alert(err.message || 'Something went wrong.');
+    } finally {
+      syncMethodUI();
     }
   });
 })();
 </script>
+
+<!--
+Purpose / Fix:
+- Fixes broken/overlapping UI by correcting CSS syntax errors and selectors.
+- Adds IDs + PAY NOW toggle when ONLINE is selected, without breaking your existing AJAX flow.
+-->

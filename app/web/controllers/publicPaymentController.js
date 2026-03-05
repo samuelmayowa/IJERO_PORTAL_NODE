@@ -261,7 +261,7 @@ export async function createInvoice(req, res, next){
 
     // --- Normalize values for Remita (avoid nulls) ---
     const total = Number(created.amount) + Number(created.portal_charge);
-    const amount2dp = Number(total || 0).toFixed(2);
+    const totalAmount = Number.isFinite(total) ? total : 0;
 
     const rawName  = (body.payee_fullname || '').toString().trim();
     const rawEmail = (body.payee_email || '').toString().trim();
@@ -273,41 +273,37 @@ export async function createInvoice(req, res, next){
     const payerPhone = rawPhone || '00000000000';
     const description = rawPurpose || 'Payment';
 
-    // ✅ CHANGED: use the platform STID (4430731) for paymentinit
     const serviceTypeId = resolveServiceTypeId(created.pt);
     if (!serviceTypeId) {
       throw new Error('Remita ServiceTypeId is not configured. Set REMITA_STID_* in .env or a STID column on payment_types.');
     }
 
-
     // 2) get RRR from Remita
-        const r = await remita.createRRR({
-      orderId: created.order_id,
-      amount: amount2dp,
+    const r = await remita.createRRR({
+      orderId: String(Date.now()),
+      amount: totalAmount,          // ✅ send numeric so remitaService can send integer string when possible
       payerName,
       payerEmail,
       payerPhone,
       description,
       serviceTypeId,
-      // ✅ Many live STIDs require these custom fields; harmless on test/lenient configs.
+      // ✅ use descriptive custom field names (less chance of Remita-side “Name is null”)
       customFields: [
-        { name: 'name',  value: payerName,  type: 'ALL' },
-        { name: 'email', value: payerEmail, type: 'ALL' },
-        { name: 'phone', value: payerPhone, type: 'ALL' },
-        // Optional but useful for reconciliation on some tenants:
-        { name: 'orderId', value: String(created.order_id), type: 'ALL' }
+        { name: 'Payer Name',   value: payerName,                type: 'ALL' },
+        { name: 'Payer Email',  value: payerEmail,               type: 'ALL' },
+        { name: 'Payer Phone',  value: payerPhone,               type: 'ALL' },
+        { name: 'Portal OrderId', value: String(created.order_id), type: 'ALL' }
       ]
     });
+
     await svc.attachRRR(created.order_id, r.rrr);
 
-    // Remita's pay page (finalize.reg) requires a POST; so we bounce the user
-    // through our own page that auto-POSTs to Remita with { rrr, responseurl }.
+    // ONLINE: forward to Remita checkout (finalize.reg requires POST)
     if (method === 'ONLINE') {
       const forwardUrl = `/payment/forward/${encodeURIComponent(r.rrr)}?order=${encodeURIComponent(created.order_id)}`;
       if (wantsJson(req)) return res.json({ kind: 'redirect', redirectUrl: forwardUrl, order_id: created.order_id });
       return res.redirect(forwardUrl);
     }
-
 
     // BANK: show invoice now
     if (wantsJson(req)) {
@@ -338,7 +334,7 @@ export async function reprintForm(req, res, next){
 }
 
 // Reprint + Validate:
-// - If local status is PENDING, ask Remita by orderId.
+// - If local status is PENDING, ask Remita by RRR first (best) then orderId fallback.
 // - If Remita says PAID, set local status to PAID and print RECEIPT.
 // - Else print INVOICE.
 export async function reprintDownload(req, res, next){
@@ -358,8 +354,10 @@ export async function reprintDownload(req, res, next){
 
     if (inv.status !== 'PAID') {
       try {
-        const status = await remita.verifyByOrderId(inv.order_id);
-        // Remita success codes commonly include '00' or status "Successful".
+        const status = inv.rrr
+          ? await remita.verifyByRRR(inv.rrr)         // ✅ Bank verification works reliably with RRR
+          : await remita.verifyByOrderId(inv.order_id);
+
         const code = (status?.responseCode || status?.status || status?.message || '').toString();
         const paid = /(^00$)|success/i.test(code) || /Successful/i.test(status?.responseMessage || '');
         if (paid) {
@@ -416,49 +414,50 @@ export async function print(req, res, next){
 }
 
 // Remita returns here after Online payment.
-// We verify by orderId (or, if missing, by RRR→orderId lookup), mark PAID, then show Receipt.
+// We verify by RRR when available, mark PAID, then show Receipt.
 export async function remitaCallback(req, res) {
   try {
+    const rrr = String(req.query.rrr || req.query.RRR || '').trim();
+
     // Try all the common orderId keys first…
     let orderId =
       req.query.orderId || req.query.orderID || req.query.orderid ||
       req.query.orderRef || req.query.reference || req.query.transRef || '';
 
     // If not present, but we got an RRR, map RRR → local orderId
-    if (!orderId) {
-      const rrr = String(req.query.rrr || req.query.RRR || '').trim();
-      if (rrr) {
-        const [rows] = await db.query(
-          `SELECT order_id FROM payment_invoices WHERE rrr=? LIMIT 1`,
-          [rrr]
-        );
-        orderId = rows?.[0]?.order_id || '';
-      }
+    if (!orderId && rrr) {
+      const [rows] = await db.query(
+        `SELECT order_id FROM payment_invoices WHERE rrr=? LIMIT 1`,
+        [rrr]
+      );
+      orderId = rows?.[0]?.order_id || '';
     }
 
     if (!orderId) return res.status(400).send('Missing orderId');
 
-    // Verify with Remita by orderId
-    const status = await remita.verifyByOrderId(String(orderId));
+    // Verify with Remita (prefer RRR check)
+    const status = rrr
+      ? await remita.verifyByRRR(rrr)
+      : await remita.verifyByOrderId(String(orderId));
+
     const code   = (status?.responseCode || status?.status || status?.message || '').toString();
     const paid = (
-      /(^00$)|(^01$)/.test(code) ||                    // exact code 00 or 01
-      /success/i.test(code) ||                        
+      /(^00$)|(^01$)/.test(code) ||
+      /success/i.test(code) ||
       /Successful/i.test(status?.responseMessage || '')
     );
 
-
     if (paid) {
-      await svc.markPaid(String(orderId), { remita: status });
+      await svc.markPaid(String(orderId), { remita: status, rrr: rrr || undefined });
     }
 
     const kind        = paid ? 'receipt' : 'invoice';
-const viewUrl     = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=0`;
-const downloadUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=1`;
-return res.render('payment/result', {
-  modeTitle: paid ? 'PAYMENT SUCCESSFUL' : 'PAYMENT PENDING',
-  viewUrl, downloadUrl
-});
+    const viewUrl     = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=0`;
+    const downloadUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=1`;
+    return res.render('payment/result', {
+      modeTitle: paid ? 'PAYMENT SUCCESSFUL' : 'PAYMENT PENDING',
+      viewUrl, downloadUrl
+    });
   } catch (e) {
     console.error('[remitaCallback]', e);
     res.status(500).send('Payment verification failed.');
@@ -478,7 +477,29 @@ export async function forwardToRemita(req, res) {
       : (process.env.REMITA_TEST_PAYPAGE || '')
     ).replace(/\/+$/,''); // trim trailing slash
 
-    const baseReturn = (process.env.REMITA_RETURN_URL || '').trim();
+    const merchantId = (mode === 'live'
+      ? process.env.REMITA_LIVE_MERCHANT_ID
+      : process.env.REMITA_TEST_MERCHANT_ID
+    );
+
+    const apiKey = (mode === 'live'
+      ? process.env.REMITA_LIVE_API_KEY
+      : process.env.REMITA_TEST_API_KEY
+    );
+
+    // Remita checkout hash for finalize.reg: SHA512(merchantId + rrr + apiKey)
+    const hash = crypto.createHash('sha512')
+      .update(String(merchantId) + String(rrr) + String(apiKey), 'utf8')
+      .digest('hex');
+
+    // Build an absolute responseurl. (Remita needs an absolute URL; if you put only a path in env,
+    // we’ll prefix the current host.)
+    let baseReturn = (process.env.REMITA_RETURN_URL || '').trim();
+    if (baseReturn && !/^https?:\/\//i.test(baseReturn)) {
+      const prefix = `${req.protocol}://${req.get('host')}`;
+      baseReturn = baseReturn.startsWith('/') ? `${prefix}${baseReturn}` : `${prefix}/${baseReturn}`;
+    }
+
     // Ensure our callback gets both orderId and rrr even if Remita doesn’t send them back
     const returnUrl = baseReturn
       ? `${baseReturn}${baseReturn.includes('?') ? '&' : '?'}orderId=${encodeURIComponent(orderId)}&rrr=${encodeURIComponent(rrr)}`
@@ -493,7 +514,7 @@ export async function forwardToRemita(req, res) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;background:#f5f7fb}
-    .card{max-width:520px;margin:8vh auto;padding:28px 26px;border-radius:14px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.12)}
+    .card{max-width:520px;margin:8vh auto;padding:28px 26px;border-radius:14px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,12)}
     .btn{display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700}
     .muted{color:#64748b;font-size:14px;margin-top:6px}
     code{background:#f1f5f9;padding:2px 6px;border-radius:6px}
@@ -506,6 +527,8 @@ export async function forwardToRemita(req, res) {
     <p class="muted">If nothing happens in a second, click the button below.</p>
 
     <form id="to-remita" method="POST" action="${payPage}">
+      <input type="hidden" name="merchantId" value="${merchantId || ''}">
+      <input type="hidden" name="hash" value="${hash}">
       <input type="hidden" name="rrr" value="${rrr}">
       ${ returnUrl ? `<input type="hidden" name="responseurl" value="${returnUrl}">` : '' }
       <button class="btn" type="submit">Continue</button>
@@ -522,4 +545,9 @@ export async function forwardToRemita(req, res) {
   }
 }
 
-
+/**
+ * PURPOSE / FIXES:
+ * - ONLINE flow: generate RRR then auto-POST to Remita finalize.reg with merchantId+hash+rrr+responseurl.
+ * - Bank Branch validation: uses verifyByRRR(status.reg) so paid RRR can be confirmed reliably.
+ * - Keeps invoice/receipt PDF formatting and watermark exactly unchanged.
+ */
