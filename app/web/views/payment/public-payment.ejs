@@ -45,7 +45,6 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
     pointer-events:none;
   }
 
-  /* FIX: correct selector + ensure inputs are block + padding for icon */
   .field select,
   .field input{
     box-sizing:border-box;
@@ -313,13 +312,10 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   const $ = (s)=>document.querySelector(s);
 
   const form = $('#payForm');
-
   const elType = $('#payment_type_id');
   const elAmount = $('#amount');
   const elCharge = $('#portal_charge');
   const elPurpose = $('#purpose');
-
-  // NEW ids
   const elMethod = $('#paymentMethod');
   const btnText = $('#payBtnText');
   const methodNote = $('#methodNote');
@@ -330,12 +326,11 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
   const csrf = form.getAttribute('data-csrf') || '';
 
-  // Button text switch (BANK vs ONLINE)
   function syncMethodUI(){
     const m = String(elMethod?.value || 'BANK').toUpperCase();
     if (m === 'ONLINE') {
       btnText.textContent = 'PAY NOW';
-      methodNote.innerHTML = '<b>Note:</b> Selecting “Pay Online” will generate an RRR and redirect you to Remita to complete payment.';
+      methodNote.innerHTML = '<b>Note:</b> Selecting “Pay Online” will generate an RRR and open Remita payment immediately.';
     } else {
       btnText.textContent = 'Generate Invoice(RRR) Now';
       methodNote.innerHTML = '<b>Note:</b> Selecting “Pay at Bank Branch” will generate an RRR and a PDF invoice immediately.';
@@ -344,10 +339,10 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   elMethod?.addEventListener('change', syncMethodUI);
   syncMethodUI();
 
-  // --- Auto-populate amount / charge / purpose when payment type changes
   elType.addEventListener('change', async () => {
     const id = elType.value;
-    elAmount.value = ''; elCharge.value = '';
+    elAmount.value = '';
+    elCharge.value = '';
     if(!id) return;
     try{
       const r = await fetch(`/payment/api/payment-types/${id}`, { headers: {'Accept':'application/json'} });
@@ -395,7 +390,6 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   }
   modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.style.display='none'; });
 
-  // --- Submit handler
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     showOverlay('Processing, please wait...');
@@ -407,7 +401,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
       const r = await fetch(form.action + '?ajax=1', {
         method:'POST',
-        credentials: 'same-origin',  
+        credentials: 'same-origin',
         headers: {
           'Accept':'application/json',
           'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
@@ -436,10 +430,9 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
       const data = await r.json();
 
-      // redirect to Remita (online) – accept multiple keys
       const redirectUrl = data?.redirectUrl || data?.redirect_url || data?.forwardUrl || data?.forward_url || data?.url || '';
       if (redirectUrl) {
-        document.getElementById('ovTitle').textContent = 'Redirecting to payment...';
+        document.getElementById('ovTitle').textContent = 'Opening payment...';
         window.location = redirectUrl;
         return;
       }
@@ -455,9 +448,3 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   });
 })();
 </script>
-
-<!--
-Purpose / Fix:
-- Fixes broken/overlapping UI by correcting CSS syntax errors and selectors.
-- Adds IDs + PAY NOW toggle when ONLINE is selected, without breaking your existing AJAX flow.
--->

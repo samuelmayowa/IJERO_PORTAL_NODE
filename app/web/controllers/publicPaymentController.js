@@ -5,14 +5,9 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 import db from '../../core/db.js';
-import crypto from 'crypto';
 
-// Online should be enabled now; we don't gate it behind REMITA_FAKE.
-// (If you still need a dev fallback, remitaService respects REMITA_FAKE_RRR_WHEN_FAIL=1)
 const ONLINE_ENABLED = true;
 
-// Resolve ServiceTypeId from ENV or the selected payment type row.
-// Priority: explicit env → name-based env (from .env) → columns on payment_types → default env.
 function resolveServiceTypeId(pt){
   const nm = String(pt?.name || '').trim().toLowerCase();
   const byName =
@@ -26,14 +21,27 @@ function resolveServiceTypeId(pt){
   const fromRow = pt?.remita_service_type_id || pt?.service_type_id || pt?.remita_stid || pt?.stid || '';
 
   return String(
-    process.env.REMITA_SERVICE_TYPE_ID ||  // one global STID if you set it
-    byName ||                              // name → specific STID from .env
-    fromRow ||                             // use any column present in the row
-    process.env.REMITA_STID_DEFAULT || ''  // final fallback
+    process.env.REMITA_SERVICE_TYPE_ID ||
+    byName ||
+    fromRow ||
+    process.env.REMITA_STID_DEFAULT || ''
   ).trim();
 }
 
-// ---------------- helpers ----------------
+function getInlineConfig(){
+  const mode = (process.env.REMITA_MODE || 'test').toLowerCase();
+
+  const scriptUrl = (mode === 'live')
+    ? String(process.env.REMITA_LIVE_INLINE_SCRIPT || 'https://login.remita.net/payment/v1/remita-pay-inline.bundle.js').trim()
+    : String(process.env.REMITA_TEST_INLINE_SCRIPT || 'https://demo.remita.net/payment/v1/remita-pay-inline.bundle.js').trim();
+
+  const publicKey = (mode === 'live')
+    ? String(process.env.REMITA_LIVE_INLINE_PUBLIC_KEY || '').trim()
+    : String(process.env.REMITA_TEST_INLINE_PUBLIC_KEY || 'QzAwMDAyNzEyNTl8MTEwNjE4NjF8OWZjOWYwNmMyZDk3MDRhYWM3YThiOThlNTNjZTE3ZjYxOTY5NDdmZWE1YzU3NDc0ZjE2ZDZjNTg1YWYxNWY3NWM4ZjMzNzZhNjNhZWZlOWQwNmJhNTFkMjIxYTRiMjYzZDkzNGQ3NTUxNDIxYWNlOGY4ZWEyODY3ZjlhNGUwYTY=').trim();
+
+  return { mode, scriptUrl, publicKey };
+}
+
 function money(n) {
   const v = Number(n || 0);
   return `#${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -43,7 +51,6 @@ function wantsJson(req){
   return (req.headers['accept'] || '').includes('application/json') || req.query.ajax === '1';
 }
 
-// draw light repeated logo watermark
 function drawLogoWatermark(doc) {
   try {
     const logoPath = path.resolve('app/web/public/img/logo.png');
@@ -56,7 +63,6 @@ function drawLogoWatermark(doc) {
   } catch {}
 }
 function drawReceiptTextWatermark(doc){
-  // Big faint red "PAYMENT RECEIPT" diagonally
   doc.save();
   doc.rotate(-30, { origin: [doc.page.width/2, doc.page.height/2] });
   doc.fillColor('#e11d48').opacity(0.08);
@@ -65,7 +71,6 @@ function drawReceiptTextWatermark(doc){
   doc.opacity(1).fillColor('#111');
   doc.restore();
 }
-
 function centerLogo(doc) {
   try {
     const logoPath = path.resolve('app/web/public/img/logo.png');
@@ -73,20 +78,12 @@ function centerLogo(doc) {
     doc.image(logoPath, (doc.page.width-70)/2, 38, { width: 70, height: 70 });
   } catch {}
 }
-
 function hr(doc, y = doc.y) {
   doc.strokeColor('#cfd2d4').lineWidth(1).moveTo(40, y).lineTo(doc.page.width-40, y).stroke();
 }
-
-/**
- * A4 width = 595pt. With 36pt margins, contentWidth ≈ 523pt (x: 36..559).
- */
 function twoColRow(doc, leftLabel, leftValue, rightLabel, rightValue, y) {
-  // Left column
   const LxLabel = 50, LxVal = 140;
   const LlabelW = 90, LvalW = 200;
-
-  // Right column (short values only)
   const RxLabel = 360, RxVal = 450;
   const RlabelW = 90, RvalW = 90;
 
@@ -106,7 +103,6 @@ function twoColRow(doc, leftLabel, leftValue, rightLabel, rightValue, y) {
   return y + lh + 6;
 }
 
-// render invoice/receipt (matches sample layout/wording)
 function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   const doc = new PDFDocument({ margin: 36, size: 'A4' });
   const filename = `${p.order_id}.pdf`;
@@ -114,22 +110,17 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${filename}"`);
   doc.pipe(res);
 
-  // watermark & crest
   drawLogoWatermark(doc);
   if (kind === 'receipt') drawReceiptTextWatermark(doc);
-    centerLogo(doc);
+  centerLogo(doc);
 
-  // ✅ Ensure we start content on page 1 (avoid accidental page advance)
-  // Put the text baseline safely below the crest.
   doc.y = 120;
 
-  // institution name + address (centered)
   const inst = String(p.institution_name || 'EKITI STATE COLLEGE OF HEALTH, SCIENCES & TECH.').toUpperCase();
   const addr = String(p.institution_address || 'PMB 316, IJERO EKITI, EKITI STATE OF NIGERIA');
   doc.font('Helvetica-Bold').fontSize(12.5).fillColor('#111').text(inst, { align: 'center' });
   doc.font('Helvetica').fontSize(10).fillColor('#111').text(addr, { align: 'center' });
 
-  // main title
   const title = `${String(p.payment_type_name || 'PAYMENT').toUpperCase()} ${kind === 'receipt' ? 'PAYMENT RECEIPT' : 'INVOICE [NOT RECEIPT]'}`;
   doc.moveDown(0.8);
   doc.font('Helvetica-Bold').fontSize(12.5).fillColor('#111').text(title, { align: 'center' });
@@ -137,7 +128,6 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   hr(doc, doc.y + 10);
   doc.moveDown(1);
 
-  // ===== SECTION A (with "Printed On:" inline) =====
   const printedOn = new Date().toISOString().slice(0,10);
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#111').text('SECTION A', 50, doc.y);
   doc.font('Helvetica').fontSize(10).fillColor('#111').text(`Printed On: ${printedOn}`, 120, doc.y-12);
@@ -150,7 +140,6 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   hr(doc, y + 6);
   y += 16;
 
-  // ===== SECTION B =====
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#111').text('SECTION B', 50, y);
   doc.font('Helvetica').fontSize(10).fillColor('#111').text('Payment Information', 120, y-12);
 
@@ -163,7 +152,6 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   y = twoColRow(doc, 'Amount Payable:', money(total), 'Status:', statusText, y);
   y = twoColRow(doc, 'Payment Type:', safe(p.payment_type_name), 'Academic Session:', 'N/A', y);
 
-  // ===== SECTION C (full-width narrative + banks), left-aligned =====
   hr(doc, y + 10);
   y = y + 18;
 
@@ -219,7 +207,6 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
   doc.end();
 }
 
-// ---------------- pages & APIs ----------------
 export async function paymentForm(req, res, next){
   try {
     const types = await svc.listActivePaymentTypes();
@@ -228,7 +215,7 @@ export async function paymentForm(req, res, next){
       types,
       messages: req.flash ? req.flash() : {},
       csrfToken: req.csrfToken?.(),
-      FAKE_RRR_ON: false,            // enable "Online (Remita)" option
+      FAKE_RRR_ON: false,
       ONLINE_ENABLED
     });
   } catch(e){ next(e); }
@@ -246,9 +233,8 @@ export async function fetchType(req, res, next){
 export async function createInvoice(req, res, next){
   try {
     const body = req.body || {};
-    const method = String(body.method || 'BANK').toUpperCase(); // BANK or ONLINE
+    const method = String(body.method || 'BANK').toUpperCase();
 
-    // 1) create local invoice row
     const created = await svc.createInvoice({
       payment_type_id: body.payment_type_id,
       payee_id: body.payee_id,
@@ -259,7 +245,6 @@ export async function createInvoice(req, res, next){
       method
     });
 
-    // --- Normalize values for Remita (avoid nulls) ---
     const total = Number(created.amount) + Number(created.portal_charge);
     const totalAmount = Number.isFinite(total) ? total : 0;
 
@@ -278,34 +263,30 @@ export async function createInvoice(req, res, next){
       throw new Error('Remita ServiceTypeId is not configured. Set REMITA_STID_* in .env or a STID column on payment_types.');
     }
 
-    // 2) get RRR from Remita
     const r = await remita.createRRR({
       orderId: String(Date.now()),
-      amount: totalAmount,          // ✅ send numeric so remitaService can send integer string when possible
+      amount: totalAmount,
       payerName,
       payerEmail,
       payerPhone,
       description,
       serviceTypeId,
-      // ✅ use descriptive custom field names (less chance of Remita-side “Name is null”)
       customFields: [
-        { name: 'Payer Name',   value: payerName,                type: 'ALL' },
-        { name: 'Payer Email',  value: payerEmail,               type: 'ALL' },
-        { name: 'Payer Phone',  value: payerPhone,               type: 'ALL' },
+        { name: 'Payer Name', value: payerName, type: 'ALL' },
+        { name: 'Payer Email', value: payerEmail, type: 'ALL' },
+        { name: 'Payer Phone', value: payerPhone, type: 'ALL' },
         { name: 'Portal OrderId', value: String(created.order_id), type: 'ALL' }
       ]
     });
 
     await svc.attachRRR(created.order_id, r.rrr);
 
-    // ONLINE: forward to Remita checkout (finalize.reg requires POST)
     if (method === 'ONLINE') {
       const forwardUrl = `/payment/forward/${encodeURIComponent(r.rrr)}?order=${encodeURIComponent(created.order_id)}`;
       if (wantsJson(req)) return res.json({ kind: 'redirect', redirectUrl: forwardUrl, order_id: created.order_id });
       return res.redirect(forwardUrl);
     }
 
-    // BANK: show invoice now
     if (wantsJson(req)) {
       return res.json({
         ok: true,
@@ -333,13 +314,9 @@ export async function reprintForm(req, res, next){
   } catch(e){ next(e); }
 }
 
-// Reprint + Validate:
-// - If local status is PENDING, ask Remita by RRR first (best) then orderId fallback.
-// - If Remita says PAID, set local status to PAID and print RECEIPT.
-// - Else print INVOICE.
 export async function reprintDownload(req, res, next){
   try {
-    const ref = String(req.body.order_id || req.body.rrr || '').trim();
+    const ref = String(req.body.order_id || req.body.rrr || '').trim().replace(/[-\s]/g, '');
     if (!ref) throw new Error('Enter your Order ID or RRR');
 
     const [rows] = await db.query(
@@ -355,22 +332,28 @@ export async function reprintDownload(req, res, next){
     if (inv.status !== 'PAID') {
       try {
         const status = inv.rrr
-          ? await remita.verifyByRRR(inv.rrr)         // ✅ Bank verification works reliably with RRR
-          : await remita.verifyByOrderId(inv.order_id);
+          ? await remita.verifyByRRR(String(inv.rrr))
+          : await remita.verifyByOrderId(String(inv.order_id));
 
-        const code = (status?.responseCode || status?.status || status?.message || '').toString();
-        const paid = /(^00$)|success/i.test(code) || /Successful/i.test(status?.responseMessage || '');
+        const code = (status?.status || status?.responseCode || status?.message || status?.statuscode || '').toString();
+        const msg  = (status?.statusMessage || status?.statusmessage || status?.responseMessage || '').toString();
+        const paid = /(^00$)|(^01$)/.test(code) || /success|approved/i.test(code) || /success|approved/i.test(msg);
+
         if (paid) {
           await svc.markPaid(inv.order_id, { remita: status });
-          inv = await svc.refreshInvoice(inv.order_id);
+          const [r2] = await db.query(
+            `SELECT inv.*, pt.name AS payment_type_name, pt.purpose AS payment_type_purpose
+               FROM payment_invoices inv
+               JOIN payment_types pt ON pt.id=inv.payment_type_id
+              WHERE inv.order_id=? LIMIT 1`,
+            [inv.order_id]
+          );
+          inv = r2?.[0] || inv;
         }
-      } catch(e) {
-        // ignore verification failure; fall back to invoice
-      }
+      } catch(e) {}
     }
 
-    const isReceipt = inv.status === 'PAID';
-    const kind = isReceipt ? 'receipt' : 'invoice';
+    const kind = inv.status === 'PAID' ? 'receipt' : 'invoice';
 
     if (wantsJson(req)) {
       return res.json({
@@ -384,11 +367,11 @@ export async function reprintDownload(req, res, next){
     return renderInvoicePDF(res, inv, false, kind);
   } catch(e){
     if (wantsJson(req)) return res.status(400).json({ ok:false, error: e.message || 'Failed' });
-    req.flash?.('error', e.message || 'Not found'); res.redirect('/payment/reprint');
+    req.flash?.('error', e.message || 'Not found');
+    res.redirect('/payment/reprint');
   }
 }
 
-// Stream View/Download
 export async function print(req, res, next){
   const orderId = String(req.params.orderId || '').trim();
   const kind = (String(req.query.type || 'invoice').toLowerCase() === 'receipt') ? 'receipt' : 'invoice';
@@ -401,7 +384,8 @@ export async function print(req, res, next){
       `SELECT inv.*, pt.name AS payment_type_name, pt.purpose AS payment_type_purpose
          FROM payment_invoices inv
          JOIN payment_types pt ON pt.id=inv.payment_type_id
-        WHERE inv.order_id=? LIMIT 1`, [orderId]
+        WHERE inv.order_id=? LIMIT 1`,
+      [orderId]
     );
     const inv = rows?.[0];
     if (!inv) return res.status(404).set('Content-Type','text/plain').send('Not found');
@@ -413,18 +397,16 @@ export async function print(req, res, next){
   }
 }
 
-// Remita returns here after Online payment.
-// We verify by RRR when available, mark PAID, then show Receipt.
 export async function remitaCallback(req, res) {
   try {
-    const rrr = String(req.query.rrr || req.query.RRR || '').trim();
+    const params = { ...(req.query || {}), ...(req.body || {}) };
 
-    // Try all the common orderId keys first…
     let orderId =
-      req.query.orderId || req.query.orderID || req.query.orderid ||
-      req.query.orderRef || req.query.reference || req.query.transRef || '';
+      params.orderId || params.orderID || params.orderid ||
+      params.orderRef || params.reference || params.transRef || '';
 
-    // If not present, but we got an RRR, map RRR → local orderId
+    let rrr = String(params.rrr || params.RRR || '').trim().replace(/[-\s]/g, '');
+
     if (!orderId && rrr) {
       const [rows] = await db.query(
         `SELECT order_id FROM payment_invoices WHERE rrr=? LIMIT 1`,
@@ -435,25 +417,22 @@ export async function remitaCallback(req, res) {
 
     if (!orderId) return res.status(400).send('Missing orderId');
 
-    // Verify with Remita (prefer RRR check)
     const status = rrr
       ? await remita.verifyByRRR(rrr)
       : await remita.verifyByOrderId(String(orderId));
 
-    const code   = (status?.responseCode || status?.status || status?.message || '').toString();
-    const paid = (
-      /(^00$)|(^01$)/.test(code) ||
-      /success/i.test(code) ||
-      /Successful/i.test(status?.responseMessage || '')
-    );
+    const code = (status?.status || status?.responseCode || status?.message || status?.statuscode || '').toString();
+    const msg  = (status?.statusMessage || status?.statusmessage || status?.responseMessage || '').toString();
+    const paid = /(^00$)|(^01$)/.test(code) || /success|approved/i.test(code) || /success|approved/i.test(msg);
 
     if (paid) {
       await svc.markPaid(String(orderId), { remita: status, rrr: rrr || undefined });
     }
 
-    const kind        = paid ? 'receipt' : 'invoice';
-    const viewUrl     = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=0`;
+    const kind = paid ? 'receipt' : 'invoice';
+    const viewUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=0`;
     const downloadUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=1`;
+
     return res.render('payment/result', {
       modeTitle: paid ? 'PAYMENT SUCCESSFUL' : 'PAYMENT PENDING',
       viewUrl, downloadUrl
@@ -464,90 +443,111 @@ export async function remitaCallback(req, res) {
   }
 }
 
-// Auto-POST the user to Remita's pay page (finalize.reg) with the required fields.
 export async function forwardToRemita(req, res) {
   try {
-    const rrr     = String(req.params.rrr || '').trim();
+    const rrr = String(req.params.rrr || '').trim().replace(/[-\s]/g, '');
     const orderId = String(req.query.order || '').trim();
     if (!rrr) return res.status(400).send('Missing RRR.');
 
-    const mode = (process.env.REMITA_MODE || 'test').toLowerCase();
-    const payPage = (mode === 'live'
-      ? (process.env.REMITA_LIVE_PAYPAGE || '')
-      : (process.env.REMITA_TEST_PAYPAGE || '')
-    ).replace(/\/+$/,''); // trim trailing slash
-
-    const merchantId = (mode === 'live'
-      ? process.env.REMITA_LIVE_MERCHANT_ID
-      : process.env.REMITA_TEST_MERCHANT_ID
-    );
-
-    const apiKey = (mode === 'live'
-      ? process.env.REMITA_LIVE_API_KEY
-      : process.env.REMITA_TEST_API_KEY
-    );
-
-    // Remita checkout hash for finalize.reg: SHA512(merchantId + rrr + apiKey)
-    const hash = crypto.createHash('sha512')
-      .update(String(merchantId) + String(rrr) + String(apiKey), 'utf8')
-      .digest('hex');
-
-    // Build an absolute responseurl. (Remita needs an absolute URL; if you put only a path in env,
-    // we’ll prefix the current host.)
-    let baseReturn = (process.env.REMITA_RETURN_URL || '').trim();
-    if (baseReturn && !/^https?:\/\//i.test(baseReturn)) {
-      const prefix = `${req.protocol}://${req.get('host')}`;
-      baseReturn = baseReturn.startsWith('/') ? `${prefix}${baseReturn}` : `${prefix}/${baseReturn}`;
+    const { scriptUrl, publicKey, mode } = getInlineConfig();
+    if (!publicKey) {
+      return res.status(500).send('Remita Inline public key is missing. Set REMITA_TEST_INLINE_PUBLIC_KEY or REMITA_LIVE_INLINE_PUBLIC_KEY in .env');
     }
 
-    // Ensure our callback gets both orderId and rrr even if Remita doesn’t send them back
-    const returnUrl = baseReturn
-      ? `${baseReturn}${baseReturn.includes('?') ? '&' : '?'}orderId=${encodeURIComponent(orderId)}&rrr=${encodeURIComponent(rrr)}`
-      : '';
+    const callbackUrl = `/payment/remita/callback?orderId=${encodeURIComponent(orderId)}&rrr=${encodeURIComponent(rrr)}`;
 
     const html = `
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Redirecting to Remita…</title>
+  <title>Opening Remita Payment…</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;background:#f5f7fb}
-    .card{max-width:520px;margin:8vh auto;padding:28px 26px;border-radius:14px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,12)}
-    .btn{display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700}
+    .card{max-width:560px;margin:8vh auto;padding:28px 26px;border-radius:14px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.12)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;background:#2563eb;color:#fff;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:700;border:0;cursor:pointer}
     .muted{color:#64748b;font-size:14px;margin-top:6px}
     code{background:#f1f5f9;padding:2px 6px;border-radius:6px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .btn-alt{background:#e5e7eb;color:#111}
+    .err{display:none;margin-top:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px;border-radius:10px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h2 style="margin:0 0 6px">Redirecting to Remita…</h2>
+    <h2 style="margin:0 0 6px">Opening Remita Payment…</h2>
     <div class="muted">RRR: <code>${rrr}</code></div>
-    <p class="muted">If nothing happens in a second, click the button below.</p>
+    <div class="muted">Mode: <code>${mode}</code></div>
+    <p class="muted">If the payment window does not open automatically, click the button below.</p>
 
-    <form id="to-remita" method="POST" action="${payPage}">
-      <input type="hidden" name="merchantId" value="${merchantId || ''}">
-      <input type="hidden" name="hash" value="${hash}">
-      <input type="hidden" name="rrr" value="${rrr}">
-      ${ returnUrl ? `<input type="hidden" name="responseurl" value="${returnUrl}">` : '' }
-      <button class="btn" type="submit">Continue</button>
-    </form>
+    <div class="row">
+      <button id="openInlineBtn" class="btn" type="button">Continue to Payment</button>
+      <a class="btn btn-alt" href="/payment/reprint">Validate / Reprint</a>
+    </div>
+
+    <div id="errBox" class="err"></div>
   </div>
-  <script>(function(){try{document.getElementById('to-remita').submit();}catch(_){}})();</script>
+
+  <script src="${scriptUrl}"></script>
+  <script>
+    (function(){
+      var rrr = ${JSON.stringify(rrr)};
+      var callbackUrl = ${JSON.stringify(callbackUrl)};
+      var publicKey = ${JSON.stringify(publicKey)};
+      var errBox = document.getElementById('errBox');
+      var btn = document.getElementById('openInlineBtn');
+
+      function showErr(msg){
+        errBox.style.display = 'block';
+        errBox.textContent = msg || 'Unable to open Remita payment window.';
+      }
+
+      function openInline(){
+        try {
+          if (typeof RmPaymentEngine === 'undefined' || !RmPaymentEngine.init) {
+            showErr('Remita inline script did not load.');
+            return;
+          }
+
+          var paymentEngine = RmPaymentEngine.init({
+            key: publicKey,
+            processRrr: true,
+            transactionId: Math.floor(Math.random() * 1101233),
+            extendedData: {
+              customFields: [
+                { name: 'rrr', value: rrr }
+              ]
+            },
+            onSuccess: function () {
+              window.location.assign(callbackUrl);
+            },
+            onError: function (response) {
+              console.error('Remita inline error:', response);
+              showErr('Payment could not be completed. You can retry or validate the RRR later.');
+            },
+            onClose: function () {
+              console.log('Remita inline closed');
+            }
+          });
+
+          paymentEngine.showPaymentWidget();
+        } catch (e) {
+          console.error(e);
+          showErr(e && e.message ? e.message : 'Unable to open Remita payment window.');
+        }
+      }
+
+      btn.addEventListener('click', openInline);
+      setTimeout(openInline, 350);
+    })();
+  </script>
 </body>
 </html>`.trim();
 
     res.status(200).type('html').send(html);
-  } catch (err) {
-    console.error('forwardToRemita error:', err);
-    res.status(500).send('Unable to forward to Remita at the moment.');
+  } catch (e) {
+    console.error('[forwardToRemita]', e);
+    return res.status(500).send('Failed to open Remita payment.');
   }
 }
-
-/**
- * PURPOSE / FIXES:
- * - ONLINE flow: generate RRR then auto-POST to Remita finalize.reg with merchantId+hash+rrr+responseurl.
- * - Bank Branch validation: uses verifyByRRR(status.reg) so paid RRR can be confirmed reliably.
- * - Keeps invoice/receipt PDF formatting and watermark exactly unchanged.
- */
