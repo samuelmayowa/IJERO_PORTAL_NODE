@@ -42,7 +42,18 @@ export async function addForm(req, res) {
   const meta = await getMeta();
   res.render('payment/payment-type-form', {
     title: 'Add Payment Type',
-    form: { scope: 'GENERAL', is_active: 1 },
+    form: {
+      scope: 'GENERAL',
+      is_active: 1,
+      remita_service_type_id: '',
+      uses_indigene_regime: 0,
+      amount_indigene: '',
+      amount_non_indigene: '',
+      portal_charge_indigene: '',
+      portal_charge_non_indigene: '',
+      remita_service_type_id_indigene: '',
+      remita_service_type_id_non_indigene: ''
+    },
     ...meta,
     messages: req.flash?.() || {},
     csrfToken: req.csrfToken?.(),

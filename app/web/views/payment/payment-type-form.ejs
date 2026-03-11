@@ -32,11 +32,109 @@
               <div class="form-row">
                 <div class="form-group col-md-6">
                   <label>Amount (₦)</label>
-                  <input name="amount" type="number" min="0" class="form-control" value="<%= form.amount || 0 %>">
+                  <input name="amount" type="number" min="0" step="0.01" class="form-control" value="<%= form.amount || 0 %>">
                 </div>
                 <div class="form-group col-md-6">
                   <label>Portal Charge (₦)</label>
-                  <input name="portal_charge" type="number" min="0" class="form-control" value="<%= form.portal_charge || 0 %>">
+                  <input name="portal_charge" type="number" min="0" step="0.01" class="form-control" value="<%= form.portal_charge || 0 %>">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Remita STID</label>
+                <input
+                  name="remita_service_type_id"
+                  class="form-control"
+                  value="<%= form.remita_service_type_id || '' %>"
+                  placeholder="Example: 4058368265">
+                <small class="text-muted">Admin-only mapping for this payment type.</small>
+              </div>
+
+              <div class="form-group">
+                <div class="custom-control custom-switch">
+                  <input
+                    type="checkbox"
+                    class="custom-control-input"
+                    id="uses_indigene_regime"
+                    name="uses_indigene_regime"
+                    value="1"
+                    <%= Number(form.uses_indigene_regime || 0) ? 'checked' : '' %>>
+                  <label class="custom-control-label" for="uses_indigene_regime">Use Indigene / Non-Indigene Fee Regime</label>
+                </div>
+                <small class="text-muted">Indigene will later be derived from state of origin = Ekiti.</small>
+              </div>
+
+              <div id="indigeneRegimeBox" style="display:none">
+                <div class="card">
+                  <div class="card-header py-2"><b>Indigene / Non-Indigene Fee Regime</b></div>
+                  <div class="card-body">
+
+                    <div class="form-row">
+                      <div class="form-group col-md-6">
+                        <label>Indigene Amount (₦)</label>
+                        <input
+                          name="amount_indigene"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="form-control"
+                          value="<%= form.amount_indigene || '' %>">
+                      </div>
+                      <div class="form-group col-md-6">
+                        <label>Non-Indigene Amount (₦)</label>
+                        <input
+                          name="amount_non_indigene"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="form-control"
+                          value="<%= form.amount_non_indigene || '' %>">
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group col-md-6">
+                        <label>Indigene Portal Charge (₦)</label>
+                        <input
+                          name="portal_charge_indigene"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="form-control"
+                          value="<%= form.portal_charge_indigene || '' %>">
+                      </div>
+                      <div class="form-group col-md-6">
+                        <label>Non-Indigene Portal Charge (₦)</label>
+                        <input
+                          name="portal_charge_non_indigene"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="form-control"
+                          value="<%= form.portal_charge_non_indigene || '' %>">
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group col-md-6">
+                        <label>Indigene STID (optional)</label>
+                        <input
+                          name="remita_service_type_id_indigene"
+                          class="form-control"
+                          value="<%= form.remita_service_type_id_indigene || '' %>"
+                          placeholder="Leave empty to use base STID">
+                      </div>
+                      <div class="form-group col-md-6">
+                        <label>Non-Indigene STID (optional)</label>
+                        <input
+                          name="remita_service_type_id_non_indigene"
+                          class="form-control"
+                          value="<%= form.remita_service_type_id_non_indigene || '' %>"
+                          placeholder="Leave empty to use base STID">
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               </div>
 
@@ -70,7 +168,11 @@
                 <label>School(s)</label>
                 <select class="form-control" name="school_ids[]" id="schools" multiple>
                   <% (schools||[]).forEach(s => { %>
-                    <option value="<%= s.id %>"><%= s.name %></option>
+                    <option
+                      value="<%= s.id %>"
+                      <%= Array.isArray(form.school_ids) && form.school_ids.map(Number).includes(Number(s.id)) ? 'selected' : '' %>>
+                      <%= s.name %>
+                    </option>
                   <% }) %>
                 </select>
                 <small class="text-muted">Hold Ctrl/Cmd to pick more than one.</small>
@@ -100,7 +202,7 @@
                       <label>Entry Level</label>
                       <select class="form-control" name="rule_entry_level">
                         <option value="">Any</option>
-                        <% [100,200,300,400,500,600].forEach(L => { %>
+                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach(L => { %>
                           <option value="<%= L %>" <%= String(form.rule_entry_level||'')===String(L)?'selected':'' %>><%= L %></option>
                         <% }) %>
                       </select>
@@ -109,7 +211,7 @@
                       <label>Current Level</label>
                       <select class="form-control" name="rule_current_level">
                         <option value="">Any</option>
-                        <% [100,200,300,400,500,600].forEach(L => { %>
+                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach(L => { %>
                           <option value="<%= L %>" <%= String(form.rule_current_level||'')===String(L)?'selected':'' %>><%= L %></option>
                         <% }) %>
                       </select>
@@ -145,9 +247,8 @@
 
 <script>
 (function(){
-  // data from server
   const sessions = <%- JSON.stringify(sessions || []) %>;
-
+  const savedSessionRows = <%- JSON.stringify(form.sessionRows || []) %>;
   // Scope show/hide
   function showScope(){
     const v = document.getElementById('scope').value;
@@ -157,6 +258,14 @@
   }
   document.getElementById('scope').addEventListener('change', showScope);
   showScope();
+  function showIndigeneRegime(){
+  const cb = document.getElementById('uses_indigene_regime');
+  const box = document.getElementById('indigeneRegimeBox');
+  if (!box) return;
+  box.style.display = cb && cb.checked ? '' : 'none';
+}
+document.getElementById('uses_indigene_regime')?.addEventListener('change', showIndigeneRegime);
+showIndigeneRegime();
 
   // Load departments filtered by selected school(s)
   async function reloadDepartments() {
@@ -204,5 +313,9 @@
     ssRows.appendChild(wrap);
   }
   document.getElementById('btnAddSS').addEventListener('click', () => addSSRow());
+
+if (Array.isArray(savedSessionRows) && savedSessionRows.length) {
+  savedSessionRows.forEach(r => addSSRow(r.session_id || '', r.semester || ''));
+}
 })();
 </script>

@@ -592,8 +592,6 @@ export async function studentDashboard(req, res) {
   const { currentSession, currentSemester, semesterKey } =
     await getCurrentSessionAndSemester();
 
-  // 1) Total registered courses for CURRENT session + CURRENT semester
-  // (SUBMITTED only = “registered”)
   let totalRegisteredCourses = 0;
   let recentCourseRegistrations = [];
 
@@ -611,7 +609,6 @@ export async function studentDashboard(req, res) {
     );
     totalRegisteredCourses = Number(cnt?.[0]?.total || 0);
 
-    // 2) Last 4 course regs for CURRENT session + semester
     const [regs] = await pool.query(
       `
         SELECT id, course_id, units, status, created_at
@@ -632,7 +629,6 @@ export async function studentDashboard(req, res) {
     );
   }
 
-  // 3) Last 4 attendance across ALL schools/depts/courses/sessions/semesters
   let recentAttendance = [];
   if (studentId) {
     const [att] = await pool.query(
@@ -649,7 +645,6 @@ export async function studentDashboard(req, res) {
     recentAttendance = await enrichWithCourseDetails(att || [], (a) => a.course_id);
   }
 
-  // optional: photo (template supports photo_path)
   let photo_path = null;
   try {
     const [rows] = await pool.query(
@@ -663,11 +658,323 @@ export async function studentDashboard(req, res) {
     photo_path = rows?.[0]?.file_path || null;
   } catch {}
 
+  let totalPayable = 0;
+  let totalPaid = 0;
+  let payableBreakdown = { school: 0, faculty: 0, application: 0 };
+  let paymentsBreakdown = { school: 0, faculty: 0, application: 0 };
+  let paymentSummaryRows = [];
+  let recentPayments = [];
+
+  try {
+    if (studentId) {
+      const [[stu]] = await pool.query(
+        `
+          SELECT
+            pu.state_of_origin,
+            pu.matric_number,
+            pu.username,
+            pu.phone,
+            sp.school_id AS profile_school_id,
+            s.name AS profile_school_name,
+            sp.level AS profile_level
+          FROM public_users pu
+          LEFT JOIN student_profiles sp
+            ON sp.user_id = pu.id
+          LEFT JOIN schools s
+            ON s.id = sp.school_id
+          WHERE pu.id = ?
+          LIMIT 1
+        `,
+        [studentId]
+      );
+
+      const [[imp]] = await pool.query(
+        `
+          SELECT
+            school,
+            level,
+            student_level
+          FROM student_imports
+          WHERE matric_number = ?
+             OR student_email = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `,
+        [
+          stu?.matric_number || publicUser?.matric_number || '',
+          stu?.username || publicUser?.username || ''
+        ]
+      );
+
+      let studentSchoolId = Number(stu?.profile_school_id || 0);
+
+      if (!studentSchoolId) {
+        const fallbackSchoolName =
+          String(stu?.profile_school_name || imp?.school || '').trim();
+
+        if (fallbackSchoolName) {
+          const [[sch]] = await pool.query(
+            `SELECT id FROM schools WHERE TRIM(name) = ? LIMIT 1`,
+            [fallbackSchoolName]
+          );
+          studentSchoolId = Number(sch?.id || 0);
+        }
+      }
+
+      const stateOfOrigin =
+        stu?.state_of_origin ||
+        publicUser?.state_of_origin ||
+        '';
+
+      const isIndigene =
+        String(stateOfOrigin).trim().toLowerCase() === 'ekiti';
+
+      const rawLevel =
+        stu?.profile_level ||
+        imp?.student_level ||
+        imp?.level ||
+        '';
+
+      const levelAliases = (() => {
+        const v = String(rawLevel || '').trim().toUpperCase();
+        const set = new Set();
+        if (!v) return [];
+        set.add(v);
+
+        if (v === '100') set.add('ND1');
+        if (v === '200') set.add('ND2');
+        if (v === '300') { set.add('ND3'); set.add('HND1'); }
+        if (v === '400') set.add('HND2');
+        if (v === '500') set.add('HND3');
+
+        if (v === 'ND1') set.add('100');
+        if (v === 'ND2') set.add('200');
+        if (v === 'ND3') set.add('300');
+        if (v === 'HND1') set.add('300');
+        if (v === 'HND2') set.add('400');
+        if (v === 'HND3') set.add('500');
+
+        return Array.from(set);
+      })();
+
+      const categorizePayment = (name, purpose) => {
+        const txt = `${name || ''} ${purpose || ''}`.toLowerCase();
+        if (
+          txt.includes('application') ||
+          txt.includes('admission') ||
+          txt.includes('utme') ||
+          txt.includes('form')
+        ) return 'application';
+        if (txt.includes('faculty')) return 'faculty';
+        return 'school';
+      };
+
+      const [ptRows] = await pool.query(
+        `
+          SELECT
+            pt.*,
+            pts.session_id AS matched_session_id,
+            pts.semester AS matched_semester,
+            psch.school_id AS matched_school_id,
+            pr.entry_level,
+            pr.current_level,
+            pr.admission_session_id,
+            pr.amount_override
+          FROM payment_types pt
+          LEFT JOIN payment_type_sessions pts
+            ON pts.payment_type_id = pt.id
+          LEFT JOIN payment_type_schools psch
+            ON psch.payment_type_id = pt.id
+          LEFT JOIN payment_type_rules pr
+            ON pr.payment_type_id = pt.id
+          WHERE pt.is_active = 1
+            AND (
+              NOT EXISTS (
+                SELECT 1
+                FROM payment_type_sessions ptsx
+                WHERE ptsx.payment_type_id = pt.id
+              )
+              OR (
+                pts.session_id = ?
+                AND (
+                  pts.semester IS NULL
+                  OR TRIM(COALESCE(pts.semester, '')) = ''
+                  OR UPPER(COALESCE(pts.semester, '')) = 'ALL'
+                  OR UPPER(COALESCE(pts.semester, '')) = ?
+                )
+              )
+            )
+            AND (
+              UPPER(COALESCE(pt.scope, '')) IN ('SCHOOL', 'BY SCHOOL', 'BY_SCHOOL')
+              AND ? > 0
+              AND psch.school_id = ?
+            )
+          ORDER BY pt.name ASC, pt.id DESC
+        `,
+        [
+          currentSession?.id || 0,
+          String(semesterKey || '').toUpperCase(),
+          studentSchoolId,
+          studentSchoolId
+        ]
+      );
+
+      console.log('DASHBOARD_PAYMENT_DEBUG', {
+        studentId,
+        matric: stu?.matric_number || publicUser?.matric_number || '',
+        stateOfOrigin,
+        isIndigene,
+        studentSchoolId,
+        profileSchoolId: stu?.profile_school_id || null,
+        profileSchoolName: stu?.profile_school_name || null,
+        importSchool: imp?.school || null,
+        rawLevel,
+        levelAliases,
+        currentSessionId: currentSession?.id || 0,
+        semesterKey: String(semesterKey || '').toUpperCase(),
+        matchedRows: (ptRows || []).map(r => ({
+          id: r.id,
+          name: r.name,
+          purpose: r.purpose,
+          scope: r.scope,
+          matched_session_id: r.matched_session_id,
+          matched_semester: r.matched_semester,
+          matched_school_id: r.matched_school_id,
+          entry_level: r.entry_level,
+          current_level: r.current_level,
+          amount: r.amount,
+          amount_indigene: r.amount_indigene,
+          amount_non_indigene: r.amount_non_indigene,
+          uses_indigene_regime: r.uses_indigene_regime
+        }))
+      });
+
+      const grouped = new Map();
+
+      for (const row of (ptRows || [])) {
+        if (!grouped.has(row.id)) {
+          grouped.set(row.id, {
+            base: row,
+            rules: []
+          });
+        }
+
+        const hasRule =
+          row.entry_level != null ||
+          row.current_level != null ||
+          row.admission_session_id != null ||
+          row.amount_override != null;
+
+        if (hasRule) {
+          grouped.get(row.id).rules.push({
+            entry_level: row.entry_level,
+            current_level: row.current_level,
+            admission_session_id: row.admission_session_id,
+            amount_override: row.amount_override
+          });
+        }
+      }
+
+      totalPayable = 0;
+      payableBreakdown = { school: 0, faculty: 0, application: 0 };
+      paymentSummaryRows = [];
+
+      for (const { base, rules } of grouped.values()) {
+        let matchedRule = null;
+
+        if (rules.length) {
+          matchedRule = rules.find((r) => {
+            const entryOk =
+              !r.entry_level ||
+              levelAliases.includes(String(r.entry_level).trim().toUpperCase());
+
+            const currentOk =
+              !r.current_level ||
+              levelAliases.includes(String(r.current_level).trim().toUpperCase());
+
+            return entryOk && currentOk;
+          });
+
+          if (!matchedRule) continue;
+        }
+
+        let amount = Number(
+          Number(base.uses_indigene_regime || 0)
+            ? (isIndigene ? base.amount_indigene : base.amount_non_indigene)
+            : base.amount
+        ) || 0;
+
+        if (matchedRule && matchedRule.amount_override != null && matchedRule.amount_override !== '') {
+          amount = Number(matchedRule.amount_override) || amount;
+        }
+
+        const category = categorizePayment(base.name, base.purpose);
+
+        totalPayable += amount;
+        payableBreakdown[category] += amount;
+
+        paymentSummaryRows.push({
+          payment_type_id: base.id,
+          name: base.name,
+          purpose: base.purpose,
+          amount,
+          category
+        });
+      }
+
+      const payeeA = stu?.matric_number || publicUser?.matric_number || '';
+      const payeeB = stu?.username || publicUser?.username || '';
+      const payeeC = stu?.phone || publicUser?.phone || '';
+      const payeeD = String(studentId);
+
+      const [paidRows] = await pool.query(
+        `
+          SELECT purpose, amount
+          FROM payment_invoices
+          WHERE status = 'PAID'
+            AND payee_id IN (?, ?, ?, ?)
+        `,
+        [payeeA, payeeB, payeeC, payeeD]
+      );
+
+      totalPaid = 0;
+      paymentsBreakdown = { school: 0, faculty: 0, application: 0 };
+
+      for (const row of (paidRows || [])) {
+        const amt = Number(row.amount || 0);
+        const category = categorizePayment('', row.purpose || '');
+        totalPaid += amt;
+        paymentsBreakdown[category] += amt;
+      }
+
+      const [recentRows] = await pool.query(
+        `
+          SELECT
+            rrr,
+            purpose,
+            amount,
+            status,
+            DATE(COALESCE(paid_at, created_at)) AS date
+          FROM payment_invoices
+          WHERE payee_id IN (?, ?, ?, ?)
+          ORDER BY id DESC
+          LIMIT 4
+        `,
+        [payeeA, payeeB, payeeC, payeeD]
+      );
+
+      recentPayments = recentRows || [];
+    }
+  } catch (err) {
+    console.error('Error building payment dashboard data:', err);
+  }
+
   return res.render('pages/student-dashboard', {
     layout: 'layouts/adminlte',
     _role: 'student',
     _user: { full_name: publicUser.full_name || 'Student' },
-    publicUser, // <- important for matric number in your EJS
+    user: res.locals.user || publicUser || null,
+    publicUser,
     photo_path,
 
     allowedModules: [],
@@ -675,11 +982,13 @@ export async function studentDashboard(req, res) {
     currentSession: currentSession || null,
     currentSemester: currentSemester || null,
 
-    // keep existing UI vars
-    totalPaid: 0,
-    paymentsBreakdown: { school: 0, faculty: 0, application: 0 },
+    totalPayable,
+    totalPaid,
+    payableBreakdown,
+    paymentsBreakdown,
+    paymentSummaryRows,
+    recentPayments,
 
-    // NEW vars consumed by your updated EJS
     totalRegisteredCourses,
     recentCourseRegistrations,
     recentAttendance,

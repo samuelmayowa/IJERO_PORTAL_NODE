@@ -79,7 +79,34 @@ export async function list({ page = 1, pageSize = 20, q = '' }) {
 export async function get(id) {
   const r = await db.query(`SELECT * FROM payment_types WHERE id=?`, [id]);
   const [row] = toRows(r);
-  return row || null;
+  if (!row) return null;
+
+  const [schoolsR, departmentsR, sessionsR, rulesR] = await Promise.all([
+    db.query(`SELECT school_id FROM payment_type_schools WHERE payment_type_id=? ORDER BY school_id ASC`, [id]),
+    db.query(`SELECT department_id FROM payment_type_departments WHERE payment_type_id=? ORDER BY department_id ASC`, [id]),
+    db.query(`SELECT session_id, semester FROM payment_type_sessions WHERE payment_type_id=? ORDER BY session_id ASC, semester ASC`, [id]),
+    db.query(`SELECT entry_level, current_level, admission_session_id, amount_override FROM payment_type_rules WHERE payment_type_id=? ORDER BY id DESC LIMIT 1`, [id]),
+  ]);
+
+  const school_ids = toRows(schoolsR).map(x => Number(x.school_id)).filter(Boolean);
+  const department_ids = toRows(departmentsR).map(x => Number(x.department_id)).filter(Boolean);
+  const sessionRows = toRows(sessionsR).map(x => ({
+    session_id: Number(x.session_id) || '',
+    semester: Number(x.semester) || ''
+  }));
+
+  const [rule] = toRows(rulesR);
+
+  return {
+    ...row,
+    school_ids,
+    department_ids,
+    sessionRows,
+    rule_entry_level: rule?.entry_level ?? '',
+    rule_current_level: rule?.current_level ?? '',
+    rule_admission_session_id: rule?.admission_session_id ?? '',
+    rule_amount_override: rule?.amount_override ?? ''
+  };
 }
 
 /** Check duplicate (name + purpose + scope) */
@@ -104,6 +131,15 @@ export async function create(payload, createdBy) {
       scope = 'GENERAL',
       is_active = 1,
 
+      remita_service_type_id = '',
+      uses_indigene_regime = 0,
+      amount_indigene = null,
+      amount_non_indigene = null,
+      portal_charge_indigene = null,
+      portal_charge_non_indigene = null,
+      remita_service_type_id_indigene = '',
+      remita_service_type_id_non_indigene = '',
+
       // NEW (from form; multiple)
       school_ids,
       department_ids,
@@ -126,13 +162,28 @@ export async function create(payload, createdBy) {
 
     // Insert base row
     const [ins] = await conn.query(
-      `INSERT INTO payment_types (name, purpose, amount, portal_charge, scope, is_active, created_by)
-       VALUES (?,?,?,?,?,?,?)`,
+      `INSERT INTO payment_types (
+        name, purpose, remita_service_type_id, uses_indigene_regime,
+        amount, portal_charge,
+        amount_indigene, amount_non_indigene,
+        portal_charge_indigene, portal_charge_non_indigene,
+        remita_service_type_id_indigene, remita_service_type_id_non_indigene,
+        scope, is_active, created_by
+      )
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         String(name).trim(),
         String(purpose).trim(),
+        String(remita_service_type_id || '').trim() || null,
+        uses_indigene_regime ? 1 : 0,
         Number(amount || 0),
         Number(portal_charge || 0),
+        (amount_indigene === '' || amount_indigene == null) ? null : Number(amount_indigene),
+        (amount_non_indigene === '' || amount_non_indigene == null) ? null : Number(amount_non_indigene),
+        (portal_charge_indigene === '' || portal_charge_indigene == null) ? null : Number(portal_charge_indigene),
+        (portal_charge_non_indigene === '' || portal_charge_non_indigene == null) ? null : Number(portal_charge_non_indigene),
+        String(remita_service_type_id_indigene || '').trim() || null,
+        String(remita_service_type_id_non_indigene || '').trim() || null,
         String(scope).toUpperCase(),
         is_active ? 1 : 0,
         createdBy || null
@@ -174,10 +225,9 @@ export async function create(payload, createdBy) {
         [values]
       );
     }
-
     // Optional single rule
-    const entryL   = Number(rule_entry_level) || null;
-    const currentL = Number(rule_current_level) || null;
+    const entryL   = String(rule_entry_level || '').trim() || null;
+    const currentL = String(rule_current_level || '').trim() || null;
     const admSess  = Number(rule_admission_session_id) || null;
     const override = (rule_amount_override === '' || rule_amount_override == null)
       ? null : Number(rule_amount_override);
@@ -186,10 +236,12 @@ export async function create(payload, createdBy) {
       await conn.query(
         `INSERT INTO payment_type_rules
           (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
-         VALUES (?,?,?,?,?)`,
+        VALUES (?,?,?,?,?)`,
         [id, entryL, currentL, admSess, override]
       );
     }
+
+
 
     await conn.commit();
     return id;
@@ -213,6 +265,15 @@ export async function update(id, payload) {
       scope,
       is_active,
 
+      remita_service_type_id,
+      uses_indigene_regime,
+      amount_indigene,
+      amount_non_indigene,
+      portal_charge_indigene,
+      portal_charge_non_indigene,
+      remita_service_type_id_indigene,
+      remita_service_type_id_non_indigene,
+
       // NEW (from form; multiple)
       school_ids,
       department_ids,
@@ -232,19 +293,35 @@ export async function update(id, payload) {
 
     await conn.query(
       `UPDATE payment_types SET
-         name = COALESCE(?, name),
-         purpose = COALESCE(?, purpose),
-         amount = COALESCE(?, amount),
-         portal_charge = COALESCE(?, portal_charge),
-         scope = COALESCE(?, scope),
-         is_active = COALESCE(?, is_active),
-         updated_at = NOW()
-       WHERE id = ?`,
+        name = COALESCE(?, name),
+        purpose = COALESCE(?, purpose),
+        remita_service_type_id = COALESCE(?, remita_service_type_id),
+        uses_indigene_regime = COALESCE(?, uses_indigene_regime),
+        amount = COALESCE(?, amount),
+        portal_charge = COALESCE(?, portal_charge),
+        amount_indigene = ?,
+        amount_non_indigene = ?,
+        portal_charge_indigene = ?,
+        portal_charge_non_indigene = ?,
+        remita_service_type_id_indigene = ?,
+        remita_service_type_id_non_indigene = ?,
+        scope = COALESCE(?, scope),
+        is_active = COALESCE(?, is_active),
+        updated_at = NOW()
+      WHERE id = ?`,
       [
         name ?? null,
         purpose ?? null,
+        (typeof remita_service_type_id === 'undefined') ? null : (String(remita_service_type_id || '').trim() || null),
+        typeof uses_indigene_regime === 'undefined' ? null : (uses_indigene_regime ? 1 : 0),
         (amount ?? null) === null ? null : Number(amount),
         (portal_charge ?? null) === null ? null : Number(portal_charge),
+        (amount_indigene === '' || amount_indigene == null) ? null : Number(amount_indigene),
+        (amount_non_indigene === '' || amount_non_indigene == null) ? null : Number(amount_non_indigene),
+        (portal_charge_indigene === '' || portal_charge_indigene == null) ? null : Number(portal_charge_indigene),
+        (portal_charge_non_indigene === '' || portal_charge_non_indigene == null) ? null : Number(portal_charge_non_indigene),
+        (typeof remita_service_type_id_indigene === 'undefined') ? null : (String(remita_service_type_id_indigene || '').trim() || null),
+        (typeof remita_service_type_id_non_indigene === 'undefined') ? null : (String(remita_service_type_id_non_indigene || '').trim() || null),
         scope ? String(scope).toUpperCase() : null,
         typeof is_active === 'undefined' ? null : (is_active ? 1 : 0),
         id
@@ -289,8 +366,8 @@ export async function update(id, payload) {
       );
     }
 
-    const entryL   = Number(rule_entry_level) || null;
-    const currentL = Number(rule_current_level) || null;
+    const entryL   = String(rule_entry_level || '').trim() || null;
+    const currentL = String(rule_current_level || '').trim() || null;
     const admSess  = Number(rule_admission_session_id) || null;
     const override = (rule_amount_override === '' || rule_amount_override == null)
       ? null : Number(rule_amount_override);
@@ -299,7 +376,7 @@ export async function update(id, payload) {
       await conn.query(
         `INSERT INTO payment_type_rules
           (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
-         VALUES (?,?,?,?,?)`,
+        VALUES (?,?,?,?,?)`,
         [id, entryL, currentL, admSess, override]
       );
     }

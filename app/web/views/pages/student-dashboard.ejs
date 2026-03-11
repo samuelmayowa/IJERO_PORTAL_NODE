@@ -151,17 +151,53 @@ if (avatarSource) {
       <div class="icon"><i class="fas fa-layer-group"></i></div>
     </div>
   </div>
-  <div class="col-lg-3 col-6">
+    <div class="col-lg-3 col-6">
     <div class="small-box bg-warning">
       <div class="inner">
-        <h3><%= paid.toLocaleString() %></h3>
-        <p>Total Amount Paid</p>
-        <p class="mb-0 text-sm">
-          1. School: <%= Number(pb.school||0).toLocaleString() %><br/>
-          2. Faculty Due: <%= Number(pb.faculty||0).toLocaleString() %><br/>
-          3. Application Fee: <%= Number(pb.application||0).toLocaleString() %>
-          &nbsp; <a href="/student/payments/history" class="text-dark"><strong>(View more)</strong></a>
+        <h3><%= Number(totalPayable || 0).toLocaleString() %></h3>
+        <p>Total Payable</p>
+
+        <p class="mb-1 text-sm">
+          1. School: <%= Number((payableBreakdown && payableBreakdown.school) || 0).toLocaleString() %><br/>
+          2. Faculty Due: <%= Number((payableBreakdown && payableBreakdown.faculty) || 0).toLocaleString() %><br/>
+          3. Application Fee: <%= Number((payableBreakdown && payableBreakdown.application) || 0).toLocaleString() %>
+          &nbsp;
+          <a href="javascript:void(0)" class="text-dark"
+             onclick="(function(){var el=document.getElementById('payableDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
+            <strong>(View Details)</strong>
+          </a>
         </p>
+
+        <p class="mb-1 text-sm">
+          <strong>Total Paid:</strong> <%= Number(totalPaid || 0).toLocaleString() %>
+          &nbsp;
+          <a href="javascript:void(0)" class="text-dark"
+             onclick="(function(){var el=document.getElementById('paidDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
+            <strong>(View Details)</strong>
+          </a>
+        </p>
+
+        <div id="payableDetailsBox" style="display:none; background:rgba(255,255,255,.28); padding:.5rem; border-radius:.35rem; margin-top:.5rem;">
+          <% if (!(paymentSummaryRows || []).length) { %>
+            <div class="text-sm">No payable items found.</div>
+          <% } else { %>
+            <% (paymentSummaryRows || []).forEach(function(row, idx){ %>
+              <div class="text-sm" style="margin-bottom:.15rem;">
+                <%= idx + 1 %>. <%= row.name || row.purpose || 'Payment Type' %>:
+                <strong><%= Number(row.amount || 0).toLocaleString() %></strong>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+
+        <div id="paidDetailsBox" style="display:none; background:rgba(255,255,255,.28); padding:.5rem; border-radius:.35rem; margin-top:.5rem;">
+          <div class="text-sm">School: <strong><%= Number((paymentsBreakdown && paymentsBreakdown.school) || 0).toLocaleString() %></strong></div>
+          <div class="text-sm">Faculty Due: <strong><%= Number((paymentsBreakdown && paymentsBreakdown.faculty) || 0).toLocaleString() %></strong></div>
+          <div class="text-sm">Application Fee: <strong><%= Number((paymentsBreakdown && paymentsBreakdown.application) || 0).toLocaleString() %></strong></div>
+          <div class="text-sm mt-1">
+            <a href="/student/payments/history" class="text-dark"><strong>Open Full Payment History</strong></a>
+          </div>
+        </div>
       </div>
       <div class="icon"><i class="fas fa-wallet"></i></div>
     </div>
