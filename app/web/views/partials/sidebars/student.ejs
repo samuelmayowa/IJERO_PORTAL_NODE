@@ -50,28 +50,15 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
     </li>
 
 
-    <li class="nav-item has-treeview <%= path.startsWith('/student/payments') ? 'menu-open' : '' %>">
-      <a href="#" class="nav-link <%= path.startsWith('/student/payments') ? 'active' : '' %>">
-        <i class="nav-icon fas fa-credit-card"></i><p>Make Payment<i class="right fas fa-angle-left"></i></p>
+    <li class="nav-item">
+      <a href="/student/payments/history" class="nav-link <%= path.startsWith('/student/payments/history') ? 'active' : '' %>">
+        <i class="nav-icon fas fa-receipt"></i><p>Payment History</p>
       </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="/student/payments/school-fees" class="nav-link"><i class="far fa-circle nav-icon"></i><p>School Fees</p></a></li>
-        <li class="nav-item"><a href="/student/payments/department-dues" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Dept Due</p></a></li>
-        <li class="nav-item"><a href="/student/payments/acceptance" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Acceptance Fee</p></a></li>
-        <li class="nav-item"><a href="/student/payments/certificate" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Certificate Fee</p></a></li>
-        <li class="nav-item"><a href="/student/payments/transcript" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Transcript Fee</p></a></li>
-      </ul>
     </li>
 
     <li class="nav-item">
       <a href="/student/payments/validate" class="nav-link <%= path.startsWith('/student/payments/validate') ? 'active' : '' %>">
         <i class="nav-icon fas fa-barcode"></i><p>Validate RRR</p>
-      </a>
-    </li>
-
-    <li class="nav-item">
-      <a href="/student/payments/history" class="nav-link <%= path.startsWith('/student/payments/history') ? 'active' : '' %>">
-        <i class="nav-icon fas fa-receipt"></i><p>Payment History</p>
       </a>
     </li>
 
