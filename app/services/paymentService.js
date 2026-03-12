@@ -10,12 +10,12 @@ export async function listActivePaymentTypes() {
   const q = await db.query(
     `SELECT id, name, purpose, amount, portal_charge, scope, is_active
      FROM payment_types
-     WHERE is_active=1
+     WHERE is_active = 1
+       AND UPPER(COALESCE(scope, 'GENERAL')) = 'GENERAL'
      ORDER BY name ASC`
   );
   return toRows(q);
 }
-
 export async function getPaymentType(id){
   const q = await db.query(`SELECT * FROM payment_types WHERE id=?`, [id]);
   const [row] = toRows(q);

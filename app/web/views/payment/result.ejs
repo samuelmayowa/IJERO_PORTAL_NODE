@@ -21,6 +21,8 @@
       <a class="btn-view" href="<%= viewUrl %>" target="_blank" rel="noopener">View</a>
       <a class="btn-dl" href="<%= downloadUrl %>" download>Download</a>
     </div>
-    <div class="muted" style="margin-top:12px"><a href="/">Back to Home</a></div>
+    <div class="muted" style="margin-top:12px">
+      <a href="<%= backUrl || '/' %>"><%= backLabel || 'Back to Home' %></a>
+    </div>
   </div>
 </section>

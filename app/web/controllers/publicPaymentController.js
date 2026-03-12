@@ -503,6 +503,16 @@ export async function remitaCallback(req, res) {
     const viewUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=0`;
     const downloadUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=1`;
 
+    const sessionUser = req.session?.publicUser || null;
+    const backUrl =
+      sessionUser?.role === 'student'
+        ? '/student/dashboard'
+        : '/';
+    const backLabel =
+      sessionUser?.role === 'student'
+        ? 'Back to Dashboard'
+        : 'Back to Home';
+
     return res.render('payment/result', {
       title: paid ? 'Payment Successful' : 'Payment Pending',
 
@@ -513,7 +523,9 @@ export async function remitaCallback(req, res) {
 
       modeTitle: paid ? 'PAYMENT SUCCESSFUL' : 'PAYMENT PENDING',
       viewUrl,
-      downloadUrl
+      downloadUrl,
+      backUrl,
+      backLabel
     });
   } catch (e) {
     console.error('[remitaCallback]', e);
