@@ -210,9 +210,73 @@ function renderInvoicePDF(res, p, inline=false, kind='invoice'){
 export async function paymentForm(req, res, next){
   try {
     const types = await svc.listActivePaymentTypes();
+
+    const from = String(req.query.from || '').trim();
+    const paymentTypeId = Number(req.query.payment_type_id || 0);
+    const publicUser = req.session?.publicUser || null;
+
+    let selectedType = null;
+    if (paymentTypeId > 0) {
+      selectedType = await svc.getPaymentType(paymentTypeId);
+    }
+
+    let dbProfile = null;
+    if (publicUser?.id) {
+      const [profileRows] = await db.query(
+        `
+          SELECT
+            pu.phone AS pu_phone,
+            sp.phone AS student_phone
+          FROM public_users pu
+          LEFT JOIN student_profiles sp
+            ON sp.user_id = pu.id
+          WHERE pu.id = ?
+          LIMIT 1
+        `,
+        [publicUser.id]
+      );
+      dbProfile = profileRows?.[0] || null;
+    }
+
+    const guessedEmail =
+      publicUser?.email ||
+      (String(publicUser?.username || '').includes('@') ? String(publicUser.username).trim() : '') ||
+      '';
+
+    const guessedPhone =
+      dbProfile?.student_phone ||
+      dbProfile?.pu_phone ||
+      publicUser?.phone ||
+      publicUser?.phone_number ||
+      publicUser?.mobile ||
+      req.session?.studentProfile?.phone ||
+      req.session?.applicantProfile?.phone ||
+      '';
+
+    const prefill = (from === 'student-dashboard' && selectedType)
+      ? {
+          source: 'student-dashboard',
+          payment_type_id: selectedType.id,
+          amount: selectedType.amount,
+          portal_charge: selectedType.portal_charge,
+          purpose: selectedType.purpose || selectedType.name || '',
+          payee_id: publicUser?.matric_number || publicUser?.username || guessedPhone || '',
+          payee_fullname: publicUser?.full_name || '',
+          payee_email: guessedEmail,
+          payee_phone: guessedPhone
+        }
+      : null;
+
     res.render('payment/public-payment', {
       title: 'Other Payments',
+
+      // do NOT show sidebar on payment page, even when user is logged in
+      user: null,
+      allowedModules: new Set(),
+      currentPath: req.path || '',
+
       types,
+      prefill,
       messages: req.flash ? req.flash() : {},
       csrfToken: req.csrfToken?.(),
       FAKE_RRR_ON: false,
@@ -308,6 +372,12 @@ export async function reprintForm(req, res, next){
   try {
     res.render('payment/reprint', {
       title: 'Reprint Invoice / Validate RRR',
+
+      // prevent shared layout/sidebar crash on payment pages
+      user: null,
+      allowedModules: new Set(),
+      currentPath: req.path || '',
+
       messages: req.flash ? req.flash() : {},
       csrfToken: req.csrfToken?.()
     });
@@ -434,8 +504,16 @@ export async function remitaCallback(req, res) {
     const downloadUrl = `/payment/print/${encodeURIComponent(orderId)}?type=${kind}&dl=1`;
 
     return res.render('payment/result', {
+      title: paid ? 'Payment Successful' : 'Payment Pending',
+
+      // prevent shared layout/sidebar crash on payment pages
+      user: null,
+      allowedModules: new Set(),
+      currentPath: req.path || '',
+
       modeTitle: paid ? 'PAYMENT SUCCESSFUL' : 'PAYMENT PENDING',
-      viewUrl, downloadUrl
+      viewUrl,
+      downloadUrl
     });
   } catch (e) {
     console.error('[remitaCallback]', e);

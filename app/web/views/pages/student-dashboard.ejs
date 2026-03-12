@@ -172,10 +172,22 @@ if (avatarSource) {
           <strong>Total Paid:</strong> <%= Number(totalPaid || 0).toLocaleString() %>
           &nbsp;
           <a href="javascript:void(0)" class="text-dark"
-             onclick="(function(){var el=document.getElementById('paidDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
+            onclick="(function(){var el=document.getElementById('paidDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
             <strong>(View Details)</strong>
           </a>
         </p>
+
+        <% const primaryPayRow = (paymentSummaryRows || [])[0] || null; %>
+        <% if (primaryPayRow) { %>
+          <div class="mt-2">
+            <a
+              href="/payment?from=student-dashboard&payment_type_id=<%= encodeURIComponent(primaryPayRow.payment_type_id) %>"
+              class="btn btn-sm btn-light font-weight-bold"
+              style="border-radius:.4rem;">
+              Pay Now
+            </a>
+          </div>
+        <% } %>
 
         <div id="payableDetailsBox" style="display:none; background:rgba(255,255,255,.28); padding:.5rem; border-radius:.35rem; margin-top:.5rem;">
           <% if (!(paymentSummaryRows || []).length) { %>

@@ -4,6 +4,7 @@ const TYPES = (typeof types !== 'undefined' && Array.isArray(types)) ? types : [
 const FAKE = (typeof FAKE_RRR_ON !== 'undefined') ? !!FAKE_RRR_ON : false;
 const CSRF = (typeof csrfToken !== 'undefined') ? csrfToken : '';
 const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
+const PREFILL = (typeof prefill !== 'undefined' && prefill) ? prefill : null;
 %>
 
 <style>
@@ -248,7 +249,7 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
 
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1v22M5 6h10a3 3 0 0 1 0 6H7a3 3 0 0 0 0 6h10"/></svg>
-        <input id="amount" type="number" placeholder="Amount (₦) — auto from Payment Type" readonly>
+        <input id="amount" name="amount" type="number" step="0.01" min="0" placeholder="Amount (₦) — auto from Payment Type">
       </div>
 
       <div class="field">
@@ -283,7 +284,11 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
       </button>
 
       <a class="btn-yellow" href="/payment/reprint">VALIDATE RRR / REPRINT ➜</a>
-      <div class="below"><a href="/">College Portal Home Page</a></div>
+      <div class="below">
+        <a href="<%= (typeof prefill !== 'undefined' && prefill && prefill.source === 'student-dashboard') ? '/student/dashboard' : '/' %>">
+          College Portal Home Page
+        </a>
+      </div>
     </div>
   </form>
 </section>
@@ -320,11 +325,17 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   const btnText = $('#payBtnText');
   const methodNote = $('#methodNote');
 
+  const elPayeeId = form.querySelector('[name="payee_id"]');
+  const elPayeeFullname = form.querySelector('[name="payee_fullname"]');
+  const elPayeeEmail = form.querySelector('[name="payee_email"]');
+  const elPayeePhone = form.querySelector('[name="payee_phone"]');
+
   const overlay = $('#overlay');
   const modal = $('#modal');
   const mTitle = $('#mTitle'), mDesc = $('#mDesc'), mView = $('#mView'), mDl = $('#mDl');
 
   const csrf = form.getAttribute('data-csrf') || '';
+  const PREFILL = <%- JSON.stringify(PREFILL || null) %>;
 
   function syncMethodUI(){
     const m = String(elMethod?.value || 'BANK').toUpperCase();
@@ -339,21 +350,69 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
   elMethod?.addEventListener('change', syncMethodUI);
   syncMethodUI();
 
-  elType.addEventListener('change', async () => {
-    const id = elType.value;
-    elAmount.value = '';
-    elCharge.value = '';
-    if(!id) return;
-    try{
-      const r = await fetch(`/payment/api/payment-types/${id}`, { headers: {'Accept':'application/json'} });
-      const pt = await r.json();
-      elAmount.value = pt.amount ?? '';
-      elCharge.value = pt.portal_charge ?? '';
-      if ((pt.purpose || '').trim() && !elPurpose.value.trim()) elPurpose.value = pt.purpose;
-    } catch(e){
-      console.warn('Failed to load payment type', e);
+  async function loadPaymentType(id, opts = {}) {
+  const keepPurpose = !!opts.keepPurpose;
+  const keepAmount = !!opts.keepAmount;
+
+  elAmount.value = keepAmount ? elAmount.value : '';
+  elCharge.value = '';
+
+  if(!id) return;
+
+  try{
+    const r = await fetch(`/payment/api/payment-types/${id}`, { headers: {'Accept':'application/json'} });
+    const pt = await r.json();
+
+    if (!keepAmount) elAmount.value = pt.amount ?? '';
+    elCharge.value = pt.portal_charge ?? '';
+
+    if ((pt.purpose || '').trim() && (!keepPurpose || !elPurpose.value.trim())) {
+      elPurpose.value = pt.purpose;
     }
-  });
+  } catch(e){
+    console.warn('Failed to load payment type', e);
+  }
+}
+
+elType.addEventListener('change', async () => {
+  await loadPaymentType(elType.value, { keepPurpose: false, keepAmount: false });
+});
+
+async function applyPrefill(){
+  if (!PREFILL) return;
+
+  const isDashboardPrefill = PREFILL.source === 'student-dashboard';
+
+  if (PREFILL.payment_type_id) {
+    elType.value = String(PREFILL.payment_type_id);
+    await loadPaymentType(PREFILL.payment_type_id, { keepPurpose: true, keepAmount: true });
+  }
+
+  if (typeof PREFILL.amount !== 'undefined' && PREFILL.amount !== null && PREFILL.amount !== '') {
+    elAmount.value = PREFILL.amount;
+  }
+
+  if (typeof PREFILL.portal_charge !== 'undefined' && PREFILL.portal_charge !== null && PREFILL.portal_charge !== '') {
+    elCharge.value = PREFILL.portal_charge;
+  }
+
+  if (PREFILL.purpose) elPurpose.value = PREFILL.purpose;
+  if (PREFILL.payee_id && elPayeeId) elPayeeId.value = PREFILL.payee_id;
+  if (PREFILL.payee_fullname && elPayeeFullname) elPayeeFullname.value = PREFILL.payee_fullname;
+  if (PREFILL.payee_email && elPayeeEmail) elPayeeEmail.value = PREFILL.payee_email;
+  if (PREFILL.payee_phone && elPayeePhone) elPayeePhone.value = PREFILL.payee_phone;
+
+  if (isDashboardPrefill) {
+    elType.style.pointerEvents = 'none';
+    elType.tabIndex = -1; 
+    if (elPayeeId) elPayeeId.readOnly = true;
+    if (elPayeeFullname) elPayeeFullname.readOnly = true;
+    if (elPayeeEmail) elPayeeEmail.readOnly = true;
+    if (elPayeePhone) elPayeePhone.readOnly = true;
+    elPurpose.readOnly = true;
+    elCharge.readOnly = true;
+  }
+}
 
   function showOverlay(text){
     document.getElementById('ovTitle').textContent = text || 'Processing, please wait...';
@@ -398,6 +457,16 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
       const fd = new FormData(form);
       const params = new URLSearchParams();
       for (const [k,v] of fd.entries()) params.append(k, v);
+
+      // force locked dashboard values into the AJAX payload
+      const forcedPaymentTypeId = String(elType?.value || '').trim();
+      if (forcedPaymentTypeId) params.set('payment_type_id', forcedPaymentTypeId);
+
+      const forcedPurpose = String(elPurpose?.value || '').trim();
+      if (forcedPurpose) params.set('purpose', forcedPurpose);
+
+      const forcedPhone = String(form.querySelector('[name="payee_phone"]')?.value || '').trim();
+      if (forcedPhone) params.set('payee_phone', forcedPhone);
 
       const r = await fetch(form.action + '?ajax=1', {
         method:'POST',
@@ -446,5 +515,6 @@ const MESSAGES = (typeof messages !== 'undefined' && messages) ? messages : {};
       syncMethodUI();
     }
   });
+  applyPrefill();
 })();
 </script>
