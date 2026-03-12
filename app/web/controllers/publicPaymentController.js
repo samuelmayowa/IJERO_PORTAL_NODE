@@ -267,6 +267,11 @@ export async function paymentForm(req, res, next){
         }
       : null;
 
+    const renderTypes =
+      (from === 'student-dashboard' && selectedType && !types.some(t => Number(t.id) === Number(selectedType.id)))
+        ? [selectedType, ...types]
+        : types;
+
     res.render('payment/public-payment', {
       title: 'Other Payments',
 
@@ -275,7 +280,7 @@ export async function paymentForm(req, res, next){
       allowedModules: new Set(),
       currentPath: req.path || '',
 
-      types,
+      types: renderTypes,
       prefill,
       messages: req.flash ? req.flash() : {},
       csrfToken: req.csrfToken?.(),
@@ -306,6 +311,7 @@ export async function createInvoice(req, res, next){
       payee_email: body.payee_email,
       payee_phone: body.payee_phone,
       purpose: body.purpose,
+      amount: body.amount,
       method
     });
 

@@ -32,14 +32,22 @@ export async function createInvoice(payload){
   const {
     payment_type_id,
     payee_id, payee_fullname, payee_email, payee_phone,
-    purpose, method
+    purpose, amount: rawAmount, method
   } = payload;
 
   const pt = await getPaymentType(payment_type_id);
   if (!pt) throw new Error('Invalid payment type selected.');
 
   const order_id = makeOrderId();
-  const amount = Number(pt.amount || 0);
+
+  const configuredAmount = Number(pt.amount || 0);
+  const requestedAmount = Number(rawAmount);
+  const amount =
+    Number.isFinite(requestedAmount) && requestedAmount > 0
+      ? requestedAmount
+      : configuredAmount;
+
+  // always trust portal charge from server-side payment type config only
   const portal_charge = Number(pt.portal_charge || 0);
 
   const [ins] = await db.query(
