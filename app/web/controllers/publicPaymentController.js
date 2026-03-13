@@ -376,6 +376,18 @@ export async function createInvoice(req, res, next){
 
 export async function reprintForm(req, res, next){
   try {
+    const sessionUser = req.session?.publicUser || null;
+    const backUrl =
+      sessionUser?.role === 'student'
+        ? '/student/dashboard'
+        : '/';
+    const backLabel =
+      sessionUser?.role === 'student'
+        ? 'Back to Dashboard'
+        : 'College Portal Home Page';
+
+    const prefillRrr = String(req.query?.rrr || '').trim();
+
     res.render('payment/reprint', {
       title: 'Reprint Invoice / Validate RRR',
 
@@ -384,6 +396,9 @@ export async function reprintForm(req, res, next){
       allowedModules: new Set(),
       currentPath: req.path || '',
 
+      backUrl,
+      backLabel,
+      prefillRrr,
       messages: req.flash ? req.flash() : {},
       csrfToken: req.csrfToken?.()
     });

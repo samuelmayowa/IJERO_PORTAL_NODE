@@ -994,6 +994,71 @@ export async function studentDashboard(req, res) {
     recentAttendance,
   });
 }
+export async function studentPaymentHistory(req, res) {
+  const publicUser = req.session?.publicUser || null;
+  if (!publicUser) return res.redirect('/login');
+
+  const studentId = publicUser?.id || null;
+
+  let photo_path = null;
+  let payments = [];
+
+  try {
+    const [profileRows] = await pool.query(
+      `
+        SELECT sp.photo_path, sp.phone, pu.username, pu.matric_number
+        FROM public_users pu
+        LEFT JOIN student_profiles sp
+          ON sp.user_id = pu.id
+        WHERE pu.id = ?
+        LIMIT 1
+      `,
+      [studentId]
+    );
+
+    const stu = profileRows?.[0] || null;
+    photo_path = stu?.photo_path || null;
+
+    const payeeA = stu?.matric_number || publicUser?.matric_number || '';
+    const payeeB = stu?.username || publicUser?.username || '';
+    const payeeC = stu?.phone || publicUser?.phone || '';
+    const payeeD = String(studentId || '');
+
+    const [rows] = await pool.query(
+  `
+      SELECT
+        order_id,
+        rrr,
+        purpose,
+        amount,
+        portal_charge,
+        status,
+        DATE(COALESCE(paid_at, created_at)) AS date
+      FROM payment_invoices
+      WHERE payee_id IN (?, ?, ?, ?)
+      ORDER BY id DESC
+    `,
+    [payeeA, payeeB, payeeC, payeeD]
+  );
+
+    payments = rows || [];
+  } catch (err) {
+    console.error('Error loading student payment history:', err);
+  }
+
+  return res.render('pages/student-payment-history', {
+    layout: 'layouts/adminlte',
+    _role: 'student',
+    _user: { full_name: publicUser.full_name || 'Student' },
+    user: res.locals.user || publicUser || null,
+    publicUser,
+    photo_path,
+    allowedModules: [],
+    currentPath: req.path || '',
+    payments
+  });
+}
+
 /* ------------------ end dynamic student dashboard ------------------ */
 
 export async function applicantDashboard(req, res) {

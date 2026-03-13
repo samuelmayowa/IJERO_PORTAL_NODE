@@ -48,13 +48,22 @@ const CSRF = (typeof csrfToken !== 'undefined') ? csrfToken : '';
     <div class="card-body">
       <div class="field">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 3H5a2 2 0 0 0-2 2v5l9 9 7-7-9-9zM6.5 7A1.5 1.5 0 1 0 8 8.5 1.5 1.5 0 0 0 6.5 7z"/></svg>
-        <input type="text" name="order_id" required placeholder="Supply your RRR Number">
+        <input
+          type="text"
+          name="rrr"
+          class="form-control"
+          placeholder="Supply your RRR Number"
+          value="<%= prefillRrr || '' %>"
+          required
+        >
       </div>
     </div>
 
     <div class="card-foot">
       <button class="btn-primary" type="submit">Continue <span class="pill">➜</span></button>
-      <div class="below"><a href="/">College Portal Home Page</a></div>
+      <div class="below">
+        <a href="<%= backUrl || '/' %>"><%= backLabel || 'College Portal Home Page' %></a>
+      </div>
     </div>
   </form>
 </section>
