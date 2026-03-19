@@ -855,12 +855,945 @@
     <section class="hero-card">
       <div class="hero-inner">
         <div>
-          <span class="hero-kicker"><i class="fa fa-briefcase"></i> Application form is currently not available</span>
-          <h2 class="hero-title">This will be reopend as soon as possoble</h2>
+          <span class="hero-kicker"><i class="fa fa-briefcase"></i> Staff Vacancy Application</span>
+          <h2 class="hero-title">Apply for advertised positions online</h2>
           <p class="hero-text">
+            Complete the form below carefully, upload your CV and supporting credentials,
+            and submit your application directly through the portal. After a successful
+            submission, you will receive a printable confirmation slip with your application
+            reference number.
           </p>
         </div>
 
+        <div class="hero-points">
+          <div class="hero-point">
+            <strong><i class="fa fa-check-circle"></i> No login required</strong>
+            <span>This application page is open to the public.</span> <br>
+            <span style="color: red;">Application Closing Date: 29th/April/2026.</span>
+          </div>
+          <div class="hero-point">
+            <strong><i class="fa fa-upload"></i> Upload requirements</strong>
+            <span>CV is required. Educational certificates are required. Other supporting document is optional.</span>
+          </div>
+          <div class="hero-point">
+            <strong><i class="fa fa-envelope-o"></i> Official contact</strong>
+            <span><%= advertEmail %></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="content-grid">
+      <section class="glass-card">
+        <div class="card-head">
+          <h2>Vacancy Application Form</h2>
+          <p>Please fill all required fields correctly before submission.</p>
+        </div>
+
+        <div class="card-body">
+          <div id="formAlert" class="alert-box" role="alert"></div>
+
+          <form id="vacancyForm" action="/vacancies/apply" method="POST" enctype="multipart/form-data" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+
+            <h3 class="form-section-title">
+              <i class="fa fa-user-circle-o"></i> Personal Information
+            </h3>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="first_name">First Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="first_name" name="first_name" placeholder="Enter first name">
+              </div>
+
+              <div class="form-group">
+                <label for="middle_name">Middle Name</label>
+                <input type="text" class="form-control" id="middle_name" name="middle_name" placeholder="Enter middle name">
+              </div>
+
+              <div class="form-group">
+                <label for="last_name">Last Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="last_name" name="last_name" placeholder="Enter last name">
+              </div>
+
+              <div class="form-group">
+                <label for="gender">Gender</label>
+                <select class="custom-select" id="gender" name="gender">
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="email">Email Address <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com">
+              </div>
+
+              <div class="form-group">
+                <label for="phone">Phone Number <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="phone" name="phone" placeholder="e.g. 08012345678">
+              </div>
+
+              <div class="form-group">
+                <label for="alternative_phone">Alternative Phone Number</label>
+                <input type="text" class="form-control" id="alternative_phone" name="alternative_phone" placeholder="Optional">
+              </div>
+
+              <div class="form-group">
+                <label for="date_of_birth">Date of Birth <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
+              </div>
+
+              <div class="form-group">
+                <label for="state_of_origin">State of Origin <span class="text-danger">*</span></label>
+                <select class="custom-select" id="state_of_origin" name="state_of_origin">
+                  <option value="">Select state of origin</option>
+                  <% nigeriaStates.forEach(function(state){ %>
+                    <option value="<%= state %>"><%= state %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="local_government">Local Government <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="local_government" name="local_government" placeholder="Enter LGA">
+              </div>
+
+              <div class="form-group full-span">
+                <label for="house_address">House Address <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="house_address" name="house_address" placeholder="Enter full residential address"></textarea>
+              </div>
+            </div>
+
+            <h3 class="form-section-title mt-4">
+              <i class="fa fa-briefcase"></i> Position Details
+            </h3>
+
+            <div class="form-grid">
+              <div class="form-group full-span">
+                <label for="post_applying_for">Post Applying For <span class="text-danger">*</span></label>
+                <select class="custom-select" id="post_applying_for" name="post_applying_for">
+                  <option value="">Select advertised post</option>
+                  <% vacancyGroups.forEach(function(group){ %>
+                    <optgroup label="<%= group.label %>">
+                      <% group.options.forEach(function(option){ %>
+                        <option value="<%= option %>"><%= option %></option>
+                      <% }) %>
+                    </optgroup>
+                  <% }) %>
+                </select>
+                <small class="field-note">Select the exact advertised post you are applying for.</small>
+              </div>
+            </div>
+
+            <div class="requirement-box">
+              <div class="requirement-head">
+                <div>
+                  <h4>REQUIREMENT:</h4>
+                  <p>Click VIEW in front of any post to see the detailed requirement.</p>
+                  <p style="color:red;">NOTE: The Vacancies List is scrollable, scroll to view more roles.</p>
+                </div>
+              </div>
+
+              <div class="requirement-list">
+                <% vacancyRequirements.forEach(function(item, index){ %>
+                  <div class="requirement-row">
+                    <div>
+                      <button
+                        type="button"
+                        class="btn-view-req"
+                        data-req-index="<%= index %>"
+                      >
+                        VIEW
+                      </button>
+                    </div>
+                    <div class="req-title"><%= item.title %></div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+
+            <h3 class="form-section-title mt-4">
+              <i class="fa fa-folder-open-o"></i> Required Uploads
+            </h3>
+
+            <div class="upload-grid">
+              <div class="upload-card">
+                <div class="icon"><i class="fa fa-file-pdf-o"></i></div>
+                <h4>Upload CV <span class="text-danger">*</span></h4>
+                <p>Accepted: PDF, DOC, DOCX. Maximum size: 5MB.</p>
+                <input type="file" id="cv" name="cv" accept=".pdf,.doc,.docx">
+              </div>
+
+              <div class="upload-card">
+                <div class="icon"><i class="fa fa-files-o"></i></div>
+                <h4>Other Supporting Document</h4>
+                <p>Optional. Accepted: PDF, DOC, DOCX, JPG, JPEG, PNG.</p>
+                <input type="file" id="other_document" name="other_document" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+              </div>
+
+              <div class="upload-card">
+                <div class="icon"><i class="fa fa-graduation-cap"></i></div>
+                <h4>Educational Certificates <span class="text-danger">*</span></h4>
+                <p>Upload one or more certificate files. Maximum 5 files, 5MB each.</p>
+                <input type="file" id="certificates" name="certificates" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple>
+              </div>
+            </div>
+
+            <div class="check-wrap mt-4">
+              <input type="checkbox" id="declaration" name="declaration" value="1">
+              <label for="declaration" class="mb-0">
+                I confirm that the information and uploaded documents provided in this application are true, correct, and belong to me.
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button type="submit" class="btn btn-submit" id="submitBtn">
+                <i class="fa fa-paper-plane-o"></i> Submit Application
+              </button>
+              <button type="reset" class="btn btn-light-alt">
+                <i class="fa fa-refresh"></i> Reset Form
+              </button>
+              <span class="tiny-meta">Fields marked with <span class="text-danger">*</span> are required.</span>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <aside class="info-stack">
+        <div class="info-box">
+          <div class="pill"><i class="fa fa-info-circle"></i> Important</div>
+          <h3>Before you submit</h3>
+          <ul>
+            <li>Use a working email address and phone number.</li>
+            <li>Choose the exact advertised post from the list.</li>
+            <li>Ensure your CV is up to date.</li>
+            <li>Upload at least one educational certificate.</li>
+            <li>Keep your confirmation slip after successful submission.</li>
+          </ul>
+        </div>
+
+        <div class="info-box">
+          <div class="pill"><i class="fa fa-shield"></i> Validation</div>
+          <h3>What the system checks</h3>
+          <p>
+            This page validates required fields, email address format, phone number format,
+            minimum applicant age, and required document uploads before allowing submission.
+          </p>
+        </div>
+
+        <div class="info-box">
+          <div class="pill"><i class="fa fa-print"></i> Confirmation Slip</div>
+          <h3>After submission</h3>
+          <p>
+            A success modal will appear immediately with your application reference number,
+            post applied for, and submission time. You can print the confirmation slip directly.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-shell" id="requirementModal" aria-hidden="true">
+    <div class="modal-backdrop" onclick="window.closeRequirementModalNow(event)"></div>
+
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-top">
+        <div class="success-icon">
+          <i class="fa fa-list-alt"></i>
+        </div>
+        <h3 id="reqModalTitle">Requirement</h3>
+        <p>Detailed requirement for the selected advertised post.</p>
+      </div>
+
+      <div class="modal-body">
+        <div class="req-modal-copy" id="reqModalBody"></div>
+
+        <div class="modal-actions mt-3">
+          <button
+            type="button"
+            class="btn btn-close-modal"
+            id="closeReqModalBtn"
+            onclick="window.closeRequirementModalNow(event)"
+          >
+            <i class="fa fa-times"></i> Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-shell" id="successModal" aria-hidden="true">
+    <div class="modal-backdrop" onclick="window.closeSuccessModalNow(event)"></div>
+
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-top">
+        <div class="success-icon">
+          <i class="fa fa-check"></i>
+        </div>
+        <h3>Application Submitted Successfully</h3>
+        <p>
+          Your vacancy application has been received successfully. Please print or save
+          your submission confirmation slip.
+        </p>
+      </div>
+
+      <div class="modal-body">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="k">Reference Number</div>
+            <div class="v" id="m_reference_no">-</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="k">Applicant Name</div>
+            <div class="v" id="m_applicant_name">-</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="k">Post Applied For</div>
+            <div class="v" id="m_post">-</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="k">Submitted At</div>
+            <div class="v" id="m_submitted_at">-</div>
+          </div>
+        </div>
+
+        <div class="modal-actions modal-actions-top mb-3">
+          <button
+            type="button"
+            class="btn btn-print"
+            id="printSlipBtnTop"
+            onclick="window.triggerPrintDownloadNow(event)"
+          >
+            <i class="fa fa-print"></i> Print / Download Confirmation Slip
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-close-modal"
+            id="closeModalBtnTop"
+            onclick="window.closeSuccessModalNow(event)"
+          >
+            <i class="fa fa-times"></i> Close
+          </button>
+        </div>
+
+        <div class="print-slip" id="modalPrintPreview" data-watermark="<%= institutionName %>">
+          <div class="print-head">
+            <div class="left">
+              <img src="/public/img/logo.png" alt="logo">
+              <div>
+                <h4><%= institutionName %></h4>
+                <p>Staff Vacancy Application Submission Confirmation</p>
+              </div>
+            </div>
+            <div class="print-badge">Submitted</div>
+          </div>
+
+          <div class="print-body">
+            <div class="print-row">
+              <div class="label">Application Reference No.</div>
+              <div class="value" id="p_reference_no">-</div>
+            </div>
+            <div class="print-row">
+              <div class="label">Applicant Name</div>
+              <div class="value" id="p_applicant_name">-</div>
+            </div>
+            <div class="print-row">
+              <div class="label">Post Applied For</div>
+              <div class="value" id="p_post">-</div>
+            </div>
+            <div class="print-row">
+              <div class="label">Email Address</div>
+              <div class="value" id="p_email">-</div>
+            </div>
+            <div class="print-row">
+              <div class="label">Phone Number</div>
+              <div class="value" id="p_phone">-</div>
+            </div>
+            <div class="print-row">
+              <div class="label">Date / Time Submitted</div>
+              <div class="value" id="p_submitted_at">-</div>
+            </div>
+          </div>
+
+          <div class="print-foot">
+            Please keep this slip as evidence of successful submission.
+            Only shortlisted candidates will be contacted by the institution.
+          </div>
+        </div>
+
+        <div class="modal-actions mt-3">
+          <button
+            type="button"
+            class="btn btn-print"
+            id="printSlipBtn"
+            onclick="window.triggerPrintDownloadNow(event)"
+          >
+            <i class="fa fa-print"></i> Print / Download Confirmation Slip
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-close-modal"
+            id="closeModalBtn"
+            onclick="window.closeSuccessModalNow(event)"
+          >
+            <i class="fa fa-times"></i> Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="printSheet">
+    <div class="print-slip" id="printOnlySlip" data-watermark="<%= institutionName %>">
+      <div class="print-head">
+        <div class="left">
+          <img src="/public/img/logo.png" alt="logo">
+          <div>
+            <h4><%= institutionName %></h4>
+            <p>Staff Vacancy Application Submission Confirmation</p>
+          </div>
+        </div>
+        <div class="print-badge">Submitted</div>
+      </div>
+
+      <div class="print-body">
+        <div class="print-row">
+          <div class="label">Application Reference No.</div>
+          <div class="value" id="pp_reference_no">-</div>
+        </div>
+        <div class="print-row">
+          <div class="label">Applicant Name</div>
+          <div class="value" id="pp_applicant_name">-</div>
+        </div>
+        <div class="print-row">
+          <div class="label">Post Applied For</div>
+          <div class="value" id="pp_post">-</div>
+        </div>
+        <div class="print-row">
+          <div class="label">Email Address</div>
+          <div class="value" id="pp_email">-</div>
+        </div>
+        <div class="print-row">
+          <div class="label">Phone Number</div>
+          <div class="value" id="pp_phone">-</div>
+        </div>
+        <div class="print-row">
+          <div class="label">Date / Time Submitted</div>
+          <div class="value" id="pp_submitted_at">-</div>
+        </div>
+      </div>
+
+      <div class="print-foot">
+        This slip confirms that the application was submitted successfully through the vacancy portal.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const requirementData = <%- JSON.stringify(vacancyRequirements || []) %>;
+
+    const form = document.getElementById('vacancyForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const alertBox = document.getElementById('formAlert');
+    const successModal = document.getElementById('successModal');
+    const requirementModal = document.getElementById('requirementModal');
+
+    function showAlert(type, message) {
+      alertBox.className = 'alert-box show alert-' + type;
+      alertBox.innerHTML = message;
+      alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function clearAlert() {
+      alertBox.className = 'alert-box';
+      alertBox.innerHTML = '';
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.innerHTML = loading
+        ? '<span class="spinner-border spinner-border-sm"></span>Submitting...'
+        : '<i class="fa fa-paper-plane-o"></i> Submit Application';
+    }
+
+    function clearFieldErrors() {
+      form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+      form.querySelectorAll('.invalid-feedback.dynamic').forEach((el) => el.remove());
+    }
+
+    function setFieldError(fieldName, message) {
+      const field = form.elements[fieldName];
+      if (!field) return;
+
+      field.classList.add('is-invalid');
+
+      const error = document.createElement('div');
+      error.className = 'invalid-feedback dynamic';
+      error.textContent = message;
+
+      if (field.type === 'checkbox') {
+        field.closest('.check-wrap').insertAdjacentElement('afterend', error);
+      } else if (field.closest('.upload-card')) {
+        field.closest('.upload-card').appendChild(error);
+      } else {
+        field.parentNode.appendChild(error);
+      }
+    }
+
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    function isValidPhone(value) {
+      return /^[0-9+()\\-\\s]{10,20}$/.test(value);
+    }
+
+    function calculateAge(dateString) {
+      const dob = new Date(dateString);
+      if (Number.isNaN(dob.getTime())) return 0;
+
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age -= 1;
+      }
+
+      return age;
+    }
+
+    function validateClientSide() {
+      clearFieldErrors();
+      clearAlert();
+
+      const errors = {};
+      const firstName = form.first_name.value.trim();
+      const lastName = form.last_name.value.trim();
+      const email = form.email.value.trim();
+      const phone = form.phone.value.trim();
+      const alternativePhone = form.alternative_phone.value.trim();
+      const dob = form.date_of_birth.value.trim();
+      const state = form.state_of_origin.value.trim();
+      const lga = form.local_government.value.trim();
+      const address = form.house_address.value.trim();
+      const post = form.post_applying_for.value.trim();
+
+      const allowedPosts = new Set(requirementData.map((item) => item.title));
+
+      if (!firstName) errors.first_name = 'First name is required.';
+      if (!lastName) errors.last_name = 'Last name is required.';
+
+      if (!email) {
+        errors.email = 'Email address is required.';
+      } else if (!isValidEmail(email)) {
+        errors.email = 'Please enter a valid email address.';
+      }
+
+      if (!phone) {
+        errors.phone = 'Phone number is required.';
+      } else if (!isValidPhone(phone)) {
+        errors.phone = 'Please enter a valid phone number.';
+      }
+
+      if (alternativePhone && !isValidPhone(alternativePhone)) {
+        errors.alternative_phone = 'Please enter a valid alternative phone number.';
+      }
+
+      if (!dob) {
+        errors.date_of_birth = 'Date of birth is required.';
+      } else if (calculateAge(dob) < 18) {
+        errors.date_of_birth = 'Applicant must be at least 18 years old.';
+      }
+
+      if (!state) errors.state_of_origin = 'State of origin is required.';
+      if (!lga) errors.local_government = 'Local government is required.';
+      if (!address) errors.house_address = 'House address is required.';
+
+      if (!post) {
+        errors.post_applying_for = 'Please select the post you are applying for.';
+      } else if (!allowedPosts.has(post)) {
+        errors.post_applying_for = 'Selected post is invalid.';
+      }
+
+      if (!form.cv.files.length) {
+        errors.cv = 'CV upload is required.';
+      }
+
+      if (!form.certificates.files.length) {
+        errors.certificates = 'Upload at least one educational certificate.';
+      }
+
+      if (!form.declaration.checked) {
+        errors.declaration = 'You must confirm that the information provided is correct.';
+      }
+
+      Object.entries(errors).forEach(([key, value]) => setFieldError(key, value));
+
+      if (Object.keys(errors).length) {
+        showAlert('danger', 'Please correct the highlighted fields before submitting.');
+        return false;
+      }
+
+      return true;
+    }
+
+    function fillSuccessData(data) {
+      const mapping = {
+        m_reference_no: data.reference_no,
+        p_reference_no: data.reference_no,
+        pp_reference_no: data.reference_no,
+
+        m_applicant_name: data.applicant_name,
+        p_applicant_name: data.applicant_name,
+        pp_applicant_name: data.applicant_name,
+
+        m_post: data.post_applying_for,
+        p_post: data.post_applying_for,
+        pp_post: data.post_applying_for,
+
+        m_submitted_at: data.submitted_at_display,
+        p_submitted_at: data.submitted_at_display,
+        pp_submitted_at: data.submitted_at_display,
+
+        p_email: data.email,
+        pp_email: data.email,
+
+        p_phone: data.phone,
+        pp_phone: data.phone
+      };
+
+      Object.entries(mapping).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || '-';
+      });
+    }
+
+    function openSuccessModal() {
+      successModal.classList.add('open');
+      successModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeSuccessModal() {
+      successModal.classList.remove('open');
+      successModal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    function openRequirementModal(title, requirement) {
+      document.getElementById('reqModalTitle').textContent = title || 'Requirement';
+      document.getElementById('reqModalBody').textContent = requirement || 'No requirement available.';
+      requirementModal.classList.add('open');
+      requirementModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeRequirementModal() {
+      requirementModal.classList.remove('open');
+      requirementModal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!validateClientSide()) return;
+
+      const formData = new FormData(form);
+
+      try {
+        setLoading(true);
+
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            Accept: 'application/json'
+          }
+        });
+
+        const payload = await response.json().catch(() => ({
+          ok: false,
+          message: 'Unexpected server response.'
+        }));
+
+        if (!response.ok || !payload.ok) {
+          clearFieldErrors();
+
+          if (payload.errors && typeof payload.errors === 'object') {
+            Object.entries(payload.errors).forEach(([key, value]) => {
+              setFieldError(key, value);
+            });
+          }
+
+          showAlert('danger', payload.message || 'Submission failed. Please try again.');
+          return;
+        }
+
+        clearFieldErrors();
+        fillSuccessData(payload.data);
+        showAlert('success', payload.message || 'Application submitted successfully.');
+        form.reset();
+        openSuccessModal();
+      } catch (error) {
+        showAlert(
+          'danger',
+          'A network or server error occurred while submitting your application. Please try again.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    function triggerPrintDownload() {
+      const printSource = document.getElementById('printOnlySlip');
+
+      if (!printSource) {
+        alert('Print slip content not found.');
+        return;
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow.document;
+
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <title>Application Confirmation Slip</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <base href="${window.location.origin}/">
+          <style>
+            * { box-sizing: border-box; }
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #213249;
+              font-family: "Segoe UI", Arial, sans-serif;
+            }
+
+            body {
+              padding: 24px;
+            }
+
+            .print-slip{
+              position:relative;
+              background:#ffffff;
+              border:1px solid #b9d0f5;
+              border-radius:24px;
+              overflow:hidden;
+              padding:28px;
+            }
+
+            .print-slip::before{
+              content: attr(data-watermark);
+              position:absolute;
+              inset:0;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:56px;
+              line-height:1.15;
+              text-align:center;
+              color:rgba(31,104,193,.10);
+              font-weight:900;
+              letter-spacing:.08em;
+              transform:rotate(-24deg);
+              pointer-events:none;
+              padding:30px;
+            }
+
+            .print-head{
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              gap:16px;
+              margin-bottom:18px;
+              position:relative;
+              z-index:1;
+            }
+
+            .print-head .left{
+              display:flex;
+              align-items:center;
+              gap:14px;
+            }
+
+            .print-head img{
+              width:62px;
+              height:62px;
+              object-fit:contain;
+            }
+
+            .print-head h4{
+              margin:0;
+              font-size:22px;
+              color:#174a8a;
+              font-weight:900;
+            }
+
+            .print-head p{
+              margin:4px 0 0;
+              color:#44627a;
+              font-size:14px;
+            }
+
+            .print-badge{
+              padding:10px 14px;
+              border-radius:999px;
+              background:#eef5ff;
+              color:#1f68c1;
+              font-weight:800;
+              border:1px solid #c9dbfb;
+              white-space:nowrap;
+            }
+
+            .print-body{
+              position:relative;
+              z-index:1;
+              border-top:1px solid #dbe7fb;
+              padding-top:18px;
+            }
+
+            .print-row{
+              display:grid;
+              grid-template-columns:220px 1fr;
+              gap:12px;
+              padding:10px 0;
+              border-bottom:1px dashed #dbe7fb;
+            }
+
+            .print-row .label{
+              color:#5a6c82;
+              font-weight:700;
+            }
+
+            .print-row .value{
+              color:#213249;
+              font-weight:800;
+              word-break:break-word;
+            }
+
+            .print-foot{
+              position:relative;
+              z-index:1;
+              margin-top:16px;
+              color:#51657d;
+              font-size:14px;
+              line-height:1.55;
+            }
+
+            @page {
+              size: auto;
+              margin: 12mm;
+            }
+
+            @media print {
+              html, body {
+                background: #ffffff !important;
+              }
+
+              body {
+                padding: 0;
+              }
+
+              .print-slip {
+                border: none;
+                box-shadow: none;
+              }
+            }
+          </style>
+        </head>
+        <body>${printSource.outerHTML}</body>
+        </html>
+      `);
+      doc.close();
+
+      let hasPrinted = false;
+
+      const runPrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
+
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } finally {
+          setTimeout(() => {
+            iframe.remove();
+          }, 1500);
+        }
+      };
+
+      iframe.onload = () => {
+        setTimeout(runPrint, 250);
+      };
+
+      setTimeout(runPrint, 1000);
+    }
+
+    window.closeSuccessModalNow = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      closeSuccessModal();
+    };
+
+    window.closeRequirementModalNow = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      closeRequirementModal();
+    };
+
+    window.triggerPrintDownloadNow = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      triggerPrintDownload();
+    };
+
+    document.querySelectorAll('.btn-view-req').forEach((btn) => {
+      btn.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = Number(btn.getAttribute('data-req-index'));
+        const item = requirementData[index];
+        if (!item) return;
+        openRequirementModal(item.title, item.requirement);
+      };
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (successModal.classList.contains('open')) closeSuccessModal();
+        if (requirementModal.classList.contains('open')) closeRequirementModal();
+      }
+    });
   </script>
 </body>
 </html>

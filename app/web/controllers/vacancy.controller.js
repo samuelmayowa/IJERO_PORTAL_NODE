@@ -48,11 +48,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Assistant Lecturer - Mass Communication",
     requirement: assistantReq("Mass Communication"),
   },
-  {
-    group: "School of Business and Management",
-    title: "Technologist I - Mass Communication",
-    requirement: technologistReq("Mass Communication"),
-  },
 
   {
     group: "School of Business and Management",
@@ -73,11 +68,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Business and Management",
     title: "Assistant Lecturer - Library and Information Science",
     requirement: assistantReq("Library and Information Science"),
-  },
-  {
-    group: "School of Business and Management",
-    title: "Technologist I - Library and Information Science",
-    requirement: technologistReq("Library and Information Science"),
   },
 
   {
@@ -100,11 +90,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Assistant Lecturer - Accountancy",
     requirement: assistantReq("Accountancy"),
   },
-  {
-    group: "School of Business and Management",
-    title: "Technologist I - Accountancy",
-    requirement: technologistReq("Accountancy"),
-  },
 
   {
     group: "School of Business and Management",
@@ -125,11 +110,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Business and Management",
     title: "Assistant Lecturer - Business Administration",
     requirement: assistantReq("Business Administration"),
-  },
-  {
-    group: "School of Business and Management",
-    title: "Technologist I - Business Administration",
-    requirement: technologistReq("Business Administration"),
   },
 
   {
@@ -152,11 +132,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Assistant Lecturer - Electrical and Electronics Engineering",
     requirement: assistantReq("Electrical and Electronics Engineering"),
   },
-  {
-    group: "School of Engineering",
-    title: "Technologist I - Electrical and Electronics Engineering",
-    requirement: technologistReq("Electrical and Electronics Engineering"),
-  },
 
   {
     group: "School of Engineering",
@@ -172,11 +147,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Engineering",
     title: "Lecturer I - Computer Engineering",
     requirement: lecturerReq("Computer Engineering"),
-  },
-  {
-    group: "School of Engineering",
-    title: "Technologist I - Computer Engineering",
-    requirement: technologistReq("Computer Engineering"),
   },
 
   {
@@ -194,11 +164,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Lecturer I - Science Laboratory Technology",
     requirement: lecturerReq("Science Laboratory Technology"),
   },
-  {
-    group: "School of Applied Sciences",
-    title: "Technologist I - Science Laboratory Technology",
-    requirement: technologistReq("Science Laboratory Technology"),
-  },
 
   {
     group: "School of Applied Sciences",
@@ -209,11 +174,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Applied Sciences",
     title: "Assistant Lecturer - Computer Science",
     requirement: assistantReq("Computer Science"),
-  },
-  {
-    group: "School of Applied Sciences",
-    title: "Technologist I - Computer Science",
-    requirement: technologistReq("Computer Science"),
   },
 
   {
