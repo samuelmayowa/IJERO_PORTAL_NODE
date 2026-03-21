@@ -389,6 +389,8 @@ export async function paymentForm(req, res, next) {
 
     const from = String(req.query.from || "").trim();
     const paymentTypeId = Number(req.query.payment_type_id || 0);
+    const dashboardAmount = Number(req.query.dashboard_amount || 0);
+    const dashboardBucket = String(req.query.dashboard_bucket || "").trim();
     const publicUser = req.session?.publicUser || null;
 
     let selectedType = null;
@@ -450,9 +452,13 @@ export async function paymentForm(req, res, next) {
         ? {
             source: "student-dashboard",
             payment_type_id: selectedType.id,
-            amount: selectedType.amount,
+            amount:
+              Number.isFinite(dashboardAmount) && dashboardAmount > 0
+                ? dashboardAmount
+                : selectedType.amount,
             portal_charge: selectedType.portal_charge,
             purpose: selectedType.purpose || selectedType.name || "",
+            dashboard_bucket: dashboardBucket || "",
             payee_id:
               publicUser?.matric_number ||
               publicUser?.username ||

@@ -388,28 +388,30 @@ function matchesScopedFilters(item, ctx) {
     .toUpperCase();
   const isGeneral = scope === "GENERAL";
 
-  if (!isGeneral) {
-    const schoolIds = Array.from(item.schoolIds);
-    const departmentIds = Array.from(item.departmentIds);
-    const programmeIds = Array.from(item.programmeIds);
+  if (isGeneral) {
+    return false;
+  }
 
-    if (schoolIds.length && !schoolIds.includes(Number(ctx.schoolId || 0))) {
-      return false;
-    }
+  const schoolIds = Array.from(item.schoolIds);
+  const departmentIds = Array.from(item.departmentIds);
+  const programmeIds = Array.from(item.programmeIds);
 
-    if (
-      departmentIds.length &&
-      !departmentIds.includes(Number(ctx.departmentId || 0))
-    ) {
-      return false;
-    }
+  if (schoolIds.length && !schoolIds.includes(Number(ctx.schoolId || 0))) {
+    return false;
+  }
 
-    if (
-      programmeIds.length &&
-      !programmeIds.includes(Number(ctx.programmeId || 0))
-    ) {
-      return false;
-    }
+  if (
+    departmentIds.length &&
+    !departmentIds.includes(Number(ctx.departmentId || 0))
+  ) {
+    return false;
+  }
+
+  if (
+    programmeIds.length &&
+    !programmeIds.includes(Number(ctx.programmeId || 0))
+  ) {
+    return false;
   }
 
   return true;

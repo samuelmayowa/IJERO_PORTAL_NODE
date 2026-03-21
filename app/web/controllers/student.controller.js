@@ -277,28 +277,48 @@ export async function dashboard(req, res) {
         });
       }
 
+      const resolvedIds = (resolved.rows || [])
+        .map((row) => Number(row.id))
+        .filter(Boolean);
+
+      const categoryByTypeId = new Map(
+        (resolved.rows || []).map((row) => [
+          Number(row.id),
+          categorizePayment(row.name, row.purpose),
+        ]),
+      );
+
       const payeeA =
         resolved.context?.matric_number || publicUser?.matric_number || "";
       const payeeB = resolved.context?.username || publicUser?.username || "";
       const payeeC = resolved.context?.phone || publicUser?.phone || "";
       const payeeD = String(studentId);
 
-      const [paidRows] = await pool.query(
-        `
-          SELECT purpose, amount
-          FROM payment_invoices
-          WHERE status = 'PAID'
-            AND payee_id IN (?, ?, ?, ?)
-        `,
-        [payeeA, payeeB, payeeC, payeeD],
-      );
+      let paidRows = [];
+
+      if (resolvedIds.length) {
+        const [rows] = await pool.query(
+          `
+            SELECT payment_type_id, purpose, amount
+            FROM payment_invoices
+            WHERE status = 'PAID'
+              AND payee_id IN (?, ?, ?, ?)
+              AND payment_type_id IN (?)
+          `,
+          [payeeA, payeeB, payeeC, payeeD, resolvedIds],
+        );
+        paidRows = rows || [];
+      }
 
       totalPaid = 0;
       paymentsBreakdown = { school: 0, faculty: 0, application: 0 };
 
       for (const row of paidRows || []) {
         const amt = Number(row.amount || 0);
-        const category = categorizePayment("", row.purpose || "");
+        const category =
+          categoryByTypeId.get(Number(row.payment_type_id)) ||
+          categorizePayment("", row.purpose || "");
+
         totalPaid += amt;
         paymentsBreakdown[category] += amt;
       }

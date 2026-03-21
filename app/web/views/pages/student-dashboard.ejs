@@ -151,41 +151,102 @@ if (avatarSource) {
       <div class="icon"><i class="fas fa-layer-group"></i></div>
     </div>
   </div>
-    <div class="col-lg-3 col-6">
+      <div class="col-lg-3 col-6">
     <div class="small-box bg-warning">
       <div class="inner">
-        <h3><%= Number(totalPayable || 0).toLocaleString() %></h3>
-        <p>Total Payable</p>
+        <%
+          const totalPayableNum = Number(totalPayable || 0);
+          const totalPaidNum = Number(totalPaid || 0);
+          const primaryPayRow = (paymentSummaryRows || [])[0] || null;
 
-        <p class="mb-1 text-sm">
+          const sixtyTarget = Number((totalPayableNum * 0.6).toFixed(2));
+          const fortyTarget = Number((totalPayableNum - sixtyTarget).toFixed(2));
+
+          const sixtyDone = totalPaidNum >= sixtyTarget && sixtyTarget > 0;
+          const fortyDone = totalPaidNum >= totalPayableNum && fortyTarget > 0;
+
+          const sixtyRemaining = Math.max(sixtyTarget - totalPaidNum, 0);
+          const fortyOutstanding =
+            totalPaidNum >= sixtyTarget
+              ? Math.max(totalPayableNum - totalPaidNum, 0)
+              : fortyTarget;
+
+          const showSixtyRemainingText = totalPaidNum > 0 && totalPaidNum < sixtyTarget;
+        %>
+
+        <div class="d-flex justify-content-between align-items-start flex-wrap mb-1">
+          <div class="mr-2">
+            <div class="font-weight-bold" style="color:#0d6efd; font-size:15px;">
+              Total Payable: <%= totalPayableNum.toLocaleString() %>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-weight-bold" style="color:#198754; font-size:15px;">
+              Total Paid: <%= totalPaidNum.toLocaleString() %>
+            </div>
+            <a href="javascript:void(0)" class="text-success"
+              onclick="(function(){var el=document.getElementById('paidDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
+              <strong>(View Details)</strong>
+            </a>
+          </div>
+        </div>
+
+        <div class="mb-2 text-sm">
           1. School: <%= Number((payableBreakdown && payableBreakdown.school) || 0).toLocaleString() %><br/>
           2. Faculty Due: <%= Number((payableBreakdown && payableBreakdown.faculty) || 0).toLocaleString() %><br/>
           3. Application Fee: <%= Number((payableBreakdown && payableBreakdown.application) || 0).toLocaleString() %>
           &nbsp;
-          <a href="javascript:void(0)" class="text-dark"
+          <a href="javascript:void(0)" class="text-primary"
              onclick="(function(){var el=document.getElementById('payableDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
             <strong>(View Details)</strong>
           </a>
-        </p>
+        </div>
 
-        <p class="mb-1 text-sm">
-          <strong>Total Paid:</strong> <%= Number(totalPaid || 0).toLocaleString() %>
-          &nbsp;
-          <a href="javascript:void(0)" class="text-dark"
-            onclick="(function(){var el=document.getElementById('paidDetailsBox'); if(el){ el.style.display = el.style.display==='none' ? 'block' : 'none'; }})();">
-            <strong>(View Details)</strong>
-          </a>
-        </p>
+        <% if (totalPayableNum > 0) { %>
+          <div class="d-flex justify-content-between align-items-center mb-1 text-sm">
+            <div>
+              <strong>60%:</strong>
+              <% if (sixtyDone) { %>
+                <span class="font-weight-bold text-success"><%= sixtyTarget.toLocaleString() %></span>
+                <span class="font-weight-bold text-success">(Paid)</span>
+              <% } else if (showSixtyRemainingText) { %>
+                <span class="font-weight-bold text-danger"><%= sixtyRemaining.toLocaleString() %></span>
+                <span class="font-weight-bold text-dark">(Remaining)</span>
+              <% } else { %>
+                <span class="font-weight-bold text-danger"><%= sixtyTarget.toLocaleString() %></span>
+              <% } %>
+            </div>
 
-        <% const primaryPayRow = (paymentSummaryRows || [])[0] || null; %>
-        <% if (primaryPayRow) { %>
-          <div class="mt-2">
-            <a
-              href="/payment?from=student-dashboard&payment_type_id=<%= encodeURIComponent(primaryPayRow.payment_type_id) %>"
-              class="btn btn-sm btn-light font-weight-bold"
-              style="border-radius:.4rem;">
-              Pay Now
-            </a>
+            <% if (primaryPayRow && !sixtyDone) { %>
+              <a
+                href="/payment?from=student-dashboard&payment_type_id=<%= encodeURIComponent(primaryPayRow.payment_type_id) %>&dashboard_amount=<%= encodeURIComponent(sixtyRemaining > 0 ? sixtyRemaining : sixtyTarget) %>&dashboard_bucket=60"
+                class="btn btn-xs btn-light font-weight-bold"
+                style="border-radius:.35rem;">
+                Pay Now
+              </a>
+            <% } %>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-1 text-sm">
+            <div>
+              <strong>40%:</strong>
+              <% if (fortyDone) { %>
+                <span class="font-weight-bold text-success"><%= fortyTarget.toLocaleString() %></span>
+                <span class="font-weight-bold text-success">(Paid)</span>
+              <% } else { %>
+                <span class="font-weight-bold text-danger"><%= fortyOutstanding.toLocaleString() %></span>
+                <span class="font-weight-bold text-danger">(Outstanding)</span>
+              <% } %>
+            </div>
+
+            <% if (primaryPayRow && !fortyDone) { %>
+              <a
+                href="/payment?from=student-dashboard&payment_type_id=<%= encodeURIComponent(primaryPayRow.payment_type_id) %>&dashboard_amount=<%= encodeURIComponent(fortyOutstanding) %>&dashboard_bucket=40"
+                class="btn btn-xs btn-light font-weight-bold"
+                style="border-radius:.35rem;">
+                Pay Now
+              </a>
+            <% } %>
           </div>
         <% } %>
 
