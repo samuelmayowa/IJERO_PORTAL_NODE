@@ -41,6 +41,7 @@ import watchlistRoutes from "./app/web/routes/watchlist.routes.js";
 // import * as feesRoutesMod from './app/web/routes/fees.routes.js';
 import * as feesRoutesMod from "./app/web/routes/staff/fees.js";
 import paymentRoutes from "./app/web/routes/payment.routes.js";
+import bursaryPaymentVerificationRoutes from "./app/web/routes/staff/bursary-payment-verification.routes.js";
 import roleRoutes from "./app/web/routes/roles.routes.js";
 import assignCourseRoutes from "./app/web/routes/assign-course.routes.js";
 import viewAssignedCoursesRoutes from "./app/web/routes/view-assigned-courses.routes.js";
@@ -545,6 +546,17 @@ app.use(
 app.use("/staff/fees", feesRoutes);
 
 app.use("/", paymentRoutes);
+
+app.use(
+  "/staff/bursary",
+  (req, res, next) => {
+    res.locals.layout = "layouts/adminlte";
+    next();
+  },
+  ensureUserForViews,
+  requireRole("bursary", "admin", "superadmin", "administrator"),
+  bursaryPaymentVerificationRoutes,
+);
 
 // =======================================================
 // RESULT UPLOAD (Lecturer/HOD/Dean/Registry/Admin)

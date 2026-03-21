@@ -1,0 +1,509 @@
+<%
+function money(v) {
+  const n = Number(v || 0);
+  return '₦' + n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function fmtDateTime(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleString('en-GB', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+function badgeClass(status) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'PAID') return 'success';
+  if (s === 'FAILED' || s === 'CANCELLED') return 'danger';
+  if (s === 'PENDING') return 'warning';
+  return 'secondary';
+}
+%>
+
+<section class="content">
+  <div class="container-fluid">
+    <h3 class="mb-3"><%= title %></h3>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+
+    <div class="row">
+      <div class="col-md-5">
+        <div class="card card-outline card-primary">
+          <div class="card-header">
+            <h3 class="card-title">Confirm Payment by RRR / Invoice</h3>
+          </div>
+          <div class="card-body">
+            <form id="quickVerifyForm">
+              <div class="form-group">
+                <label>RRR / Invoice Number</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="reference"
+                  placeholder="Enter RRR or Invoice Number"
+                  autocomplete="off"
+                >
+              </div>
+              <button type="submit" id="quickVerifyBtn" class="btn btn-primary">
+                Confirm Payment
+              </button>
+            </form>
+            <small class="text-muted d-block mt-2">
+              This will open a modal with the full payment details and inflow summary.
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-7">
+        <div class="card card-outline card-info">
+          <div class="card-header">
+            <h3 class="card-title">Filter Payment Records</h3>
+          </div>
+          <div class="card-body">
+            <form method="GET" action="/staff/bursary/verify-student" class="row">
+              <div class="col-md-3 form-group">
+                <label>From</label>
+                <input type="date" class="form-control" name="from" value="<%= filters.from || '' %>">
+              </div>
+              <div class="col-md-3 form-group">
+                <label>To</label>
+                <input type="date" class="form-control" name="to" value="<%= filters.to || '' %>">
+              </div>
+              <div class="col-md-6 form-group">
+                <label>Search</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="q"
+                  value="<%= filters.q || '' %>"
+                  placeholder="RRR / Invoice / Name / Email / Phone / Purpose"
+                >
+              </div>
+
+              <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a href="/staff/bursary/verify-student" class="btn btn-default ml-1">Reset</a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-3">
+        <div class="small-box bg-success">
+          <div class="inner">
+            <h3><%= summary.paid_count || 0 %></h3>
+            <p>Successful Payments</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3><%= money(summary.paid_total || 0) %></h3>
+            <p>Successful Inflow</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-danger">
+          <div class="inner">
+            <h3><%= summary.failed_count || 0 %></h3>
+            <p>Failed / Cancelled</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-warning">
+          <div class="inner">
+            <h3><%= money(summary.failed_total || 0) %></h3>
+            <p>Failed Value</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+        <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Payment Records</h3>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table id="paymentRecordsTable" class="table table-bordered table-striped mb-0">
+            <thead>
+              <tr>
+                <th style="width: 150px;">Date</th>
+                <th style="width: 170px;">Invoice No.</th>
+                <th style="width: 140px;">RRR</th>
+                <th>Payer</th>
+                <th>Purpose</th>
+                <th style="width: 110px;">Amount</th>
+                <th style="width: 110px;">Charge</th>
+                <th style="width: 120px;">Total</th>
+                <th style="width: 100px;">Status</th>
+                <th style="width: 90px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="paymentRecordsTbody">
+              <% if (!rows || !rows.length) { %>
+                <tr id="noPaymentRecordsRow">
+                  <td colspan="10" class="text-center text-muted">No payment records found.</td>
+                </tr>
+              <% } %>
+
+              <% (rows || []).forEach((r) => { %>
+                <tr class="payment-record-row">
+                  <td><%= fmtDateTime(r.txn_date) %></td>
+                  <td><%= r.order_id || '-' %></td>
+                  <td><%= r.rrr || '-' %></td>
+                  <td>
+                    <strong><%= r.payee_fullname || '-' %></strong><br>
+                    <small><%= r.payee_email || r.payee_phone || r.payee_id || '' %></small>
+                  </td>
+                  <td><%= r.payment_type_name || r.purpose || '-' %></td>
+                  <td><%= money(r.amount || 0) %></td>
+                  <td><%= money(r.portal_charge || 0) %></td>
+                  <td><%= money(r.total_amount || 0) %></td>
+                  <td>
+                    <span class="badge badge-<%= badgeClass(r.status) %>">
+                      <%= String(r.status || '').toUpperCase() %>
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-primary js-open-payment"
+                      data-ref="<%= r.order_id %>">
+                      View
+                    </button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card-footer clearfix">
+        <div id="paymentPagerInfo" class="float-left small text-muted" style="padding-top: 6px;"></div>
+        <div id="paymentPagerBtns" class="float-right"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<div class="modal fade" id="verifyModal" tabindex="-1" role="dialog" aria-labelledby="verifyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary">
+        <h5 class="modal-title" id="verifyModalLabel">Payment Verification Details</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div id="verifyMessage"></div>
+        <div id="verifyDetails"></div>
+
+        <div class="mt-3">
+          <label class="mb-1">Payment Meta</label>
+          <pre id="verifyMeta" class="p-2 border bg-light" style="max-height: 220px; overflow: auto;">No data</pre>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <a href="#" id="verifyPrintLink" class="btn btn-success" target="_blank" style="display:none;">
+          Open Invoice / Receipt
+        </a>
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const csrfToken = <%- JSON.stringify(csrfToken || '') %>;
+  const form = document.getElementById('quickVerifyForm');
+  const quickBtn = document.getElementById('quickVerifyBtn');
+  const modalEl = document.getElementById('verifyModal');
+  const msgBox = document.getElementById('verifyMessage');
+  const detailsBox = document.getElementById('verifyDetails');
+  const metaBox = document.getElementById('verifyMeta');
+  const printLink = document.getElementById('verifyPrintLink');
+
+  const tableBody = document.getElementById('paymentRecordsTbody');
+  const pagerInfo = document.getElementById('paymentPagerInfo');
+  const pagerBtns = document.getElementById('paymentPagerBtns');
+  const pageSize = 15;
+  let currentPage = 1;
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function money(n) {
+    const v = Number(n || 0);
+    return '₦' + v.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function badgeClass(status) {
+    const s = String(status || '').toUpperCase();
+    if (s === 'PAID') return 'success';
+    if (s === 'FAILED' || s === 'CANCELLED') return 'danger';
+    if (s === 'PENDING') return 'warning';
+    return 'secondary';
+  }
+
+  function fmtDateTime(v) {
+    if (!v) return '-';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleString('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  function openModal() {
+    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.modal) {
+      window.jQuery(modalEl).modal('show');
+    }
+  }
+
+  function renderPayload(payload) {
+    const p = payload.payment || {};
+    const isPaid = String(p.status || '').toUpperCase() === 'PAID';
+
+    msgBox.innerHTML =
+      '<div class="alert alert-' + (isPaid ? 'success' : 'warning') + ' mb-3">' +
+      escapeHtml(payload.message || '') +
+      '</div>';
+
+    detailsBox.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <table class="table table-sm table-bordered">
+            <tr><th>Invoice No.</th><td>${escapeHtml(p.order_id || '-')}</td></tr>
+            <tr><th>RRR</th><td>${escapeHtml(p.rrr || '-')}</td></tr>
+            <tr><th>Payer</th><td>${escapeHtml(p.payee_fullname || '-')}</td></tr>
+            <tr><th>Email</th><td>${escapeHtml(p.payee_email || '-')}</td></tr>
+            <tr><th>Phone</th><td>${escapeHtml(p.payee_phone || '-')}</td></tr>
+            <tr><th>Payee ID</th><td>${escapeHtml(p.payee_id || '-')}</td></tr>
+          </table>
+        </div>
+
+        <div class="col-md-6">
+          <table class="table table-sm table-bordered">
+            <tr><th>Payment Type</th><td>${escapeHtml(p.payment_type_name || p.purpose || '-')}</td></tr>
+            <tr><th>Amount</th><td>${money(p.amount || 0)}</td></tr>
+            <tr><th>Charge</th><td>${money(p.portal_charge || 0)}</td></tr>
+            <tr><th>Total</th><td>${money(p.total_amount || 0)}</td></tr>
+            <tr><th>Status</th><td><span class="badge badge-${badgeClass(p.status)}">${escapeHtml(String(p.status || '').toUpperCase())}</span></td></tr>
+            <tr><th>Method</th><td>${escapeHtml(p.method || '-')}</td></tr>
+          </table>
+        </div>
+
+        <div class="col-md-12">
+          <table class="table table-sm table-bordered">
+            <tr><th style="width: 220px;">Paid / Created Time</th><td>${escapeHtml(fmtDateTime(p.paid_at || p.created_at))}</td></tr>
+            <tr><th>Same Payment Inflow (Day)</th><td>${money(payload.summary?.payment_day_total || 0)} (${escapeHtml(String(payload.summary?.payment_day_count || 0))} payment(s))</td></tr>
+            <tr><th>Overall Day Inflow</th><td>${money(payload.summary?.overall_day_total || 0)} (${escapeHtml(String(payload.summary?.overall_day_count || 0))} payment(s))</td></tr>
+          </table>
+        </div>
+      </div>
+    `;
+
+    metaBox.textContent = p.payment_meta_pretty || 'No payment meta available.';
+
+    if (payload.view_url) {
+      printLink.href = payload.view_url;
+      printLink.style.display = '';
+      printLink.textContent = isPaid ? 'Open Receipt' : 'Open Invoice';
+    } else {
+      printLink.style.display = 'none';
+      printLink.href = '#';
+    }
+  }
+
+  async function verifyReference(reference) {
+    const response = await fetch('/staff/bursary/verify-student/check', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ reference })
+    });
+
+    const payload = await response.json().catch(() => ({
+      ok: false,
+      error: 'Unable to verify payment right now.'
+    }));
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || 'Unable to verify payment.');
+    }
+
+    renderPayload(payload);
+    openModal();
+  }
+
+  function getPaymentRows() {
+    if (!tableBody) return [];
+    return Array.from(tableBody.querySelectorAll('tr.payment-record-row'));
+  }
+
+  function buildPagerButton(label, page, disabled, active) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className =
+      'btn btn-sm ' +
+      (active ? 'btn-primary' : 'btn-default') +
+      (disabled ? ' disabled' : '');
+    btn.style.marginLeft = '4px';
+    btn.textContent = label;
+
+    if (!disabled) {
+      btn.addEventListener('click', function () {
+        renderClientPagination(page);
+      });
+    }
+
+    return btn;
+  }
+
+  function renderClientPagination(page) {
+    const rows = getPaymentRows();
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    currentPage = Math.min(Math.max(1, page || 1), totalPages);
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    rows.forEach(function (row, index) {
+      row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+    });
+
+    if (pagerInfo) {
+      if (!totalRows) {
+        pagerInfo.textContent = 'Showing 0 to 0 of 0 entries';
+      } else {
+        pagerInfo.textContent =
+          'Showing ' + (startIndex + 1) +
+          ' to ' + Math.min(endIndex, totalRows) +
+          ' of ' + totalRows + ' entries';
+      }
+    }
+
+    if (pagerBtns) {
+      pagerBtns.innerHTML = '';
+
+      if (totalRows <= pageSize) return;
+
+      pagerBtns.appendChild(
+        buildPagerButton('Prev', currentPage - 1, currentPage === 1, false)
+      );
+
+      for (let p = 1; p <= totalPages; p++) {
+        if (p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)) {
+          pagerBtns.appendChild(
+            buildPagerButton(String(p), p, false, p === currentPage)
+          );
+        } else if (
+          p === currentPage - 3 ||
+          p === currentPage + 3
+        ) {
+          const dots = document.createElement('span');
+          dots.textContent = '...';
+          dots.style.marginLeft = '8px';
+          dots.style.marginRight = '4px';
+          pagerBtns.appendChild(dots);
+        }
+      }
+
+      pagerBtns.appendChild(
+        buildPagerButton('Next', currentPage + 1, currentPage === totalPages, false)
+      );
+    }
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const fd = new FormData(form);
+    const reference = String(fd.get('reference') || '').trim();
+
+    if (!reference) {
+      alert('Enter an RRR or Invoice Number.');
+      return;
+    }
+
+    const oldText = quickBtn.textContent;
+    quickBtn.disabled = true;
+    quickBtn.textContent = 'Checking...';
+
+    try {
+      await verifyReference(reference);
+    } catch (err) {
+      alert(err.message || 'Unable to verify payment.');
+    } finally {
+      quickBtn.disabled = false;
+      quickBtn.textContent = oldText;
+    }
+  });
+
+  document.querySelectorAll('.js-open-payment').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      const reference = this.getAttribute('data-ref') || '';
+      if (!reference) return;
+
+      try {
+        await verifyReference(reference);
+      } catch (err) {
+        alert(err.message || 'Unable to open payment details.');
+      }
+    });
+  });
+
+  renderClientPagination(1);
+})();
+</script>
