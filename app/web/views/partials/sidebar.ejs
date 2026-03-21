@@ -306,6 +306,14 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Mark Applicant As Inactive</strong></p></a></li>
         </ul>
       </li>
+            <!-- Vacancy Applications -->
+      <li class="nav-item">
+        <a href="/staff/vacancies/report"
+          class="nav-link <%= cur.startsWith('/staff/vacancies/report') ? 'active' : '' %>">
+          <i class="nav-icon fas fa-briefcase"></i>
+          <p>Vacancy Applications</p>
+        </a>
+      </li>
 
       <!-- Bursary / Payment -->
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/fees') || cur.startsWith('/staff/bursary') ? 'menu-open' : '' %>">

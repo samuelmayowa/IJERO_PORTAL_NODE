@@ -29,6 +29,7 @@ import * as resultsRoutesMod from "./app/web/routes/results.routes.js";
 import * as acadRoutesMod from "./app/web/routes/academic-records.routes.js";
 import * as applicantRoutesMod from "./app/web/routes/applicant.routes.js";
 import * as vacancyRoutesMod from "./app/web/routes/vacancy.routes.js";
+import staffVacancyReportRoutes from "./app/web/routes/staff/vacancy-report.routes.js";
 
 import sessionRoutes from "./app/web/routes/session.routes.js";
 import semesterRoutes from "./app/web/routes/semester.routes.js";
@@ -531,6 +532,16 @@ app.use(studentAttendanceReportRoutes);
 app.use(watchlistRoutes);
 app.use(courseRegistrationReportRoutes);
 
+app.use(
+  "/staff/vacancies",
+  (req, res, next) => {
+    res.locals.layout = "layouts/adminlte";
+    next();
+  },
+  ensureUserForViews,
+  requireRole("admin", "registry", "superadmin", "administrator"),
+  staffVacancyReportRoutes,
+);
 app.use("/staff/fees", feesRoutes);
 
 app.use("/", paymentRoutes);

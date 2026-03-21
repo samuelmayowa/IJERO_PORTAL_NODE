@@ -1,0 +1,343 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1><%= pageTitle || 'Vacancy Applications Report' %></h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+
+    <div class="card card-primary card-outline">
+      <div class="card-body">
+        <form method="get" action="/staff/vacancies/report" class="form-row align-items-end">
+          <div class="form-group col-md-2">
+            <label for="from">From</label>
+            <input
+              type="date"
+              id="from"
+              name="from"
+              class="form-control"
+              value="<%= filters.from || '' %>"
+            >
+          </div>
+
+          <div class="form-group col-md-2">
+            <label for="to">To</label>
+            <input
+              type="date"
+              id="to"
+              name="to"
+              class="form-control"
+              value="<%= filters.to || '' %>"
+            >
+          </div>
+
+          <div class="form-group col-md-2">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="form-control">
+              <option value="" <%= !filters.status ? 'selected' : '' %>>All</option>
+              <option value="submitted" <%= filters.status === 'submitted' ? 'selected' : '' %>>Submitted</option>
+              <option value="under-review" <%= filters.status === 'under-review' ? 'selected' : '' %>>Under Review</option>
+              <option value="shortlisted" <%= filters.status === 'shortlisted' ? 'selected' : '' %>>Shortlisted</option>
+              <option value="rejected" <%= filters.status === 'rejected' ? 'selected' : '' %>>Rejected</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-3">
+            <label for="post">Post Applying For</label>
+            <input
+              type="text"
+              id="post"
+              name="post"
+              class="form-control"
+              placeholder="e.g. Senior Lecturer"
+              value="<%= filters.post || '' %>"
+            >
+          </div>
+
+          <div class="form-group col-md-3">
+            <label for="q">Search</label>
+            <input
+              type="text"
+              id="q"
+              name="q"
+              class="form-control"
+              placeholder="Reference / Name / Email / Phone"
+              value="<%= filters.q || '' %>"
+            >
+          </div>
+
+          <div class="form-group col-md-2">
+            <button type="submit" class="btn btn-primary btn-block">Apply</button>
+          </div>
+
+          <div class="form-group col-md-2">
+            <a href="/staff/vacancies/report" class="btn btn-default btn-block">Reset</a>
+          </div>
+
+          <div class="form-group col-md-2">
+            <a href="<%= exportCsvUrl %>" class="btn btn-success btn-block">Export CSV</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-3">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3><%= summary.total || 0 %></h3>
+            <p>Rows Matched</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-success">
+          <div class="inner">
+            <h3><%= summary.submitted || 0 %></h3>
+            <p>Submitted</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-warning">
+          <div class="inner">
+            <h3><%= summary.withCv || 0 %></h3>
+            <p>With CV</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="small-box bg-danger">
+          <div class="inner">
+            <h3><%= summary.withCertificates || 0 %></h3>
+            <p>With Certificate(s)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-primary">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th style="width:60px">#</th>
+                <th style="width:140px">Date</th>
+                <th style="width:170px">Reference</th>
+                <th>Applicant</th>
+                <th>Post</th>
+                <th style="width:180px">Contact</th>
+                <th style="width:110px">Status</th>
+                <th style="width:260px">Uploaded File(s)</th>
+                <th style="width:90px">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!rows || !rows.length) { %>
+                <tr>
+                  <td colspan="9" class="text-center text-muted">No applications found.</td>
+                </tr>
+              <% } %>
+
+              <% (rows || []).forEach(function(row, idx) { %>
+                <tr>
+                  <td><%= ((pagination.page - 1) * pagination.pageSize) + idx + 1 %></td>
+                  <td><%= row.created_at ? new Date(row.created_at).toLocaleString('en-NG') : '' %></td>
+                  <td><%= row.reference_no || '' %></td>
+                  <td><%= row.applicant_name || '' %></td>
+                  <td><%= row.post_applying_for || '' %></td>
+                  <td>
+                    <div><strong>Email:</strong> <%= row.email || '' %></div>
+                    <div><strong>Phone:</strong> <%= row.phone || '' %></div>
+                  </td>
+                  <td>
+                    <% const statusText = String(row.status || '').toLowerCase(); %>
+                    <% if (statusText === 'submitted') { %>
+                      <span class="badge badge-success">SUBMITTED</span>
+                    <% } else if (statusText === 'shortlisted') { %>
+                      <span class="badge badge-info">SHORTLISTED</span>
+                    <% } else if (statusText === 'rejected') { %>
+                      <span class="badge badge-danger">REJECTED</span>
+                    <% } else if (statusText === 'under-review') { %>
+                      <span class="badge badge-warning">UNDER REVIEW</span>
+                    <% } else { %>
+                      <span class="badge badge-secondary"><%= (row.status || '').toUpperCase() %></span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (row.cv_path) { %>
+                      <a
+                        class="btn btn-xs btn-outline-primary mb-1"
+                        href="/staff/vacancies/report/file/<%= row.id %>/cv"
+                      >CV</a>
+                    <% } %>
+
+                    <% if (row.supporting_document_path) { %>
+                      <a
+                        class="btn btn-xs btn-outline-info mb-1"
+                        href="/staff/vacancies/report/file/<%= row.id %>/supporting"
+                      >Supporting</a>
+                    <% } %>
+
+                    <% if (row.certificates && row.certificates.length) { %>
+                      <% row.certificates.forEach(function(cert, certIndex) { %>
+                        <a
+                          class="btn btn-xs btn-outline-success mb-1"
+                          href="/staff/vacancies/report/file/<%= row.id %>/certificate?index=<%= certIndex %>"
+                        >Cert <%= certIndex + 1 %></a>
+                      <% }) %>
+                    <% } %>
+
+                    <% if (!row.cv_path && !row.supporting_document_path && !(row.certificates && row.certificates.length)) { %>
+                      <span class="text-muted">No file</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-primary js-toggle-detail"
+                      data-target="detail-<%= row.id %>"
+                    >View</button>
+                  </td>
+                </tr>
+
+                <tr id="detail-<%= row.id %>" class="vacancy-detail-row" style="display:none;background:#fbfdff;">
+                  <td colspan="9">
+                    <div class="row">
+                      <div class="col-md-4 mb-2">
+                        <strong>Reference No:</strong><br>
+                        <span><%= row.reference_no || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Full Name:</strong><br>
+                        <span><%= row.applicant_name || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Date Submitted:</strong><br>
+                        <span><%= row.created_at ? new Date(row.created_at).toLocaleString('en-NG') : '' %></span>
+                      </div>
+
+                      <div class="col-md-4 mb-2">
+                        <strong>Email:</strong><br>
+                        <span><%= row.email || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Phone:</strong><br>
+                        <span><%= row.phone || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Alternative Phone:</strong><br>
+                        <span><%= row.alternative_phone || 'N/A' %></span>
+                      </div>
+
+                      <div class="col-md-4 mb-2">
+                        <strong>Date of Birth:</strong><br>
+                        <span><%= row.date_of_birth || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Gender:</strong><br>
+                        <span><%= row.gender || 'N/A' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Status:</strong><br>
+                        <span><%= row.status || '' %></span>
+                      </div>
+
+                      <div class="col-md-4 mb-2">
+                        <strong>State of Origin:</strong><br>
+                        <span><%= row.state_of_origin || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Local Government:</strong><br>
+                        <span><%= row.local_government || '' %></span>
+                      </div>
+                      <div class="col-md-4 mb-2">
+                        <strong>Post Applied For:</strong><br>
+                        <span><%= row.post_applying_for || '' %></span>
+                      </div>
+
+                      <div class="col-md-6 mb-2">
+                        <strong>Address:</strong><br>
+                        <div style="white-space:pre-line;"><%= row.house_address || '' %></div>
+                      </div>
+                      <div class="col-md-6 mb-2">
+                        <strong>Submission Metadata:</strong><br>
+                        <div><strong>IP:</strong> <%= row.submission_ip || 'N/A' %></div>
+                        <div style="word-break:break-word;"><strong>User Agent:</strong> <%= row.user_agent || 'N/A' %></div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-2 d-flex justify-content-between align-items-center">
+          <div class="text-muted small">
+            Page <%= pagination.page %> of <%= pagination.totalPages %>
+            | Total <%= pagination.total %> row(s)
+          </div>
+
+          <div>
+            <% const prevPage = Math.max(1, pagination.page - 1); %>
+            <% const nextPage = Math.min(pagination.totalPages, pagination.page + 1); %>
+            <% const prefix = pagination.queryBase ? pagination.queryBase + '&' : ''; %>
+
+            <a
+              href="/staff/vacancies/report?<%= prefix %>page=<%= prevPage %>"
+              class="btn btn-sm btn-outline-secondary <%= pagination.page <= 1 ? 'disabled' : '' %>"
+            >Prev</a>
+
+            <% for (let p = 1; p <= pagination.totalPages; p++) { %>
+              <% if (p >= pagination.page - 2 && p <= pagination.page + 2) { %>
+                <a
+                  href="/staff/vacancies/report?<%= prefix %>page=<%= p %>"
+                  class="btn btn-sm ml-1 <%= p === pagination.page ? 'btn-primary' : 'btn-outline-primary' %>"
+                ><%= p %></a>
+              <% } %>
+            <% } %>
+
+            <a
+              href="/staff/vacancies/report?<%= prefix %>page=<%= nextPage %>"
+              class="btn btn-sm btn-outline-secondary ml-1 <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>"
+            >Next</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    document.querySelectorAll('.js-toggle-detail').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const targetId = btn.getAttribute('data-target');
+        const row = document.getElementById(targetId);
+        if (!row) return;
+
+        const isHidden = row.style.display === 'none' || row.style.display === '';
+        row.style.display = isHidden ? 'table-row' : 'none';
+        btn.textContent = isHidden ? 'Hide' : 'View';
+      });
+    });
+  })();
+</script>
