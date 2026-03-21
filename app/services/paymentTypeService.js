@@ -1,67 +1,103 @@
-// app/services/paymentTypeService.js  (ESM)
-import db from '../core/db.js';
+// app/services/paymentTypeService.js
+import db from "../core/db.js";
 
-/** utils */
 function toIntArray(v) {
   if (!v) return [];
-  if (Array.isArray(v)) return v.map(n => Number(n)).filter(Boolean);
-  return String(v).split(',').map(n => Number(n)).filter(Boolean);
+  if (Array.isArray(v)) return v.map((n) => Number(n)).filter(Boolean);
+  return String(v)
+    .split(",")
+    .map((n) => Number(n))
+    .filter(Boolean);
 }
 
 function toRows(x) {
-  // mysql2/promise returns [rows, fields] — normalize if needed
   if (Array.isArray(x) && Array.isArray(x[0])) return x[0];
   return x || [];
 }
 
-/** Extract sessions from flexible form payload */
-function extractSessions(payload) {
-  // New form shape: sessionRows[][session_id], sessionRows[][semester]
-  const rows = Array.isArray(payload.sessionRows) ? payload.sessionRows : [];
-  const pairs = rows
-    .map(r => ({
-      sid: Number(r?.session_id) || 0,
-      sem: (r?.semester === '' || r?.semester == null) ? 0 : Number(r?.semester)
-    }))
-    .filter(p => p.sid > 0);
+function normalizeScope(scope) {
+  return String(scope || "GENERAL")
+    .trim()
+    .toUpperCase() === "GENERAL"
+    ? "GENERAL"
+    : "BOTH";
+}
 
-  // Back-compat: session_ids + session_semesters
+function normalizeSemesterValue(v) {
+  const raw = String(v == null ? "" : v)
+    .trim()
+    .toUpperCase();
+  if (!raw || raw === "0" || raw === "ALL") return "ALL";
+  if (raw === "1" || raw === "FIRST") return "FIRST";
+  if (raw === "2" || raw === "SECOND") return "SECOND";
+  return raw;
+}
+
+function extractSessions(payload) {
+  const pairs = [];
+  const rows = Array.isArray(payload.sessionRows) ? payload.sessionRows : [];
+
+  for (const row of rows) {
+    const sid = Number(row?.session_id || 0);
+    const sem = normalizeSemesterValue(row?.semester);
+    if (sid > 0) {
+      pairs.push({ sid, sem });
+    }
+  }
+
   if (!pairs.length) {
     const sids = toIntArray(payload.session_ids);
     const sems = Array.isArray(payload.session_semesters)
-      ? payload.session_semesters.map(x => Number(x || 0))
+      ? payload.session_semesters
       : [];
+
     for (let i = 0; i < sids.length; i++) {
-      pairs.push({ sid: sids[i], sem: Number(sems[i] ?? 0) });
+      const sid = Number(sids[i] || 0);
+      const sem = normalizeSemesterValue(sems[i]);
+      if (sid > 0) {
+        pairs.push({ sid, sem });
+      }
     }
   }
-  return pairs;
+
+  const seen = new Set();
+  return pairs.filter((p) => {
+    const key = `${p.sid}::${p.sem}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
-/** LIST (with simple search + pagination) */
-export async function list({ page = 1, pageSize = 20, q = '' }) {
+export async function list({ page = 1, pageSize = 20, q = "" }) {
   const off = (page - 1) * pageSize;
   const args = [];
   const where = [];
+
   if (q) {
-    where.push('(pt.name LIKE ? OR pt.purpose LIKE ?)');
+    where.push("(pt.name LIKE ? OR pt.purpose LIKE ?)");
     args.push(`%${q}%`, `%${q}%`);
   }
-  const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+  const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
+
   const listR = await db.query(
-    `SELECT pt.*
-     FROM payment_types pt
-     ${whereSql}
-     ORDER BY pt.created_at DESC
-     LIMIT ? OFFSET ?`,
-    [...args, pageSize, off]
+    `
+      SELECT pt.*
+      FROM payment_types pt
+      ${whereSql}
+      ORDER BY pt.created_at DESC
+      LIMIT ? OFFSET ?
+    `,
+    [...args, pageSize, off],
   );
-  const rows = toRows(listR);
 
   const countR = await db.query(
     `SELECT COUNT(*) AS cnt FROM payment_types pt ${whereSql}`,
-    args
+    args,
   );
+
+  const rows = toRows(listR);
   const [{ cnt }] = toRows(countR);
 
   return {
@@ -70,29 +106,60 @@ export async function list({ page = 1, pageSize = 20, q = '' }) {
       page,
       pageSize,
       total: Number(cnt || 0),
-      totalPages: Math.max(1, Math.ceil(Number(cnt || 0) / pageSize))
-    }
+      totalPages: Math.max(1, Math.ceil(Number(cnt || 0) / pageSize)),
+    },
   };
 }
 
-/** GET one */
 export async function get(id) {
-  const r = await db.query(`SELECT * FROM payment_types WHERE id=?`, [id]);
+  const r = await db.query(`SELECT * FROM payment_types WHERE id = ?`, [id]);
   const [row] = toRows(r);
   if (!row) return null;
 
-  const [schoolsR, departmentsR, sessionsR, rulesR] = await Promise.all([
-    db.query(`SELECT school_id FROM payment_type_schools WHERE payment_type_id=? ORDER BY school_id ASC`, [id]),
-    db.query(`SELECT department_id FROM payment_type_departments WHERE payment_type_id=? ORDER BY department_id ASC`, [id]),
-    db.query(`SELECT session_id, semester FROM payment_type_sessions WHERE payment_type_id=? ORDER BY session_id ASC, semester ASC`, [id]),
-    db.query(`SELECT entry_level, current_level, admission_session_id, amount_override FROM payment_type_rules WHERE payment_type_id=? ORDER BY id DESC LIMIT 1`, [id]),
-  ]);
+  const [schoolsR, departmentsR, programmesR, sessionsR, rulesR] =
+    await Promise.all([
+      db.query(
+        `SELECT school_id FROM payment_type_schools WHERE payment_type_id = ? ORDER BY school_id ASC`,
+        [id],
+      ),
+      db.query(
+        `SELECT department_id FROM payment_type_departments WHERE payment_type_id = ? ORDER BY department_id ASC`,
+        [id],
+      ),
+      db.query(
+        `SELECT programme_id FROM payment_type_programmes WHERE payment_type_id = ? ORDER BY programme_id ASC`,
+        [id],
+      ),
+      db.query(
+        `SELECT session_id, semester FROM payment_type_sessions WHERE payment_type_id = ? ORDER BY session_id ASC, semester ASC`,
+        [id],
+      ),
+      db.query(
+        `SELECT entry_level, current_level, admission_session_id, amount_override
+       FROM payment_type_rules
+       WHERE payment_type_id = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+        [id],
+      ),
+    ]);
 
-  const school_ids = toRows(schoolsR).map(x => Number(x.school_id)).filter(Boolean);
-  const department_ids = toRows(departmentsR).map(x => Number(x.department_id)).filter(Boolean);
-  const sessionRows = toRows(sessionsR).map(x => ({
-    session_id: Number(x.session_id) || '',
-    semester: Number(x.semester) || ''
+  const school_ids = toRows(schoolsR)
+    .map((x) => Number(x.school_id))
+    .filter(Boolean);
+  const department_ids = toRows(departmentsR)
+    .map((x) => Number(x.department_id))
+    .filter(Boolean);
+  const programme_ids = toRows(programmesR)
+    .map((x) => Number(x.programme_id))
+    .filter(Boolean);
+
+  const sessionRows = toRows(sessionsR).map((x) => ({
+    session_id: Number(x.session_id) || "",
+    semester:
+      normalizeSemesterValue(x.semester) === "ALL"
+        ? ""
+        : normalizeSemesterValue(x.semester),
   }));
 
   const [rule] = toRows(rulesR);
@@ -101,147 +168,188 @@ export async function get(id) {
     ...row,
     school_ids,
     department_ids,
+    programme_ids,
     sessionRows,
-    rule_entry_level: rule?.entry_level ?? '',
-    rule_current_level: rule?.current_level ?? '',
-    rule_admission_session_id: rule?.admission_session_id ?? '',
-    rule_amount_override: rule?.amount_override ?? ''
+    rule_entry_level: rule?.entry_level ?? "",
+    rule_current_level: rule?.current_level ?? "",
+    rule_admission_session_id: rule?.admission_session_id ?? "",
+    rule_amount_override: rule?.amount_override ?? "",
   };
 }
 
-/** Check duplicate (name + purpose + scope) */
 async function existsDuplicate({ name, purpose, scope }) {
   const r = await db.query(
-    `SELECT id FROM payment_types WHERE name=? AND purpose=? AND scope=? LIMIT 1`,
-    [String(name).trim(), String(purpose).trim(), String(scope).toUpperCase()]
+    `SELECT id
+     FROM payment_types
+     WHERE name = ?
+       AND purpose = ?
+       AND scope = ?
+     LIMIT 1`,
+    [String(name).trim(), String(purpose).trim(), normalizeScope(scope)],
   );
-  const [hit] = toRows(r);
-  return !!hit;
+
+  return !!toRows(r)?.[0];
 }
 
-/** CREATE with pivots + rules (transaction) */
+async function insertPivotRows(conn, table, col, paymentTypeId, ids) {
+  const cleanIds = Array.from(
+    new Set((ids || []).map((x) => Number(x)).filter(Boolean)),
+  );
+  if (!cleanIds.length) return;
+
+  const values = cleanIds.map((v) => [paymentTypeId, v]);
+  await conn.query(`INSERT INTO ${table} (payment_type_id, ${col}) VALUES ?`, [
+    values,
+  ]);
+}
+
 export async function create(payload, createdBy) {
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
 
     const {
-      name, purpose,
-      amount = 0, portal_charge = 0,
-      scope = 'GENERAL',
+      name,
+      purpose,
+      amount = 0,
+      portal_charge = 0,
+      scope = "GENERAL",
       is_active = 1,
 
-      remita_service_type_id = '',
+      remita_service_type_id = "",
       uses_indigene_regime = 0,
       amount_indigene = null,
       amount_non_indigene = null,
       portal_charge_indigene = null,
       portal_charge_non_indigene = null,
-      remita_service_type_id_indigene = '',
-      remita_service_type_id_non_indigene = '',
+      remita_service_type_id_indigene = "",
+      remita_service_type_id_non_indigene = "",
 
-      // NEW (from form; multiple)
       school_ids,
       department_ids,
+      programme_ids,
 
-      // Back-compat (single)
       school_id,
       department_id,
 
-      // Optional rule set
       rule_entry_level,
       rule_current_level,
       rule_admission_session_id,
-      rule_amount_override
+      rule_amount_override,
     } = payload;
 
-    // Duplicate check
-    if (await existsDuplicate({ name, purpose, scope })) {
-      throw new Error('A payment type with the same Name, Purpose and Scope already exists.');
+    const normalizedScope = normalizeScope(scope);
+
+    if (await existsDuplicate({ name, purpose, scope: normalizedScope })) {
+      throw new Error(
+        "A payment type with the same Name, Purpose and Scope already exists.",
+      );
     }
 
-    // Insert base row
     const [ins] = await conn.query(
-      `INSERT INTO payment_types (
-        name, purpose, remita_service_type_id, uses_indigene_regime,
-        amount, portal_charge,
-        amount_indigene, amount_non_indigene,
-        portal_charge_indigene, portal_charge_non_indigene,
-        remita_service_type_id_indigene, remita_service_type_id_non_indigene,
-        scope, is_active, created_by
-      )
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `
+        INSERT INTO payment_types (
+          name,
+          purpose,
+          remita_service_type_id,
+          uses_indigene_regime,
+          amount,
+          portal_charge,
+          amount_indigene,
+          amount_non_indigene,
+          portal_charge_indigene,
+          portal_charge_non_indigene,
+          remita_service_type_id_indigene,
+          remita_service_type_id_non_indigene,
+          scope,
+          is_active,
+          created_by
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `,
       [
         String(name).trim(),
         String(purpose).trim(),
-        String(remita_service_type_id || '').trim() || null,
+        String(remita_service_type_id || "").trim() || null,
         uses_indigene_regime ? 1 : 0,
         Number(amount || 0),
         Number(portal_charge || 0),
-        (amount_indigene === '' || amount_indigene == null) ? null : Number(amount_indigene),
-        (amount_non_indigene === '' || amount_non_indigene == null) ? null : Number(amount_non_indigene),
-        (portal_charge_indigene === '' || portal_charge_indigene == null) ? null : Number(portal_charge_indigene),
-        (portal_charge_non_indigene === '' || portal_charge_non_indigene == null) ? null : Number(portal_charge_non_indigene),
-        String(remita_service_type_id_indigene || '').trim() || null,
-        String(remita_service_type_id_non_indigene || '').trim() || null,
-        String(scope).toUpperCase(),
+        amount_indigene === "" || amount_indigene == null
+          ? null
+          : Number(amount_indigene),
+        amount_non_indigene === "" || amount_non_indigene == null
+          ? null
+          : Number(amount_non_indigene),
+        portal_charge_indigene === "" || portal_charge_indigene == null
+          ? null
+          : Number(portal_charge_indigene),
+        portal_charge_non_indigene === "" || portal_charge_non_indigene == null
+          ? null
+          : Number(portal_charge_non_indigene),
+        String(remita_service_type_id_indigene || "").trim() || null,
+        String(remita_service_type_id_non_indigene || "").trim() || null,
+        normalizedScope,
         is_active ? 1 : 0,
-        createdBy || null
-      ]
+        createdBy || null,
+      ],
     );
+
     const id = ins.insertId;
 
-    const sc = String(scope || 'GENERAL').toUpperCase();
+    if (normalizedScope !== "GENERAL") {
+      await insertPivotRows(
+        conn,
+        "payment_type_schools",
+        "school_id",
+        id,
+        school_ids?.length ? school_ids : school_id,
+      );
 
-    // Pivots by scope
-    if (sc === 'SCHOOL' || sc === 'BOTH') {
-      // accept multiple OR single (back-compat)
-      const sids = toIntArray(school_ids?.length ? school_ids : school_id);
-      if (sids.length) {
-        const values = sids.map(sid => [id, sid]);
-        await conn.query(
-          `INSERT INTO payment_type_schools (payment_type_id, school_id) VALUES ?`,
-          [values]
-        );
-      }
-    }
-    if (sc === 'DEPARTMENT' || sc === 'BOTH') {
-      const dids = toIntArray(department_ids?.length ? department_ids : department_id);
-      if (dids.length) {
-        const values = dids.map(did => [id, did]);
-        await conn.query(
-          `INSERT INTO payment_type_departments (payment_type_id, department_id) VALUES ?`,
-          [values]
-        );
-      }
-    }
+      await insertPivotRows(
+        conn,
+        "payment_type_departments",
+        "department_id",
+        id,
+        department_ids?.length ? department_ids : department_id,
+      );
 
-    // Sessions + Semesters
-    const pairs = extractSessions(payload);
-    if (pairs.length) {
-      const values = pairs.map(p => [id, p.sid, p.sem]);
-      await conn.query(
-        `INSERT INTO payment_type_sessions (payment_type_id, session_id, semester) VALUES ?`,
-        [values]
+      await insertPivotRows(
+        conn,
+        "payment_type_programmes",
+        "programme_id",
+        id,
+        programme_ids,
       );
     }
-    // Optional single rule
-    const entryL   = String(rule_entry_level || '').trim() || null;
-    const currentL = String(rule_current_level || '').trim() || null;
-    const admSess  = Number(rule_admission_session_id) || null;
-    const override = (rule_amount_override === '' || rule_amount_override == null)
-      ? null : Number(rule_amount_override);
+
+    const pairs = extractSessions(payload);
+    if (pairs.length) {
+      const values = pairs.map((p) => [id, p.sid, p.sem]);
+      await conn.query(
+        `INSERT INTO payment_type_sessions (payment_type_id, session_id, semester) VALUES ?`,
+        [values],
+      );
+    }
+
+    const entryL = String(rule_entry_level || "").trim() || null;
+    const currentL = String(rule_current_level || "").trim() || null;
+    const admSess = Number(rule_admission_session_id) || null;
+    const override =
+      rule_amount_override === "" || rule_amount_override == null
+        ? null
+        : Number(rule_amount_override);
 
     if (entryL || currentL || admSess || override !== null) {
       await conn.query(
-        `INSERT INTO payment_type_rules
-          (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
-        VALUES (?,?,?,?,?)`,
-        [id, entryL, currentL, admSess, override]
+        `
+          INSERT INTO payment_type_rules
+            (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
+          VALUES (?,?,?,?,?)
+        `,
+        [id, entryL, currentL, admSess, override],
       );
     }
-
-
 
     await conn.commit();
     return id;
@@ -253,15 +361,17 @@ export async function create(payload, createdBy) {
   }
 }
 
-/** UPDATE mirrors CREATE (replace pivots + rules) */
 export async function update(id, payload) {
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
 
     const {
-      name, purpose,
-      amount, portal_charge,
+      name,
+      purpose,
+      amount,
+      portal_charge,
       scope,
       is_active,
 
@@ -274,110 +384,158 @@ export async function update(id, payload) {
       remita_service_type_id_indigene,
       remita_service_type_id_non_indigene,
 
-      // NEW (from form; multiple)
       school_ids,
       department_ids,
+      programme_ids,
 
-      // Back-compat (single)
       school_id,
       department_id,
 
-      // sessions (new + back-compat)
       sessionRows,
       session_ids,
       session_semesters,
 
-      // rule set
-      rule_entry_level, rule_current_level, rule_admission_session_id, rule_amount_override
+      rule_entry_level,
+      rule_current_level,
+      rule_admission_session_id,
+      rule_amount_override,
     } = payload;
 
+    const normalizedScope = normalizeScope(scope);
+
     await conn.query(
-      `UPDATE payment_types SET
-        name = COALESCE(?, name),
-        purpose = COALESCE(?, purpose),
-        remita_service_type_id = COALESCE(?, remita_service_type_id),
-        uses_indigene_regime = COALESCE(?, uses_indigene_regime),
-        amount = COALESCE(?, amount),
-        portal_charge = COALESCE(?, portal_charge),
-        amount_indigene = ?,
-        amount_non_indigene = ?,
-        portal_charge_indigene = ?,
-        portal_charge_non_indigene = ?,
-        remita_service_type_id_indigene = ?,
-        remita_service_type_id_non_indigene = ?,
-        scope = COALESCE(?, scope),
-        is_active = COALESCE(?, is_active),
-        updated_at = NOW()
-      WHERE id = ?`,
+      `
+        UPDATE payment_types SET
+          name = COALESCE(?, name),
+          purpose = COALESCE(?, purpose),
+          remita_service_type_id = COALESCE(?, remita_service_type_id),
+          uses_indigene_regime = COALESCE(?, uses_indigene_regime),
+          amount = COALESCE(?, amount),
+          portal_charge = COALESCE(?, portal_charge),
+          amount_indigene = ?,
+          amount_non_indigene = ?,
+          portal_charge_indigene = ?,
+          portal_charge_non_indigene = ?,
+          remita_service_type_id_indigene = ?,
+          remita_service_type_id_non_indigene = ?,
+          scope = COALESCE(?, scope),
+          is_active = COALESCE(?, is_active),
+          updated_at = NOW()
+        WHERE id = ?
+      `,
       [
         name ?? null,
         purpose ?? null,
-        (typeof remita_service_type_id === 'undefined') ? null : (String(remita_service_type_id || '').trim() || null),
-        typeof uses_indigene_regime === 'undefined' ? null : (uses_indigene_regime ? 1 : 0),
-        (amount ?? null) === null ? null : Number(amount),
-        (portal_charge ?? null) === null ? null : Number(portal_charge),
-        (amount_indigene === '' || amount_indigene == null) ? null : Number(amount_indigene),
-        (amount_non_indigene === '' || amount_non_indigene == null) ? null : Number(amount_non_indigene),
-        (portal_charge_indigene === '' || portal_charge_indigene == null) ? null : Number(portal_charge_indigene),
-        (portal_charge_non_indigene === '' || portal_charge_non_indigene == null) ? null : Number(portal_charge_non_indigene),
-        (typeof remita_service_type_id_indigene === 'undefined') ? null : (String(remita_service_type_id_indigene || '').trim() || null),
-        (typeof remita_service_type_id_non_indigene === 'undefined') ? null : (String(remita_service_type_id_non_indigene || '').trim() || null),
-        scope ? String(scope).toUpperCase() : null,
-        typeof is_active === 'undefined' ? null : (is_active ? 1 : 0),
-        id
-      ]
+        typeof remita_service_type_id === "undefined"
+          ? null
+          : String(remita_service_type_id || "").trim() || null,
+        typeof uses_indigene_regime === "undefined"
+          ? null
+          : uses_indigene_regime
+            ? 1
+            : 0,
+        amount == null ? null : Number(amount),
+        portal_charge == null ? null : Number(portal_charge),
+        amount_indigene === "" || amount_indigene == null
+          ? null
+          : Number(amount_indigene),
+        amount_non_indigene === "" || amount_non_indigene == null
+          ? null
+          : Number(amount_non_indigene),
+        portal_charge_indigene === "" || portal_charge_indigene == null
+          ? null
+          : Number(portal_charge_indigene),
+        portal_charge_non_indigene === "" || portal_charge_non_indigene == null
+          ? null
+          : Number(portal_charge_non_indigene),
+        typeof remita_service_type_id_indigene === "undefined"
+          ? null
+          : String(remita_service_type_id_indigene || "").trim() || null,
+        typeof remita_service_type_id_non_indigene === "undefined"
+          ? null
+          : String(remita_service_type_id_non_indigene || "").trim() || null,
+        normalizedScope,
+        typeof is_active === "undefined" ? null : is_active ? 1 : 0,
+        id,
+      ],
     );
 
-    // Reset pivots/rules, then reinsert
-    await conn.query(`DELETE FROM payment_type_schools    WHERE payment_type_id=?`, [id]);
-    await conn.query(`DELETE FROM payment_type_departments WHERE payment_type_id=?`, [id]);
-    await conn.query(`DELETE FROM payment_type_sessions   WHERE payment_type_id=?`, [id]);
-    await conn.query(`DELETE FROM payment_type_rules      WHERE payment_type_id=?`, [id]);
+    await conn.query(
+      `DELETE FROM payment_type_schools WHERE payment_type_id = ?`,
+      [id],
+    );
+    await conn.query(
+      `DELETE FROM payment_type_departments WHERE payment_type_id = ?`,
+      [id],
+    );
+    await conn.query(
+      `DELETE FROM payment_type_programmes WHERE payment_type_id = ?`,
+      [id],
+    );
+    await conn.query(
+      `DELETE FROM payment_type_sessions WHERE payment_type_id = ?`,
+      [id],
+    );
+    await conn.query(
+      `DELETE FROM payment_type_rules WHERE payment_type_id = ?`,
+      [id],
+    );
 
-    const sc = String(scope || 'GENERAL').toUpperCase();
+    if (normalizedScope !== "GENERAL") {
+      await insertPivotRows(
+        conn,
+        "payment_type_schools",
+        "school_id",
+        id,
+        school_ids?.length ? school_ids : school_id,
+      );
 
-    if (sc === 'SCHOOL' || sc === 'BOTH') {
-      const sids = toIntArray(school_ids?.length ? school_ids : school_id);
-      if (sids.length) {
-        const values = sids.map(sid => [id, sid]);
-        await conn.query(
-          `INSERT INTO payment_type_schools (payment_type_id, school_id) VALUES ?`,
-          [values]
-        );
-      }
-    }
-    if (sc === 'DEPARTMENT' || sc === 'BOTH') {
-      const dids = toIntArray(department_ids?.length ? department_ids : department_id);
-      if (dids.length) {
-        const values = dids.map(did => [id, did]);
-        await conn.query(
-          `INSERT INTO payment_type_departments (payment_type_id, department_id) VALUES ?`,
-          [values]
-        );
-      }
-    }
+      await insertPivotRows(
+        conn,
+        "payment_type_departments",
+        "department_id",
+        id,
+        department_ids?.length ? department_ids : department_id,
+      );
 
-    const pairs = extractSessions({ sessionRows, session_ids, session_semesters });
-    if (pairs.length) {
-      const values = pairs.map(p => [id, p.sid, p.sem]);
-      await conn.query(
-        `INSERT INTO payment_type_sessions (payment_type_id, session_id, semester) VALUES ?`,
-        [values]
+      await insertPivotRows(
+        conn,
+        "payment_type_programmes",
+        "programme_id",
+        id,
+        programme_ids,
       );
     }
 
-    const entryL   = String(rule_entry_level || '').trim() || null;
-    const currentL = String(rule_current_level || '').trim() || null;
-    const admSess  = Number(rule_admission_session_id) || null;
-    const override = (rule_amount_override === '' || rule_amount_override == null)
-      ? null : Number(rule_amount_override);
+    const pairs = extractSessions({
+      sessionRows,
+      session_ids,
+      session_semesters,
+    });
+    if (pairs.length) {
+      const values = pairs.map((p) => [id, p.sid, p.sem]);
+      await conn.query(
+        `INSERT INTO payment_type_sessions (payment_type_id, session_id, semester) VALUES ?`,
+        [values],
+      );
+    }
+
+    const entryL = String(rule_entry_level || "").trim() || null;
+    const currentL = String(rule_current_level || "").trim() || null;
+    const admSess = Number(rule_admission_session_id) || null;
+    const override =
+      rule_amount_override === "" || rule_amount_override == null
+        ? null
+        : Number(rule_amount_override);
 
     if (entryL || currentL || admSess || override !== null) {
       await conn.query(
-        `INSERT INTO payment_type_rules
-          (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
-        VALUES (?,?,?,?,?)`,
-        [id, entryL, currentL, admSess, override]
+        `
+          INSERT INTO payment_type_rules
+            (payment_type_id, entry_level, current_level, admission_session_id, amount_override)
+          VALUES (?,?,?,?,?)
+        `,
+        [id, entryL, currentL, admSess, override],
       );
     }
 

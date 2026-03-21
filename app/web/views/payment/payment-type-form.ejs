@@ -1,4 +1,12 @@
 <!-- app/web/views/payment/payment-type-form.ejs -->
+<%
+const rawScope = String(form.scope || 'GENERAL').toUpperCase();
+const effectiveScope = rawScope === 'GENERAL' ? 'GENERAL' : 'BOTH';
+const savedSchoolIds = Array.isArray(form.school_ids) ? form.school_ids.map(Number) : [];
+const savedDepartmentIds = Array.isArray(form.department_ids) ? form.department_ids.map(Number) : [];
+const savedProgrammeIds = Array.isArray(form.programme_ids) ? form.programme_ids.map(Number) : [];
+%>
+
 <section class="content">
   <div class="container-fluid">
     <h4 class="mb-3"><%= title %></h4>
@@ -10,11 +18,14 @@
       <div class="alert alert-success"><i class="fas fa-check mr-1"></i><%= messages.success %></div>
     <% } %>
 
-    <form action="<%= (form && form.id) ? '/staff/fees/payment-types/'+form.id+'/edit' : '/staff/fees/payment-types/add' %>" method="POST">
+    <form action="<%= (form && form.id) ? '/staff/fees/payment-types/' + form.id + '/edit' : '/staff/fees/payment-types/add' %>" method="POST">
       <% if (csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
 
       <div class="card card-primary">
-        <div class="card-header"><h5 class="card-title"><%= (form && form.id) ? 'Edit Payment Type' : 'Add Payment Type' %></h5></div>
+        <div class="card-header">
+          <h5 class="card-title"><%= (form && form.id) ? 'Edit Payment Type' : 'Add Payment Type' %></h5>
+        </div>
+
         <div class="card-body">
           <div class="row">
             <div class="col-md-6">
@@ -61,7 +72,7 @@
                     <%= Number(form.uses_indigene_regime || 0) ? 'checked' : '' %>>
                   <label class="custom-control-label" for="uses_indigene_regime">Use Indigene / Non-Indigene Fee Regime</label>
                 </div>
-                <small class="text-muted">Indigene will later be derived from state of origin = Ekiti.</small>
+                <small class="text-muted">When enabled, the indigene/non-indigene fields become the active payable values.</small>
               </div>
 
               <div id="indigeneRegimeBox" style="display:none">
@@ -147,45 +158,45 @@
 
               <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i>
-                <b>Note:</b> Scope + Session/Semester + Rule determine who sees this fee and which amount applies.
+                <b>Note:</b> General means visible to everyone. Scoped means the fee can be matched by any combination of school, department, programme, session, semester, level, and admission session.
               </div>
 
             </div>
+
             <div class="col-md-6">
 
               <div class="form-group">
                 <label>Scope</label>
                 <select class="form-control" id="scope" name="scope">
-                  <option value="GENERAL"    <%= (form.scope||'')==='GENERAL'?'selected':'' %>>General (all)</option>
-                  <option value="SCHOOL"     <%= (form.scope||'')==='SCHOOL'?'selected':'' %>>By School</option>
-                  <option value="DEPARTMENT" <%= (form.scope||'')==='DEPARTMENT'?'selected':'' %>>By Department</option>
-                  <option value="BOTH"       <%= (form.scope||'')==='BOTH'?'selected':'' %>>By School or Department</option>
+                  <option value="GENERAL" <%= effectiveScope === 'GENERAL' ? 'selected' : '' %>>General (all)</option>
+                  <option value="BOTH" <%= effectiveScope !== 'GENERAL' ? 'selected' : '' %>>Scoped (school / department / programme / rule combinations)</option>
                 </select>
               </div>
 
-              <!-- Schools -->
-              <div class="form-group scope scope-school" style="display:none">
-                <label>School(s)</label>
-                <select class="form-control" name="school_ids[]" id="schools" multiple>
-                  <% (schools||[]).forEach(s => { %>
-                    <option
-                      value="<%= s.id %>"
-                      <%= Array.isArray(form.school_ids) && form.school_ids.map(Number).includes(Number(s.id)) ? 'selected' : '' %>>
-                      <%= s.name %>
-                    </option>
-                  <% }) %>
-                </select>
-                <small class="text-muted">Hold Ctrl/Cmd to pick more than one.</small>
+              <div class="scope scope-targeted" style="display:none">
+                <div class="form-group">
+                  <label>School(s)</label>
+                  <select class="form-control" name="school_ids[]" id="schools" multiple>
+                    <% (schools || []).forEach((s) => { %>
+                      <option value="<%= s.id %>" <%= savedSchoolIds.includes(Number(s.id)) ? 'selected' : '' %>><%= s.name %></option>
+                    <% }) %>
+                  </select>
+                  <small class="text-muted">Optional. Leave empty to avoid school filtering.</small>
+                </div>
+
+                <div class="form-group">
+                  <label>Department(s)</label>
+                  <select class="form-control" name="department_ids[]" id="departments" multiple></select>
+                  <small class="text-muted">Optional. If selected, the student must match one of these departments.</small>
+                </div>
+
+                <div class="form-group">
+                  <label>Programme(s)</label>
+                  <select class="form-control" name="programme_ids[]" id="programmes" multiple></select>
+                  <small class="text-muted">Optional. If selected, the student must match one of these programmes.</small>
+                </div>
               </div>
 
-              <!-- Departments -->
-              <div class="form-group scope scope-dept" style="display:none">
-                <label>Department(s)</label>
-                <select class="form-control" name="department_ids[]" id="departments" multiple><!-- filled by JS --></select>
-                <small class="text-muted">Filtered by selected school(s).</small>
-              </div>
-
-              <!-- Session/Semester (repeater) -->
               <div class="form-group">
                 <label>Session / Semester</label>
                 <div id="ssRows"></div>
@@ -193,42 +204,44 @@
                 <small class="form-text text-muted">Leave empty to apply to all sessions. Use “All” semester to cover both semesters.</small>
               </div>
 
-              <!-- Optional rule (level/admission) -->
               <div class="card">
-                <div class="card-header py-2"><b>Optional Rule (level/admission)</b></div>
+                <div class="card-header py-2"><b>Optional Rule (level / admission)</b></div>
                 <div class="card-body">
                   <div class="form-row">
                     <div class="form-group col-md-4">
-                      <label>Entry Level</label>
+                      <label>Entry / Admission Level</label>
                       <select class="form-control" name="rule_entry_level">
                         <option value="">Any</option>
-                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach(L => { %>
-                          <option value="<%= L %>" <%= String(form.rule_entry_level||'')===String(L)?'selected':'' %>><%= L %></option>
+                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach((L) => { %>
+                          <option value="<%= L %>" <%= String(form.rule_entry_level || '') === String(L) ? 'selected' : '' %>><%= L %></option>
                         <% }) %>
                       </select>
                     </div>
+
                     <div class="form-group col-md-4">
                       <label>Current Level</label>
                       <select class="form-control" name="rule_current_level">
                         <option value="">Any</option>
-                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach(L => { %>
-                          <option value="<%= L %>" <%= String(form.rule_current_level||'')===String(L)?'selected':'' %>><%= L %></option>
+                        <% ['100','200','300','400','500','600','ND1','ND2','ND3','HND1','HND2','HND3'].forEach((L) => { %>
+                          <option value="<%= L %>" <%= String(form.rule_current_level || '') === String(L) ? 'selected' : '' %>><%= L %></option>
                         <% }) %>
                       </select>
                     </div>
+
                     <div class="form-group col-md-4">
                       <label>Admission Session</label>
                       <select class="form-control" name="rule_admission_session_id">
                         <option value="">Any</option>
-                        <% (sessions||[]).forEach(s => { %>
-                          <option value="<%= s.id %>" <%= String(form.rule_admission_session_id||'')===String(s.id)?'selected':'' %>><%= s.name %></option>
+                        <% (sessions || []).forEach((s) => { %>
+                          <option value="<%= s.id %>" <%= String(form.rule_admission_session_id || '') === String(s.id) ? 'selected' : '' %>><%= s.name %></option>
                         <% }) %>
                       </select>
                     </div>
                   </div>
+
                   <div class="form-group">
                     <label>Amount Override (₦)</label>
-                    <input class="form-control" name="rule_amount_override" type="number" min="0" value="<%= form.rule_amount_override || '' %>" placeholder="Leave empty to use base amount">
+                    <input class="form-control" name="rule_amount_override" type="number" min="0" step="0.01" value="<%= form.rule_amount_override || '' %>" placeholder="Leave empty to use the active amount">
                   </div>
                 </div>
               </div>
@@ -236,6 +249,7 @@
             </div>
           </div>
         </div>
+
         <div class="card-footer d-flex justify-content-between">
           <a class="btn btn-default" href="/staff/fees/payment-types">Back</a>
           <button class="btn btn-success">Save</button>
@@ -246,76 +260,166 @@
 </section>
 
 <script>
-(function(){
+(function () {
   const sessions = <%- JSON.stringify(sessions || []) %>;
   const savedSessionRows = <%- JSON.stringify(form.sessionRows || []) %>;
-  // Scope show/hide
-  function showScope(){
-    const v = document.getElementById('scope').value;
-    document.querySelectorAll('.scope').forEach(el => el.style.display='none');
-    if (v==='SCHOOL' || v==='BOTH') document.querySelector('.scope-school').style.display='';
-    if (v==='DEPARTMENT' || v==='BOTH') document.querySelector('.scope-dept').style.display='';
-  }
-  document.getElementById('scope').addEventListener('change', showScope);
-  showScope();
-  function showIndigeneRegime(){
-  const cb = document.getElementById('uses_indigene_regime');
-  const box = document.getElementById('indigeneRegimeBox');
-  if (!box) return;
-  box.style.display = cb && cb.checked ? '' : 'none';
-}
-document.getElementById('uses_indigene_regime')?.addEventListener('change', showIndigeneRegime);
-showIndigeneRegime();
+  const savedDepartmentIds = new Set(<%- JSON.stringify(savedDepartmentIds) %>.map(Number));
+  const savedProgrammeIds = new Set(<%- JSON.stringify(savedProgrammeIds) %>.map(Number));
 
-  // Load departments filtered by selected school(s)
-  async function reloadDepartments() {
-    const schoolIds = Array.from(document.getElementById('schools').selectedOptions).map(o => o.value);
-    const depSel = document.getElementById('departments');
-    depSel.innerHTML = '';
-    for (const sid of schoolIds) {
-      const res = await fetch(`/staff/fees/api/schools/${sid}/departments`);
-      const deps = await res.json();
-      deps.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id; opt.textContent = d.name;
-        depSel.appendChild(opt);
-      });
+  const elScope = document.getElementById('scope');
+  const elSchools = document.getElementById('schools');
+  const elDepartments = document.getElementById('departments');
+  const elProgrammes = document.getElementById('programmes');
+  const elSSRows = document.getElementById('ssRows');
+
+  function selectedValues(selectEl) {
+    return Array.from(selectEl?.selectedOptions || []).map((o) => Number(o.value)).filter(Boolean);
+  }
+
+  function showScope() {
+    const isGeneral = String(elScope.value || 'GENERAL').toUpperCase() === 'GENERAL';
+    document.querySelectorAll('.scope').forEach((el) => {
+      el.style.display = isGeneral ? 'none' : '';
+    });
+  }
+
+  function showIndigeneRegime() {
+    const cb = document.getElementById('uses_indigene_regime');
+    const box = document.getElementById('indigeneRegimeBox');
+    if (!box) return;
+    box.style.display = cb && cb.checked ? '' : 'none';
+  }
+
+  function uniqueById(items) {
+    const map = new Map();
+    (items || []).forEach((item) => {
+      if (!map.has(Number(item.id))) {
+        map.set(Number(item.id), item);
+      }
+    });
+    return Array.from(map.values());
+  }
+
+  async function loadJson(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    return await res.json().catch(() => []);
+  }
+
+  function setSelectOptions(selectEl, items, selectedIdSet) {
+    const currentSelected = new Set(selectedValues(selectEl));
+    const finalSelected = new Set([...(selectedIdSet || []), ...currentSelected]);
+
+    selectEl.innerHTML = '';
+    (items || []).forEach((item) => {
+      const opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.name;
+      if (finalSelected.has(Number(item.id))) {
+        opt.selected = true;
+      }
+      selectEl.appendChild(opt);
+    });
+  }
+
+  async function reloadDepartments(initialLoad) {
+    const schoolIds = selectedValues(elSchools);
+    let departments = [];
+
+    for (const schoolId of schoolIds) {
+      const rows = await loadJson('/staff/fees/api/schools/' + schoolId + '/departments');
+      departments = departments.concat(rows || []);
     }
-  }
-  document.getElementById('schools').addEventListener('change', reloadDepartments);
 
-  // Session/Semester repeater
-  const ssRows = document.getElementById('ssRows');
-  function addSSRow(valSessionId='', valSemester='') {
+    departments = uniqueById(departments);
+    setSelectOptions(elDepartments, departments, initialLoad ? savedDepartmentIds : null);
+  }
+
+  async function reloadProgrammes(initialLoad) {
+    const departmentIds = selectedValues(elDepartments);
+    const schoolIds = selectedValues(elSchools);
+    let programmes = [];
+
+    if (departmentIds.length) {
+      for (const departmentId of departmentIds) {
+        const rows = await loadJson('/staff/fees/api/departments/' + departmentId + '/programmes');
+        programmes = programmes.concat(rows || []);
+      }
+    } else {
+      for (const schoolId of schoolIds) {
+        const rows = await loadJson('/staff/fees/api/schools/' + schoolId + '/programmes');
+        programmes = programmes.concat(rows || []);
+      }
+    }
+
+    programmes = uniqueById(programmes);
+    setSelectOptions(elProgrammes, programmes, initialLoad ? savedProgrammeIds : null);
+  }
+
+  function addSSRow(valSessionId = '', valSemester = '') {
     const wrap = document.createElement('div');
     wrap.className = 'input-group mb-1';
+
     const selSession = document.createElement('select');
     selSession.className = 'form-control';
     selSession.name = 'sessionRows[][session_id]';
-    selSession.innerHTML = '<option value="">Select session</option>' +
-      sessions.map(s => `<option value="${s.id}" ${String(valSessionId)===String(s.id)?'selected':''}>${s.name}</option>`).join('');
+    selSession.innerHTML =
+      '<option value="">Select session</option>' +
+      sessions.map((s) => (
+        '<option value="' + s.id + '" ' + (String(valSessionId) === String(s.id) ? 'selected' : '') + '>' + s.name + '</option>'
+      )).join('');
+
     const selSem = document.createElement('select');
     selSem.className = 'form-control';
-    selSem.style.maxWidth = '160px';
+    selSem.style.maxWidth = '180px';
     selSem.name = 'sessionRows[][semester]';
     selSem.innerHTML = `
-      <option value="">All</option>
-      <option value="1" ${String(valSemester)==='1'?'selected':''}>First</option>
-      <option value="2" ${String(valSemester)==='2'?'selected':''}>Second</option>
+      <option value="" ${String(valSemester || '') === '' ? 'selected' : ''}>All</option>
+      <option value="FIRST" ${String(valSemester || '').toUpperCase() === 'FIRST' ? 'selected' : ''}>First</option>
+      <option value="SECOND" ${String(valSemester || '').toUpperCase() === 'SECOND' ? 'selected' : ''}>Second</option>
     `;
-    const btn = document.createElement('div');
-    btn.className = 'input-group-append';
-    btn.innerHTML = '<button class="btn btn-outline-danger" type="button">&times;</button>';
-    btn.firstChild.onclick = () => wrap.remove();
+
+    const btnWrap = document.createElement('div');
+    btnWrap.className = 'input-group-append';
+    btnWrap.innerHTML = '<button class="btn btn-outline-danger" type="button">&times;</button>';
+    btnWrap.firstChild.onclick = function () {
+      wrap.remove();
+    };
+
     wrap.appendChild(selSession);
     wrap.appendChild(selSem);
-    wrap.appendChild(btn);
-    ssRows.appendChild(wrap);
+    wrap.appendChild(btnWrap);
+    elSSRows.appendChild(wrap);
   }
-  document.getElementById('btnAddSS').addEventListener('click', () => addSSRow());
 
-if (Array.isArray(savedSessionRows) && savedSessionRows.length) {
-  savedSessionRows.forEach(r => addSSRow(r.session_id || '', r.semester || ''));
-}
+  document.getElementById('btnAddSS').addEventListener('click', function () {
+    addSSRow();
+  });
+
+  elScope.addEventListener('change', showScope);
+  document.getElementById('uses_indigene_regime')?.addEventListener('change', showIndigeneRegime);
+
+  elSchools.addEventListener('change', async function () {
+    await reloadDepartments(false);
+    await reloadProgrammes(false);
+  });
+
+  elDepartments.addEventListener('change', async function () {
+    await reloadProgrammes(false);
+  });
+
+  showScope();
+  showIndigeneRegime();
+
+  (async function initScopedOptions() {
+    await reloadDepartments(true);
+    await reloadProgrammes(true);
+  })();
+
+  if (Array.isArray(savedSessionRows) && savedSessionRows.length) {
+    savedSessionRows.forEach((row) => {
+      addSSRow(row.session_id || '', row.semester || '');
+    });
+  }
 })();
 </script>
