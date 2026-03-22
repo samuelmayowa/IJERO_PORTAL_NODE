@@ -295,6 +295,7 @@ export async function dashboard(req, res) {
       const payeeD = String(studentId);
 
       let paidRows = [];
+      let legacyPaidRows = [];
 
       if (resolvedIds.length) {
         const [rows] = await pool.query(
@@ -310,6 +311,31 @@ export async function dashboard(req, res) {
         paidRows = rows || [];
       }
 
+      const legacySessionName = String(currentSession?.name || "").trim();
+
+      if (legacySessionName) {
+        const [rows] = await pool.query(
+          `
+            SELECT purpose, amount
+            FROM payment_invoices
+            WHERE status = 'PAID'
+              AND payee_id IN (?, ?, ?, ?)
+              AND (payment_type_id IS NULL OR payment_type_id = 0)
+              AND TRIM(COALESCE(purpose, '')) = 'School Fees'
+              AND payment_meta LIKE '%"source":"legacy_student_payments"%'
+              AND payment_meta LIKE ?
+          `,
+          [
+            payeeA,
+            payeeB,
+            payeeC,
+            payeeD,
+            `%"legacy_session":"${legacySessionName}"%`,
+          ],
+        );
+        legacyPaidRows = rows || [];
+      }
+
       totalPaid = 0;
       paymentsBreakdown = { school: 0, faculty: 0, application: 0 };
 
@@ -321,6 +347,12 @@ export async function dashboard(req, res) {
 
         totalPaid += amt;
         paymentsBreakdown[category] += amt;
+      }
+
+      for (const row of legacyPaidRows || []) {
+        const amt = Number(row.amount || 0);
+        totalPaid += amt;
+        paymentsBreakdown.school += amt;
       }
 
       const [recentRows] = await pool.query(

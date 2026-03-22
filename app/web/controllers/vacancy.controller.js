@@ -43,11 +43,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Lecturer I - Mass Communication",
     requirement: lecturerReq("Mass Communication"),
   },
-  {
-    group: "School of Business and Management",
-    title: "Assistant Lecturer - Mass Communication",
-    requirement: assistantReq("Mass Communication"),
-  },
 
   {
     group: "School of Business and Management",
@@ -63,11 +58,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Business and Management",
     title: "Lecturer I - Library and Information Science",
     requirement: lecturerReq("Library and Information Science"),
-  },
-  {
-    group: "School of Business and Management",
-    title: "Assistant Lecturer - Library and Information Science",
-    requirement: assistantReq("Library and Information Science"),
   },
 
   {
@@ -85,11 +75,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Lecturer I - Accountancy",
     requirement: lecturerReq("Accountancy"),
   },
-  {
-    group: "School of Business and Management",
-    title: "Assistant Lecturer - Accountancy",
-    requirement: assistantReq("Accountancy"),
-  },
 
   {
     group: "School of Business and Management",
@@ -106,11 +91,6 @@ export const VACANCY_REQUIREMENTS = [
     title: "Lecturer I - Business Administration",
     requirement: lecturerReq("Business Administration"),
   },
-  {
-    group: "School of Business and Management",
-    title: "Assistant Lecturer - Business Administration",
-    requirement: assistantReq("Business Administration"),
-  },
 
   {
     group: "School of Engineering",
@@ -126,11 +106,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Engineering",
     title: "Lecturer I - Electrical and Electronics Engineering",
     requirement: lecturerReq("Electrical and Electronics Engineering"),
-  },
-  {
-    group: "School of Engineering",
-    title: "Assistant Lecturer - Electrical and Electronics Engineering",
-    requirement: assistantReq("Electrical and Electronics Engineering"),
   },
 
   {
@@ -169,11 +144,6 @@ export const VACANCY_REQUIREMENTS = [
     group: "School of Applied Sciences",
     title: "Lecturer I - Computer Science",
     requirement: lecturerReq("Computer Science"),
-  },
-  {
-    group: "School of Applied Sciences",
-    title: "Assistant Lecturer - Computer Science",
-    requirement: assistantReq("Computer Science"),
   },
 
   {
@@ -302,7 +272,7 @@ export function showVacancyForm(req, res) {
     vacancyGroups: VACANCY_GROUPS,
     vacancyRequirements: VACANCY_REQUIREMENTS,
     nigeriaStates: NIGERIA_STATES,
-    advertEmail: "registrar@ekscotech.edu.ng",
+    advertEmail: "",
   });
 }
 
