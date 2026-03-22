@@ -390,7 +390,9 @@ export async function paymentForm(req, res, next) {
     const from = String(req.query.from || "").trim();
     const paymentTypeId = Number(req.query.payment_type_id || 0);
     const dashboardAmount = Number(req.query.dashboard_amount || 0);
-    const dashboardBucket = String(req.query.dashboard_bucket || "").trim();
+    const dashboardBucket = String(req.query.dashboard_bucket || "")
+      .trim()
+      .toUpperCase();
     const publicUser = req.session?.publicUser || null;
 
     let selectedType = null;
@@ -447,6 +449,9 @@ export async function paymentForm(req, res, next) {
       req.session?.applicantProfile?.phone ||
       "";
 
+    const dashboardPortalCharge =
+      dashboardBucket === "40" ? 0 : Number(selectedType?.portal_charge || 0);
+
     const prefill =
       from === "student-dashboard" && selectedType
         ? {
@@ -456,9 +461,8 @@ export async function paymentForm(req, res, next) {
               Number.isFinite(dashboardAmount) && dashboardAmount > 0
                 ? dashboardAmount
                 : selectedType.amount,
-            portal_charge: selectedType.portal_charge,
+            portal_charge: dashboardPortalCharge,
             purpose: selectedType.purpose || selectedType.name || "",
-            dashboard_bucket: dashboardBucket || "",
             payee_id:
               publicUser?.matric_number ||
               publicUser?.username ||
@@ -467,6 +471,7 @@ export async function paymentForm(req, res, next) {
             payee_fullname: publicUser?.full_name || "",
             payee_email: guessedEmail,
             payee_phone: guessedPhone,
+            dashboard_bucket: dashboardBucket,
           }
         : null;
 
@@ -527,6 +532,7 @@ export async function createInvoice(req, res, next) {
       payee_phone: body.payee_phone,
       purpose: body.purpose,
       amount: body.amount,
+      portal_charge_override: body.portal_charge,
       method,
     });
 
