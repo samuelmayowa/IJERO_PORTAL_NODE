@@ -372,10 +372,10 @@ export async function submitVacancyApplication(req, res) {
     const referenceNo = `EKSCOTECH-JOB-${submittedAt
       .toISOString()
       .slice(0, 10)
-      .replace(
-        /-/g,
-        "",
-      )}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+      .replace(/-/g, "")}-${crypto
+      .randomBytes(3)
+      .toString("hex")
+      .toUpperCase()}`;
 
     const fullName = [firstName, middleName, lastName]
       .filter(Boolean)
@@ -442,16 +442,45 @@ export async function submitVacancyApplication(req, res) {
       message: "Application submitted successfully.",
       data: {
         reference_no: referenceNo,
-        applicant_name: fullName,
-        post_applying_for: postApplyingFor,
         institution_name: INSTITUTION_NAME,
         submitted_at: submittedAt.toISOString(),
         submitted_at_display: new Intl.DateTimeFormat("en-NG", {
           dateStyle: "full",
           timeStyle: "medium",
         }).format(submittedAt),
+
+        applicant_name: fullName,
+        first_name: firstName,
+        middle_name: middleName,
+        last_name: lastName,
+        gender,
         email,
         phone,
+        alternative_phone: alternativePhone,
+        date_of_birth: dateOfBirth,
+        state_of_origin: stateOfOrigin,
+        local_government: localGovernment,
+        house_address: houseAddress,
+        post_applying_for: postApplyingFor,
+
+        uploads: {
+          cv: cv
+            ? {
+                purpose: "Curriculum Vitae (CV)",
+                original_name: cv.originalname,
+              }
+            : null,
+          other_document: otherDocument
+            ? {
+                purpose: "Other Supporting Document",
+                original_name: otherDocument.originalname,
+              }
+            : null,
+          certificates: certificates.map((file) => ({
+            purpose: "Educational Certificate",
+            original_name: file.originalname,
+          })),
+        },
       },
     });
   } catch (error) {
