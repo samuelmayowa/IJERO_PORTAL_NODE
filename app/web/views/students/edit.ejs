@@ -1,0 +1,290 @@
+<div class="card card-success">
+  <div class="card-header"><h3 class="card-title">Edit Student</h3></div>
+  <div class="card-body">
+    <div class="form-row">
+      <div class="form-group col-md-2"><input id="qMatric" class="form-control" placeholder="Matric No"></div>
+      <div class="form-group col-md-3"><input id="qEmail" class="form-control" placeholder="Email"></div>
+      <div class="form-group col-md-3"><input id="qName" class="form-control" placeholder="Name"></div>
+      <div class="form-group col-md-2"><input id="qDept" class="form-control" placeholder="Department"></div>
+      <div class="form-group col-md-2"><input id="qSchool" class="form-control" placeholder="School"></div>
+    </div>
+
+    <button id="btnSearch" class="btn btn-primary mr-2">Search</button>
+    <button id="btnClear" class="btn btn-light">Clear Search Input</button>
+
+    <div class="table-responsive mt-3">
+      <table class="table table-striped" id="tbl">
+        <thead>
+          <tr>
+            <th>Matric No</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Department</th>
+            <th>School</th>
+            <th>Level</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+      <small id="pageInfo" class="text-muted"></small>
+      <nav><ul class="pagination mb-0" id="pager"></ul></nav>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Edit Student Biodata</h5>
+      <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+    </div>
+
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label>Matric Number</label>
+          <input id="editMatric" class="form-control" readonly>
+          <small class="text-muted">Matric number cannot be edited here.</small>
+        </div>
+        <div class="form-group col-md-4">
+          <label>Email / Username</label>
+          <input id="editEmail" class="form-control">
+        </div>
+        <div class="form-group col-md-4">
+          <label>Access Code</label>
+          <input id="editAccessCode" class="form-control">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4"><label>First Name</label><input id="editFirstName" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Middle Name</label><input id="editMiddleName" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Last Name</label><input id="editLastName" class="form-control"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4"><label>Date of Birth</label><input id="editDob" type="date" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Phone</label><input id="editPhone" class="form-control"></div>
+        <div class="form-group col-md-4">
+          <label>Status</label>
+          <select id="editStatus" class="form-control">
+            <option>ACTIVE</option>
+            <option>INACTIVE</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4"><label>State of Origin</label><input id="editState" class="form-control"></div>
+        <div class="form-group col-md-4"><label>LGA</label><input id="editLga" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Year of Entry</label><input id="editYear" class="form-control"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4"><label>School</label><input id="editSchool" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Department</label><input id="editDept" class="form-control"></div>
+        <div class="form-group col-md-4"><label>Programme</label><input id="editProgramme" class="form-control"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4"><label>Level</label><input id="editLevel" class="form-control"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button id="btnSaveEdit" class="btn btn-success">Save</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+const csrfToken = '<%= csrfToken %>';
+const qMatric = document.getElementById('qMatric');
+const qEmail = document.getElementById('qEmail');
+const qName = document.getElementById('qName');
+const qDept = document.getElementById('qDept');
+const qSchool = document.getElementById('qSchool');
+const pageInfo = document.getElementById('pageInfo');
+const pager = document.getElementById('pager');
+
+let currentPage = 1;
+const pageSize = 10;
+let currentItems = [];
+
+function esc(value) {
+  return String(value || '').replace(/[&<>"']/g, s => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[s]));
+}
+
+function showOk(message) {
+  if (window.Modal && Modal.success) Modal.success(message || 'Saved');
+  else alert(message || 'Saved');
+}
+
+function showErr(message) {
+  if (window.Modal && Modal.error) Modal.error(message || 'Error');
+  else alert(message || 'Error');
+}
+
+function qs() {
+  return new URLSearchParams({
+    matric: qMatric.value,
+    email: qEmail.value,
+    name: qName.value,
+    department: qDept.value,
+    school: qSchool.value,
+    page: currentPage,
+    pageSize
+  }).toString();
+}
+
+function renderPager(total) {
+  pager.innerHTML = '';
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  pageInfo.textContent = `Page ${currentPage} of ${pages} • ${total} result(s)`;
+
+  const add = (label, page, disabled = false, active = false) => {
+    const li = document.createElement('li');
+    li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href = '#';
+    a.textContent = label;
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (disabled || active) return;
+      currentPage = page;
+      load();
+    });
+    li.appendChild(a);
+    pager.appendChild(li);
+  };
+
+  add('Prev', Math.max(1, currentPage - 1), currentPage === 1);
+  for (let p = Math.max(1, currentPage - 2); p <= Math.min(pages, currentPage + 2); p++) {
+    add(String(p), p, false, p === currentPage);
+  }
+  add('Next', Math.min(pages, currentPage + 1), currentPage === pages);
+}
+
+function formatDateForInput(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
+function openEdit(id) {
+  const u = currentItems.find(x => String(x.id) === String(id));
+  if (!u) return;
+
+  editId.value = u.id || '';
+  editMatric.value = u.matric_number || '';
+  editEmail.value = u.email || '';
+  editAccessCode.value = u.access_code || '';
+  editFirstName.value = u.first_name || '';
+  editMiddleName.value = u.middle_name || '';
+  editLastName.value = u.last_name || '';
+  editDob.value = formatDateForInput(u.dob);
+  editPhone.value = u.phone || '';
+  editStatus.value = u.status || 'ACTIVE';
+  editState.value = u.state_of_origin || '';
+  editLga.value = u.lga || '';
+  editYear.value = u.year_of_entry || '';
+  editSchool.value = u.school || '';
+  editDept.value = u.department || '';
+  editProgramme.value = u.programme || '';
+  editLevel.value = u.student_level || '';
+
+  $('#editModal').modal('show');
+}
+
+async function load() {
+  const res = await fetch('/staff/api/students?' + qs());
+  const d = await res.json();
+  currentItems = d.items || [];
+
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = '';
+
+  for (const u of currentItems) {
+    const name = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(u.matric_number)}</td>
+      <td>${esc(name)}</td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.department)}</td>
+      <td>${esc(u.school)}</td>
+      <td>${esc(u.student_level)}</td>
+      <td>${esc(u.status || 'ACTIVE')}</td>
+      <td><button class="btn btn-sm btn-info btn-edit" data-id="${esc(u.id)}">EDIT</button></td>
+    `;
+    tb.appendChild(tr);
+  }
+
+  tb.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEdit(btn.dataset.id));
+  });
+
+  renderPager(Number(d.total || 0));
+}
+
+document.getElementById('btnSearch').addEventListener('click', () => {
+  currentPage = 1;
+  load();
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  qMatric.value = qEmail.value = qName.value = qDept.value = qSchool.value = '';
+  currentPage = 1;
+  load();
+});
+
+document.getElementById('btnSaveEdit').addEventListener('click', async () => {
+  const id = editId.value;
+  const body = {
+    email: editEmail.value,
+    accessCode: editAccessCode.value,
+    firstName: editFirstName.value,
+    middleName: editMiddleName.value,
+    lastName: editLastName.value,
+    dob: editDob.value,
+    phone: editPhone.value,
+    status: editStatus.value,
+    stateOfOrigin: editState.value,
+    lga: editLga.value,
+    yearOfEntry: editYear.value,
+    school: editSchool.value,
+    department: editDept.value,
+    programme: editProgramme.value,
+    studentLevel: editLevel.value
+  };
+
+  const res = await fetch('/staff/api/students/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'CSRF-Token': csrfToken
+    },
+    body: JSON.stringify(body)
+  });
+
+  const d = await res.json();
+  if (d.success) {
+    $('#editModal').modal('hide');
+    showOk(d.message || 'Saved');
+    load();
+  } else {
+    showErr(d.message || 'Failed');
+  }
+});
+
+load();
+</script>
