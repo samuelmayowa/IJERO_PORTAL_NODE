@@ -26,14 +26,12 @@ export async function showStudentEditPage(_req, res) {
 export async function listStudents(req, res) {
   try {
     const {
-      q = "",
-      matric = "",
-      email = "",
-      name = "",
-      department = "",
-      school = "",
-      page = "1",
-      pageSize = "10",
+      q = '',
+      matric = '',
+      email = '',
+      name = '',
+      page = '1',
+      pageSize = '10',
     } = req.query;
 
     const currentPage = Math.max(Number(page) || 1, 1);
@@ -49,17 +47,8 @@ export async function listStudents(req, res) {
         OR pu.username LIKE ?
         OR pu.access_code LIKE ?
         OR CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) LIKE ?
-        OR si.department LIKE ?
-        OR si.school LIKE ?
       )`);
-      params.push(
-        buildLike(q),
-        buildLike(q),
-        buildLike(q),
-        buildLike(q),
-        buildLike(q),
-        buildLike(q),
-      );
+      params.push(buildLike(q), buildLike(q), buildLike(q), buildLike(q));
     }
 
     if (matric) {
@@ -68,43 +57,21 @@ export async function listStudents(req, res) {
     }
 
     if (email) {
-      where.push(`(pu.username LIKE ? OR si.student_email LIKE ?)`);
-      params.push(buildLike(email), buildLike(email));
+      where.push(`pu.username LIKE ?`);
+      params.push(buildLike(email));
     }
 
     if (name) {
-      where.push(
-        `CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) LIKE ?`,
-      );
+      where.push(`CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) LIKE ?`);
       params.push(buildLike(name));
     }
 
-    if (department) {
-      where.push(`si.department LIKE ?`);
-      params.push(buildLike(department));
-    }
-
-    if (school) {
-      where.push(`si.school LIKE ?`);
-      params.push(buildLike(school));
-    }
-
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const whereSql = `WHERE ${where.join(' AND ')}`;
 
     const [countRows] = await pool.query(
       `
-      SELECT COUNT(DISTINCT pu.id) AS total
+      SELECT COUNT(*) AS total
       FROM public_users pu
-      LEFT JOIN (
-        SELECT si1.*
-        FROM student_imports si1
-        INNER JOIN (
-          SELECT matric_number, MAX(id) AS id
-          FROM student_imports
-          WHERE matric_number IS NOT NULL AND matric_number <> ''
-          GROUP BY matric_number
-        ) latest_si ON latest_si.id = si1.id
-      ) si ON si.matric_number = pu.matric_number
       ${whereSql}
       `,
       params,
@@ -125,22 +92,12 @@ export async function listStudents(req, res) {
         pu.access_code,
         pu.matric_number,
         pu.status,
-        si.year_of_entry,
-        si.school,
-        si.department,
-        si.programme,
-        COALESCE(si.student_level, si.level) AS student_level
+        '' AS year_of_entry,
+        '' AS school,
+        '' AS department,
+        '' AS programme,
+        '' AS student_level
       FROM public_users pu
-      LEFT JOIN (
-        SELECT si1.*
-        FROM student_imports si1
-        INNER JOIN (
-          SELECT matric_number, MAX(id) AS id
-          FROM student_imports
-          WHERE matric_number IS NOT NULL AND matric_number <> ''
-          GROUP BY matric_number
-        ) latest_si ON latest_si.id = si1.id
-      ) si ON si.matric_number = pu.matric_number
       ${whereSql}
       ORDER BY pu.last_name, pu.first_name, pu.id
       LIMIT ? OFFSET ?
@@ -155,10 +112,8 @@ export async function listStudents(req, res) {
       pageSize: limit,
     });
   } catch (err) {
-    console.error("listStudents error:", err);
-    return res
-      .status(500)
-      .json({ items: [], total: 0, message: "Failed to load students." });
+    console.error('listStudents error:', err);
+    return res.status(500).json({ items: [], total: 0, message: 'Failed to load students.' });
   }
 }
 
