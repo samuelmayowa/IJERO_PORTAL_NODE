@@ -95,12 +95,16 @@ export async function listStudents(req, res) {
       `
       SELECT COUNT(DISTINCT pu.id) AS total
       FROM public_users pu
-      LEFT JOIN student_imports si
-        ON (
-          (pu.matric_number IS NOT NULL AND si.matric_number = pu.matric_number)
-          OR (pu.access_code IS NOT NULL AND si.access_code = pu.access_code)
-          OR LOWER(si.student_email) = LOWER(pu.username)
-        )
+      LEFT JOIN (
+        SELECT si1.*
+        FROM student_imports si1
+        INNER JOIN (
+          SELECT matric_number, MAX(id) AS id
+          FROM student_imports
+          WHERE matric_number IS NOT NULL AND matric_number <> ''
+          GROUP BY matric_number
+        ) latest_si ON latest_si.id = si1.id
+      ) si ON si.matric_number = pu.matric_number
       ${whereSql}
       `,
       params,
@@ -127,12 +131,16 @@ export async function listStudents(req, res) {
         si.programme,
         COALESCE(si.student_level, si.level) AS student_level
       FROM public_users pu
-      LEFT JOIN student_imports si
-        ON (
-          (pu.matric_number IS NOT NULL AND si.matric_number = pu.matric_number)
-          OR (pu.access_code IS NOT NULL AND si.access_code = pu.access_code)
-          OR LOWER(si.student_email) = LOWER(pu.username)
-        )
+      LEFT JOIN (
+        SELECT si1.*
+        FROM student_imports si1
+        INNER JOIN (
+          SELECT matric_number, MAX(id) AS id
+          FROM student_imports
+          WHERE matric_number IS NOT NULL AND matric_number <> ''
+          GROUP BY matric_number
+        ) latest_si ON latest_si.id = si1.id
+      ) si ON si.matric_number = pu.matric_number
       ${whereSql}
       ORDER BY pu.last_name, pu.first_name, pu.id
       LIMIT ? OFFSET ?
