@@ -1,37 +1,39 @@
-import { pool } from '../../core/db.js';
+import { pool } from "../../core/db.js";
 
 function clean(value) {
-  const v = String(value ?? '').trim();
-  return v === '' ? null : v;
+  const v = String(value ?? "").trim();
+  return v === "" ? null : v;
 }
 
 function normalizeEmail(value) {
-  return String(value ?? '').trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function buildLike(value) {
-  return `%${String(value || '').trim()}%`;
+  return `%${String(value || "").trim()}%`;
 }
 
 export async function showStudentEditPage(_req, res) {
-  res.render('students/edit', {
-    title: 'Edit Student',
-    pageTitle: 'Edit Student',
-    csrfToken: res.locals.csrfToken || '',
+  res.render("students/edit", {
+    title: "Edit Student",
+    pageTitle: "Edit Student",
+    csrfToken: res.locals.csrfToken || "",
   });
 }
 
 export async function listStudents(req, res) {
   try {
     const {
-      q = '',
-      matric = '',
-      email = '',
-      name = '',
-      department = '',
-      school = '',
-      page = '1',
-      pageSize = '10',
+      q = "",
+      matric = "",
+      email = "",
+      name = "",
+      department = "",
+      school = "",
+      page = "1",
+      pageSize = "10",
     } = req.query;
 
     const currentPage = Math.max(Number(page) || 1, 1);
@@ -50,7 +52,14 @@ export async function listStudents(req, res) {
         OR si.department LIKE ?
         OR si.school LIKE ?
       )`);
-      params.push(buildLike(q), buildLike(q), buildLike(q), buildLike(q), buildLike(q), buildLike(q));
+      params.push(
+        buildLike(q),
+        buildLike(q),
+        buildLike(q),
+        buildLike(q),
+        buildLike(q),
+        buildLike(q),
+      );
     }
 
     if (matric) {
@@ -64,7 +73,9 @@ export async function listStudents(req, res) {
     }
 
     if (name) {
-      where.push(`CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) LIKE ?`);
+      where.push(
+        `CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) LIKE ?`,
+      );
       params.push(buildLike(name));
     }
 
@@ -78,7 +89,7 @@ export async function listStudents(req, res) {
       params.push(buildLike(school));
     }
 
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const [countRows] = await pool.query(
       `
@@ -123,7 +134,6 @@ export async function listStudents(req, res) {
           OR LOWER(si.student_email) = LOWER(pu.username)
         )
       ${whereSql}
-      GROUP BY pu.id
       ORDER BY pu.last_name, pu.first_name, pu.id
       LIMIT ? OFFSET ?
       `,
@@ -137,8 +147,10 @@ export async function listStudents(req, res) {
       pageSize: limit,
     });
   } catch (err) {
-    console.error('listStudents error:', err);
-    return res.status(500).json({ items: [], total: 0, message: 'Failed to load students.' });
+    console.error("listStudents error:", err);
+    return res
+      .status(500)
+      .json({ items: [], total: 0, message: "Failed to load students." });
   }
 }
 
@@ -148,7 +160,9 @@ export async function updateStudent(req, res) {
   try {
     const id = Number(req.params.id);
     if (!id) {
-      return res.status(400).json({ success: false, message: 'Invalid student id.' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid student id." });
     }
 
     const [existingRows] = await conn.query(
@@ -163,18 +177,25 @@ export async function updateStudent(req, res) {
 
     const existing = existingRows[0];
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Student not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found." });
     }
 
     const b = req.body || {};
     const email = normalizeEmail(b.email);
 
     if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required.' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is required." });
     }
 
     if (!clean(b.firstName) || !clean(b.lastName)) {
-      return res.status(400).json({ success: false, message: 'First name and last name are required.' });
+      return res.status(400).json({
+        success: false,
+        message: "First name and last name are required.",
+      });
     }
 
     const [emailRows] = await conn.query(
@@ -188,7 +209,10 @@ export async function updateStudent(req, res) {
     );
 
     if (emailRows.length) {
-      return res.status(400).json({ success: false, message: 'Email/username already belongs to another user.' });
+      return res.status(400).json({
+        success: false,
+        message: "Email/username already belongs to another user.",
+      });
     }
 
     await conn.beginTransaction();
@@ -215,12 +239,12 @@ export async function updateStudent(req, res) {
         clean(b.middleName),
         clean(b.lastName),
         clean(b.dob),
-        clean(b.stateOfOrigin) || '',
-        clean(b.lga) || '',
-        clean(b.phone) || '',
+        clean(b.stateOfOrigin) || "",
+        clean(b.lga) || "",
+        clean(b.phone) || "",
         email,
         clean(b.accessCode),
-        clean(b.status) || 'ACTIVE',
+        clean(b.status) || "ACTIVE",
         id,
       ],
     );
@@ -270,16 +294,21 @@ export async function updateStudent(req, res) {
 
     await conn.commit();
 
-    return res.json({ success: true, message: 'Student record updated.' });
+    return res.json({ success: true, message: "Student record updated." });
   } catch (err) {
     await conn.rollback();
-    console.error('updateStudent error:', err);
+    console.error("updateStudent error:", err);
 
-    if (err?.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ success: false, message: 'Duplicate email, access code, or matric number detected.' });
+    if (err?.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate email, access code, or matric number detected.",
+      });
     }
 
-    return res.status(500).json({ success: false, message: err.message || 'Update failed.' });
+    return res
+      .status(500)
+      .json({ success: false, message: err.message || "Update failed." });
   } finally {
     conn.release();
   }
