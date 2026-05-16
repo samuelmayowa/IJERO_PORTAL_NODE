@@ -17,6 +17,7 @@ import { fileURLToPath } from "url";
 import expressLayouts from "express-ejs-layouts";
 
 import adminRoutes from "./app/web/routes/admin.routes.js";
+import legacyPaymentRecoveryRoutes from "./app/web/routes/staff/legacy-payment-recovery.routes.js";
 import { ROLE_MENUS } from "./app/web/config/role-menus.js";
 import { requireMenuPermission } from "./app/core/permissions.js";
 import { ensureAdminUser } from "./app/services/user.service.js";
@@ -656,6 +657,7 @@ app.use(
     superRoles: ["admin", "superadmin", "administrator"],
   }),
   adminRoutes,
+  legacyPaymentRecoveryRoutes,
 );
 
 // app.use(

@@ -1,0 +1,374 @@
+<div class="card card-success">
+  <div class="card-header">
+    <h3 class="card-title">Legacy Payment Recovery</h3>
+  </div>
+
+  <div class="card-body">
+    <div class="alert alert-info">
+      Use this page to bring forward successful school fee payments from the old
+      portal into the new portal. You can check one student by matric/email, or
+      scan all currently matchable missing legacy payments.
+    </div>
+
+    <ul class="nav nav-tabs" id="legacyTabs" role="tablist">
+      <li class="nav-item">
+        <a
+          class="nav-link active"
+          id="single-tab"
+          data-toggle="tab"
+          href="#singleMode"
+          role="tab"
+        >
+          Single Student Lookup
+        </a>
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link"
+          id="bulk-tab"
+          data-toggle="tab"
+          href="#bulkMode"
+          role="tab"
+        >
+          Bulk Scan & Import
+        </a>
+      </li>
+    </ul>
+
+    <div
+      class="tab-content border-left border-right border-bottom p-3"
+      id="legacyTabContent"
+    >
+      <div class="tab-pane fade show active" id="singleMode" role="tabpanel">
+        <div class="form-row">
+          <div class="form-group col-md-4">
+            <label>Matric Number</label>
+            <input
+              id="singleMatric"
+              class="form-control"
+              placeholder="e.g. CHT/25/DHTTP/6156"
+            />
+          </div>
+
+          <div class="form-group col-md-4">
+            <label>Email</label>
+            <input
+              id="singleEmail"
+              class="form-control"
+              placeholder="student@email.com"
+            />
+          </div>
+
+          <div class="form-group col-md-4 d-flex align-items-end">
+            <button id="btnSinglePreview" class="btn btn-primary mr-2">
+              Find Legacy Payments
+            </button>
+            <button id="btnSingleImport" class="btn btn-success" disabled>
+              Run Query for Successful Payment
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="bulkMode" role="tabpanel">
+        <div class="alert alert-warning">
+          Bulk scan will show all successful old portal payments that now match
+          registered students but are still missing from the new portal payment
+          invoices. Review the result before importing.
+        </div>
+
+        <button id="btnBulkPreview" class="btn btn-primary mr-2">
+          Scan Missing Legacy Payments
+        </button>
+        <button id="btnBulkImport" class="btn btn-success" disabled>
+          Import All Successful Matches
+        </button>
+      </div>
+    </div>
+
+    <div class="row mt-4">
+      <div class="col-md-4">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3 id="summaryCount">0</h3>
+            <p>Payment(s) Found</p>
+          </div>
+          <div class="icon"><i class="fas fa-receipt"></i></div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="small-box bg-success">
+          <div class="inner">
+            <h3 id="summaryAmount">₦0</h3>
+            <p>Total Amount</p>
+          </div>
+          <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="small-box bg-secondary">
+          <div class="inner">
+            <h3 id="summaryMode">-</h3>
+            <p>Current Mode</p>
+          </div>
+          <div class="icon"><i class="fas fa-search"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+      <table class="table table-bordered table-striped" id="resultTable">
+        <thead>
+          <tr>
+            <th>PayID</th>
+            <th>Matric</th>
+            <th>Student</th>
+            <th>Email</th>
+            <th>Pay Type</th>
+            <th>Amount Paid</th>
+            <th>Ref/RRR</th>
+            <th>Order ID</th>
+            <th>Date Paid</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="9" class="text-center text-muted">
+              No data loaded yet.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const csrfToken = "<%= csrfToken %>";
+
+  let currentMode = "single";
+  let lastPreviewCount = 0;
+
+  function fmtMoney(value) {
+    const n = Number(value || 0);
+    return (
+      "₦" +
+      n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
+  }
+
+  function esc(value) {
+    return String(value || "").replace(
+      /[&<>"']/g,
+      (s) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[s],
+    );
+  }
+
+  function showOk(message) {
+    if (window.Modal && Modal.success) Modal.success(message || "Done");
+    else alert(message || "Done");
+  }
+
+  function showErr(message) {
+    if (window.Modal && Modal.error) Modal.error(message || "Error");
+    else alert(message || "Error");
+  }
+
+  function setLoading(button, loading, text) {
+    if (!button) return;
+    if (loading) {
+      button.dataset.oldText = button.textContent;
+      button.disabled = true;
+      button.textContent = text || "Processing...";
+    } else {
+      button.disabled = false;
+      button.textContent = button.dataset.oldText || button.textContent;
+    }
+  }
+
+  function resetResults(modeLabel) {
+    lastPreviewCount = 0;
+    document.getElementById("summaryCount").textContent = "0";
+    document.getElementById("summaryAmount").textContent = fmtMoney(0);
+    document.getElementById("summaryMode").textContent = modeLabel || "-";
+
+    document.querySelector("#resultTable tbody").innerHTML =
+      '<tr><td colspan="9" class="text-center text-muted">No matching missing legacy payment found.</td></tr>';
+
+    document.getElementById("btnSingleImport").disabled = true;
+    document.getElementById("btnBulkImport").disabled = true;
+  }
+
+  function renderRows(items, totalAmount, modeLabel) {
+    const tbody = document.querySelector("#resultTable tbody");
+    tbody.innerHTML = "";
+
+    lastPreviewCount = items.length;
+    document.getElementById("summaryCount").textContent = String(items.length);
+    document.getElementById("summaryAmount").textContent =
+      fmtMoney(totalAmount);
+    document.getElementById("summaryMode").textContent = modeLabel;
+
+    if (!items.length) {
+      resetResults(modeLabel);
+      return;
+    }
+
+    for (const row of items) {
+      const tr = document.createElement("tr");
+      const datePaid = row.date_paid
+        ? new Date(row.date_paid).toLocaleString()
+        : "";
+
+      tr.innerHTML = `
+      <td>${esc(row.pay_id)}</td>
+      <td>${esc(row.matric_id)}</td>
+      <td>${esc(row.student_name)}</td>
+      <td>${esc(row.email)}</td>
+      <td>${esc(row.pay_type)}</td>
+      <td>${fmtMoney(row.amount_paid)}</td>
+      <td>${esc(row.ref_number)}</td>
+      <td>${esc(row.order_id || "LEGACY-" + row.pay_id)}</td>
+      <td>${esc(datePaid)}</td>
+    `;
+
+      tbody.appendChild(tr);
+    }
+
+    if (currentMode === "single") {
+      document.getElementById("btnSingleImport").disabled = false;
+    } else {
+      document.getElementById("btnBulkImport").disabled = false;
+    }
+  }
+
+  async function preview(mode) {
+    currentMode = mode;
+
+    const params = new URLSearchParams({ mode });
+
+    if (mode === "single") {
+      params.set("matric", document.getElementById("singleMatric").value);
+      params.set("email", document.getElementById("singleEmail").value);
+    }
+
+    const btn =
+      mode === "single"
+        ? document.getElementById("btnSinglePreview")
+        : document.getElementById("btnBulkPreview");
+
+    setLoading(btn, true, "Checking...");
+
+    try {
+      const res = await fetch(
+        "/staff/api/payments/legacy-recovery/preview?" + params.toString(),
+      );
+      const data = await res.json();
+
+      if (!data.success) {
+        resetResults(mode === "single" ? "Single" : "Bulk");
+        showErr(data.message || "Could not preview legacy payments.");
+        return;
+      }
+
+      renderRows(
+        data.items || [],
+        data.totalAmount || 0,
+        mode === "single" ? "Single" : "Bulk",
+      );
+    } catch (err) {
+      resetResults(mode === "single" ? "Single" : "Bulk");
+      showErr(err.message || "Preview failed.");
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  async function runImport(mode) {
+    if (!lastPreviewCount) {
+      showErr("Please preview matching records first.");
+      return;
+    }
+
+    const confirmText =
+      mode === "bulk"
+        ? `Import all ${lastPreviewCount} missing successful legacy payment(s)?`
+        : `Import ${lastPreviewCount} missing successful legacy payment(s) for this student?`;
+
+    if (!confirm(confirmText)) return;
+
+    const body = { mode };
+
+    if (mode === "single") {
+      body.matric = document.getElementById("singleMatric").value;
+      body.email = document.getElementById("singleEmail").value;
+    }
+
+    const btn =
+      mode === "single"
+        ? document.getElementById("btnSingleImport")
+        : document.getElementById("btnBulkImport");
+
+    setLoading(btn, true, "Importing...");
+
+    try {
+      const res = await fetch("/staff/api/payments/legacy-recovery/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        showErr(data.message || "Import failed.");
+        return;
+      }
+
+      showOk(data.message || "Import completed.");
+      await preview(mode);
+    } catch (err) {
+      showErr(err.message || "Import failed.");
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  document
+    .getElementById("btnSinglePreview")
+    .addEventListener("click", () => preview("single"));
+  document
+    .getElementById("btnBulkPreview")
+    .addEventListener("click", () => preview("bulk"));
+  document
+    .getElementById("btnSingleImport")
+    .addEventListener("click", () => runImport("single"));
+  document
+    .getElementById("btnBulkImport")
+    .addEventListener("click", () => runImport("bulk"));
+
+  $('a[data-toggle="tab"]').on("shown.bs.tab", function (e) {
+    if (e.target.id === "single-tab") {
+      currentMode = "single";
+      resetResults("Single");
+    } else {
+      currentMode = "bulk";
+      resetResults("Bulk");
+    }
+  });
+</script>
