@@ -41,13 +41,21 @@ export async function exportCsv(req, res, next){
     const typeId = req.query.typeId || '';
 
     const data = await svc.listInvoices({
-      page:1, pageSize: 100000, q, from, to, status, method, typeId
+      page: 1,
+      pageSize: 100000,
+      exportAll: true,
+      q,
+      from,
+      to,
+      status,
+      method,
+      typeId,
     });
 
     const rows = data.rows || [];
     const header = [
       'Order ID','RRR','Payment Type','Amount','Portal Charge','Method','Status',
-      'Name','Payee ID / Matric','Email','Phone','Created At'
+      'Name','Middle Name','Payee ID / Matric','Department','Email','Phone','Created At'
     ];
 
     const csv = [
@@ -56,8 +64,10 @@ export async function exportCsv(req, res, next){
         r.order_id, r.rrr || '',
         r.payment_type_name,
         r.amount, r.portal_charge, r.method, r.status,
-        r.payee_fullname || '',
+        r.display_payee_fullname || r.payee_fullname || '',
+        r.student_middle_name || '',
         r.payee_id || '',
+        r.student_department || '',
         r.payee_email || '',
         r.payee_phone || '',
         (r.created_at ? new Date(r.created_at).toISOString() : '')

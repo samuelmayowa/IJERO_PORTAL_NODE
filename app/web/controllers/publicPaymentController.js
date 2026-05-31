@@ -237,7 +237,7 @@ function renderInvoicePDF(res, p, inline = false, kind = "invoice") {
   y = twoColRow(
     doc,
     "Payee Name:",
-    safe(p.payee_fullname),
+    safe(p.display_payee_fullname || p.payee_fullname),
     "Payee ID:",
     safe(p.payee_id),
     y,
@@ -419,6 +419,9 @@ export async function paymentForm(req, res, next) {
       const [profileRows] = await db.query(
         `
           SELECT
+            pu.first_name,
+            pu.middle_name,
+            pu.last_name,
             pu.phone AS pu_phone,
             sp.phone AS student_phone
           FROM public_users pu
@@ -449,6 +452,15 @@ export async function paymentForm(req, res, next) {
       req.session?.applicantProfile?.phone ||
       "";
 
+    const guessedFullName =
+      [dbProfile?.first_name, dbProfile?.middle_name, dbProfile?.last_name]
+        .map((v) => String(v || "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim() ||
+      String(publicUser?.full_name || "").trim();
+
     const dashboardPortalCharge =
       dashboardBucket === "40" ? 0 : Number(selectedType?.portal_charge || 0);
 
@@ -468,7 +480,7 @@ export async function paymentForm(req, res, next) {
               publicUser?.username ||
               guessedPhone ||
               "",
-            payee_fullname: publicUser?.full_name || "",
+            payee_fullname: guessedFullName,
             payee_email: guessedEmail,
             payee_phone: guessedPhone,
             dashboard_bucket: dashboardBucket,
@@ -539,9 +551,9 @@ export async function createInvoice(req, res, next) {
     const total = Number(created.amount) + Number(created.portal_charge);
     const totalAmount = Number.isFinite(total) ? total : 0;
 
-    const rawName = (body.payee_fullname || "").toString().trim();
-    const rawEmail = (body.payee_email || "").toString().trim();
-    const rawPhone = (body.payee_phone || "").toString().trim();
+    const rawName = (created.payee_fullname || body.payee_fullname || "").toString().trim();
+    const rawEmail = (created.payee_email || body.payee_email || "").toString().trim();
+    const rawPhone = (created.payee_phone || body.payee_phone || "").toString().trim();
     const rawPurpose = (body.purpose || created.pt?.purpose || "Payment")
       .toString()
       .trim();
