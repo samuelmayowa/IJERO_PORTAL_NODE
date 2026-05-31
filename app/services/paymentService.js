@@ -318,18 +318,18 @@ export async function listInvoices(params = {}) {
              FROM public_users pu2
              WHERE LOWER(COALESCE(pu2.role, '')) = 'student'
                AND (
-                 pu2.matric_number = inv.payee_id
-                 OR pu2.username = inv.payee_id
-                 OR pu2.username = inv.payee_email
-                 OR pu2.phone = inv.payee_phone
-                 OR CAST(pu2.id AS CHAR) = inv.payee_id
+                 pu2.matric_number COLLATE utf8mb4_unicode_ci = inv.payee_id COLLATE utf8mb4_unicode_ci
+                 OR pu2.username COLLATE utf8mb4_unicode_ci = inv.payee_id COLLATE utf8mb4_unicode_ci
+                 OR pu2.username COLLATE utf8mb4_unicode_ci = inv.payee_email COLLATE utf8mb4_unicode_ci
+                 OR pu2.phone COLLATE utf8mb4_unicode_ci = inv.payee_phone COLLATE utf8mb4_unicode_ci
+                 OR CAST(pu2.id AS CHAR) COLLATE utf8mb4_unicode_ci = inv.payee_id COLLATE utf8mb4_unicode_ci
                )
              ORDER BY
                CASE
-                 WHEN pu2.matric_number = inv.payee_id THEN 1
-                 WHEN pu2.username = inv.payee_email THEN 2
-                 WHEN pu2.username = inv.payee_id THEN 3
-                 WHEN pu2.phone = inv.payee_phone THEN 4
+                 WHEN pu2.matric_number COLLATE utf8mb4_unicode_ci = inv.payee_id COLLATE utf8mb4_unicode_ci THEN 1
+                 WHEN pu2.username COLLATE utf8mb4_unicode_ci = inv.payee_email COLLATE utf8mb4_unicode_ci THEN 2
+                 WHEN pu2.username COLLATE utf8mb4_unicode_ci = inv.payee_id COLLATE utf8mb4_unicode_ci THEN 3
+                 WHEN pu2.phone COLLATE utf8mb4_unicode_ci = inv.payee_phone COLLATE utf8mb4_unicode_ci THEN 4
                  ELSE 5
                END
              LIMIT 1
@@ -340,7 +340,7 @@ export async function listInvoices(params = {}) {
            WHERE matric_number IS NOT NULL AND matric_number <> ''
            GROUP BY matric_number
          ) si
-           ON si.matric_number = COALESCE(NULLIF(pu.matric_number, ''), NULLIF(inv.payee_id, ''))
+           ON si.matric_number COLLATE utf8mb4_unicode_ci = COALESCE(NULLIF(pu.matric_number, ''), NULLIF(inv.payee_id, '')) COLLATE utf8mb4_unicode_ci
        WHERE inv.id IN (${idPlaceholders})
        ORDER BY FIELD(inv.id, ${idPlaceholders})`,
       [...invoiceIds, ...invoiceIds],
