@@ -92,9 +92,9 @@ export async function attachRRR(order_id, rrr) {
 
 export async function findInvoiceByOrder(order_id) {
   const q = await db.query(
-    `SELECT inv.*, pt.name AS payment_type_name, pt.purpose AS payment_type_purpose
+    `SELECT inv.*, COALESCE(pt.name, inv.purpose, 'School Fees') AS payment_type_name, pt.purpose AS payment_type_purpose
      FROM payment_invoices inv
-     JOIN payment_types pt ON pt.id=inv.payment_type_id
+     LEFT JOIN payment_types pt ON pt.id=inv.payment_type_id
      WHERE inv.order_id=? LIMIT 1`,
     [order_id],
   );
@@ -114,9 +114,9 @@ export async function markPaid(order_id, extra = {}) {
 
 export async function refreshInvoice(order_id) {
   const q = await db.query(
-    `SELECT inv.*, pt.name AS payment_type_name, pt.purpose AS payment_type_purpose
+    `SELECT inv.*, COALESCE(pt.name, inv.purpose, 'School Fees') AS payment_type_name, pt.purpose AS payment_type_purpose
        FROM payment_invoices inv
-       JOIN payment_types pt ON pt.id=inv.payment_type_id
+       LEFT JOIN payment_types pt ON pt.id=inv.payment_type_id
       WHERE inv.order_id=? LIMIT 1`,
     [order_id],
   );
@@ -130,7 +130,10 @@ export async function refreshInvoice(order_id) {
    ================================ */
 export async function listInvoices(params = {}) {
   const page = Math.max(1, Number(params.page || 1));
-  const pageSize = Math.max(1, Math.min(100, Number(params.pageSize || 20)));
+  const exportAll = params.exportAll === true;
+  const pageSize = exportAll
+    ? Math.max(1, Math.min(200000, Number(params.pageSize || 100000)))
+    : Math.max(1, Math.min(100, Number(params.pageSize || 20)));
   const { q, from, to, status, method, typeId } = params;
 
   const where = [];
@@ -138,10 +141,15 @@ export async function listInvoices(params = {}) {
 
   if (q && q.trim()) {
     where.push(
-      `(inv.order_id LIKE ? OR inv.payee_fullname LIKE ? OR inv.payee_id LIKE ? OR pt.name LIKE ?)`,
+      `(inv.order_id LIKE ?
+        OR inv.rrr LIKE ?
+        OR inv.payee_fullname LIKE ?
+        OR inv.payee_id LIKE ?
+        OR inv.payee_email LIKE ?
+        OR COALESCE(pt.name, inv.purpose, '') LIKE ?)`,
     );
     const like = `%${q.trim()}%`;
-    vals.push(like, like, like, like);
+    vals.push(like, like, like, like, like, like);
   }
   if (from) {
     where.push(`DATE(inv.created_at) >= ?`);
@@ -170,7 +178,7 @@ export async function listInvoices(params = {}) {
   const cntQ = await db.query(
     `SELECT COUNT(*) AS c
        FROM payment_invoices inv
-       JOIN payment_types pt ON pt.id=inv.payment_type_id
+       LEFT JOIN payment_types pt ON pt.id=inv.payment_type_id
      ${whereSql}`,
     vals,
   );
@@ -179,9 +187,9 @@ export async function listInvoices(params = {}) {
   // rows (paged)
   const offset = (page - 1) * pageSize;
   const rowsQ = await db.query(
-    `SELECT inv.*, pt.name AS payment_type_name
+    `SELECT inv.*, COALESCE(pt.name, inv.purpose, 'School Fees') AS payment_type_name
        FROM payment_invoices inv
-       JOIN payment_types pt ON pt.id=inv.payment_type_id
+       LEFT JOIN payment_types pt ON pt.id=inv.payment_type_id
      ${whereSql}
      ORDER BY inv.created_at DESC
      LIMIT ? OFFSET ?`,
@@ -197,7 +205,7 @@ export async function listInvoices(params = {}) {
         SUM(CASE WHEN inv.method='ONLINE' THEN 1 ELSE 0 END)      AS online_count,
         SUM(CASE WHEN inv.method='BANK' THEN 1 ELSE 0 END)        AS bank_count
       FROM payment_invoices inv
-      JOIN payment_types pt ON pt.id=inv.payment_type_id
+      LEFT JOIN payment_types pt ON pt.id=inv.payment_type_id
      ${whereSql}`,
     vals,
   );
