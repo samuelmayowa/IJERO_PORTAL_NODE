@@ -7,6 +7,12 @@ import {
   uniformPrint,
 } from '../controllers/student.controller.js';
 import { requireStudent, studentPaymentHistory } from '../controllers/auth.controller.js';
+import {
+  examClearancePage,
+  examClearancePdf,
+  verifyExamClearance,
+  examClearanceException,
+} from '../controllers/examClearance.controller.js';
 
 const router = Router();
 
@@ -23,5 +29,14 @@ router.get('/uniform/print', uniformPrint);
 
 // Student payment history
 router.get('/payments/history', requireStudent, studentPaymentHistory);
+
+// Exam clearance
+router.get('/exams/clearance', requireStudent, examClearancePage);
+router.get('/exams/clearance/print', requireStudent, examClearancePage);
+router.get('/exams/clearance/pdf', requireStudent, examClearancePdf);
+router.get('/exams/clearance/exception', requireStudent, examClearanceException);
+
+// Public QR verification for exam clearance
+router.get('/exams/clearance/verify/:token', verifyExamClearance);
 
 export default router;

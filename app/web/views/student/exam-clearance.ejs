@@ -1,0 +1,148 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-8">
+        <h1><i class="fas fa-file-signature mr-2"></i>Print Exam Clearance</h1>
+      </div>
+      <div class="col-sm-4">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="/student/dashboard">Dashboard</a></li>
+          <li class="breadcrumb-item active">Exam Clearance</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <% if (error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-danger text-white">
+        <h3 class="card-title m-0">Select Session and Semester</h3>
+      </div>
+
+      <div class="card-body">
+        <form method="get" action="/student/exams/clearance/print" class="row">
+          <div class="form-group col-md-5">
+            <label>Academic Session</label>
+            <select name="sessionId" class="form-control" required>
+              <option value="">-- Select Session --</option>
+              <% (sessions || []).forEach((s) => { %>
+                <option value="<%= s.id %>" <%= String(selectedSessionId) === String(s.id) ? 'selected' : '' %>>
+                  <%= s.name %> <%= Number(s.is_current) === 1 ? '(Current)' : '' %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group col-md-5">
+            <label>Semester</label>
+            <select name="semester" class="form-control" required>
+              <option value="">-- Select Semester --</option>
+              <option value="FIRST" <%= selectedSemester === 'FIRST' ? 'selected' : '' %>>First Semester</option>
+              <option value="SECOND" <%= selectedSemester === 'SECOND' ? 'selected' : '' %>>Second Semester</option>
+            </select>
+          </div>
+
+          <div class="form-group col-md-2 d-flex align-items-end">
+            <button class="btn btn-danger btn-block" type="submit">
+              Check Clearance
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% if (result) { %>
+      <div class="card shadow-sm">
+        <div class="card-header <%= result.eligible ? 'bg-success' : 'bg-warning' %>">
+          <h3 class="card-title m-0">
+            <%= result.eligible ? 'Eligible for Exam Clearance' : 'Not Yet Eligible' %>
+          </h3>
+        </div>
+
+        <div class="card-body">
+          <h5 class="mb-3">
+            EXAM CLEARANCE FOR <%= result.session.name %> /
+            <%= result.semester === 'FIRST' ? 'FIRST SEMESTER' : 'SECOND SEMESTER' %>
+          </h5>
+
+          <div class="row">
+            <div class="col-md-6">
+              <table class="table table-sm table-bordered">
+                <tr><th>Student Name</th><td><%= result.student.fullName %></td></tr>
+                <tr><th>Matric Number</th><td><%= result.student.matricNumber %></td></tr>
+                <tr><th>Department</th><td><%= result.student.department || 'N/A' %></td></tr>
+                <tr><th>Programme</th><td><%= result.student.programme || 'N/A' %></td></tr>
+                <tr><th>Level</th><td><%= result.student.level || 'N/A' %></td></tr>
+              </table>
+            </div>
+
+            <div class="col-md-6">
+              <table class="table table-sm table-bordered">
+                <tr><th>Total Payable</th><td><%= formatNaira(result.totalPayable) %></td></tr>
+                <tr><th>Total Successful Paid</th><td><%= formatNaira(result.totalPaid) %></td></tr>
+                <tr><th>Required for Selected Semester</th><td><%= formatNaira(result.requiredAmount) %></td></tr>
+                <tr><th>Rule</th><td><%= result.semester === 'FIRST' ? 'Minimum 60% payment' : 'Full payment required' %></td></tr>
+                <tr><th>Status</th><td><strong><%= result.eligible ? 'CLEARED' : 'NOT CLEARED' %></strong></td></tr>
+              </table>
+            </div>
+          </div>
+
+          <h5 class="mt-4">Successful Payments Counted</h5>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-bordered">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>RRR</th>
+                  <th>Purpose</th>
+                  <th class="text-right">Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if ((result.successfulPayments || []).length) { %>
+                  <% result.successfulPayments.forEach((p) => { %>
+                    <tr>
+                      <td><%= formatDate(p.paidAt) %></td>
+                      <td><%= p.rrr || 'N/A' %></td>
+                      <td><%= p.purpose || 'Payment' %></td>
+                      <td class="text-right"><%= formatNaira(p.amount) %></td>
+                      <td><span class="badge badge-success">PAID</span></td>
+                    </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center text-muted">No successful payment found for this selected session.</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+
+          <% if (result.eligible) { %>
+            <a
+              href="/student/exams/clearance/pdf?sessionId=<%= encodeURIComponent(selectedSessionId) %>&semester=<%= encodeURIComponent(result.semester) %>"
+              target="_blank"
+              class="btn btn-success"
+            >
+              <i class="fas fa-file-pdf mr-1"></i> View / Download Exam Clearance PDF
+            </a>
+          <% } else { %>
+            <div class="alert alert-warning mt-3 mb-0">
+              You are not yet eligible to print exam clearance for the selected session and semester.
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+  </div>
+</section>
