@@ -51,6 +51,7 @@ async function sumPaidBeforeDeadline({
   publicUser = null,
   paymentTypeIds = [],
   deadlineAt,
+  includeLegacySchoolFeePayments = false,
 }) {
   const ids = Array.from(new Set(paymentTypeIds.map(Number).filter(Boolean)));
   if (!ids.length || !deadlineAt) return 0;
@@ -101,11 +102,29 @@ async function sumPaidBeforeDeadline({
     ? "COALESCE(paid_at, created_at)"
     : "created_at";
 
+  const paymentTypeWhere = [
+    `payment_type_id IN (${ids.map(() => "?").join(",")})`,
+  ];
+
+  if (includeLegacySchoolFeePayments) {
+    paymentTypeWhere.push(`
+      (
+        payment_type_id = 0
+        AND (
+          LOWER(COALESCE(purpose, '')) LIKE '%school fee%'
+          OR LOWER(COALESCE(purpose, '')) LIKE '%school fees%'
+          OR LOWER(COALESCE(purpose, '')) LIKE '%student school fee%'
+          OR LOWER(COALESCE(purpose, '')) LIKE '%tuition fee%'
+        )
+      )
+    `);
+  }
+
   const [rows] = await db.query(
     `
       SELECT COALESCE(SUM(amount), 0) AS total_paid
       FROM payment_invoices
-      WHERE payment_type_id IN (${ids.map(() => "?").join(",")})
+      WHERE (${paymentTypeWhere.join(" OR ")})
         AND status = 'PAID'
         AND ${dateExpr} <= ?
         AND (${identityParts.join(" OR ")})
@@ -175,17 +194,33 @@ export async function listApplicableLatePaymentCharges({
 
     if (!matchedPaymentTypeIds.length) continue;
 
-    const normalAffectedAmount = (payableRows || [])
-      .filter((row) => matchedPaymentTypeIds.includes(Number(row.id || row.payment_type_id || 0)))
-      .reduce((sum, row) => sum + money(row.amount), 0);
+    const affectedPayableRows = (payableRows || []).filter((row) =>
+      matchedPaymentTypeIds.includes(Number(row.id || row.payment_type_id || 0)),
+    );
+
+    const normalAffectedAmount = affectedPayableRows.reduce(
+      (sum, row) => sum + money(row.amount),
+      0,
+    );
 
     if (normalAffectedAmount <= 0) continue;
+
+    const includeLegacySchoolFeePayments = affectedPayableRows.some((row) => {
+      const label = `${row.name || ""} ${row.purpose || ""}`.toLowerCase();
+      return (
+        label.includes("school fee") ||
+        label.includes("school fees") ||
+        label.includes("student school fee") ||
+        label.includes("tuition fee")
+      );
+    });
 
     const paidBeforeDeadline = await sumPaidBeforeDeadline({
       studentId,
       publicUser,
       paymentTypeIds: selectedPaymentTypeIds,
       deadlineAt: rule.deadline_at,
+      includeLegacySchoolFeePayments,
     });
 
     // If the student had already completed the normal affected payment before the deadline,
