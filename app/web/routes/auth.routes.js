@@ -1,6 +1,7 @@
 // app/web/routes/auth.routes.js
 import { Router } from 'express';
 import { getLogin, postLogin, logout } from '../controllers/auth.controller.js';
+import { verifyExamClearance } from '../controllers/examClearance.controller.js';
 import {
   showRegister,
   postRegister,
@@ -14,6 +15,9 @@ import {
 } from '../controllers/auth.controller.js';
 
 const router = Router();
+
+// Public exam clearance QR verification
+router.get('/verify/exam-clearance/:token', verifyExamClearance);
 
 // login
 router.get('/login', getLogin);

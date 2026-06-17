@@ -383,7 +383,7 @@ export async function buildClearanceData({
   const token = includeToken ? makeClearanceToken(tokenPayload) : "";
   const protocol = req.get?.("x-forwarded-proto") || req.protocol || "https";
   const host = req.get?.("host") || "";
-  const verifyUrl = token ? `${protocol}://${host}/student/exams/clearance/verify/${token}` : "";
+  const verifyUrl = token ? `${protocol}://${host}/verify/exam-clearance/${token}` : "";
 
   return {
     student,

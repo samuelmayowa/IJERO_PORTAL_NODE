@@ -621,7 +621,7 @@ export async function reprintForm(req, res, next) {
     const backLabel =
       sessionUser?.role === "student"
         ? "Back to Dashboard"
-        : "College Portal Home Page";
+        : "EKSCOTECH Portal Home Page";
 
     const prefillRrr = String(req.query?.rrr || "").trim();
 
