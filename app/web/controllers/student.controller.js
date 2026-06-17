@@ -1,5 +1,6 @@
 import { pool } from "../../core/db.js";
 import { listStudentScopedPaymentTypes } from "../../services/studentPaymentScopeResolver.js";
+import { listApplicableLatePaymentCharges } from "../../services/latePaymentChargeService.js";
 
 /**
  * Small schema helper (prevents crashing if courses table columns differ:
@@ -274,6 +275,33 @@ export async function dashboard(req, res) {
           amount,
           portal_charge: Number(row.portal_charge || 0),
           category,
+        });
+      }
+
+      const lateCharges = await listApplicableLatePaymentCharges({
+        studentId,
+        publicUser,
+        currentSessionId: currentSession?.id || null,
+        semesterKey,
+        payableRows: resolved.rows || [],
+      });
+
+      for (const charge of lateCharges.rows || []) {
+        const amount = Number(charge.amount || 0);
+        const category = charge.category || "school";
+
+        totalPayable += amount;
+        payableBreakdown[category] += amount;
+
+        paymentSummaryRows.push({
+          payment_type_id: null,
+          name: charge.name,
+          purpose: charge.purpose,
+          amount,
+          portal_charge: 0,
+          category,
+          is_late_payment_charge: true,
+          late_fee_rule_id: charge.late_fee_rule_id,
         });
       }
 

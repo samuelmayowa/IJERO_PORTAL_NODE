@@ -1,0 +1,286 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-8">
+        <h1><i class="fas fa-clock mr-2"></i>Late Payment Charges</h1>
+      </div>
+      <div class="col-sm-4">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="/staff/dashboard">Dashboard</a></li>
+          <li class="breadcrumb-item active">Late Payment Charges</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-1"></i><%= messages.error %></div>
+    <% } %>
+
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success"><i class="fas fa-check mr-1"></i><%= messages.success %></div>
+    <% } %>
+
+    <% if (notice) { %>
+      <div class="alert alert-success"><i class="fas fa-check mr-1"></i><%= notice %></div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h3 class="card-title m-0">
+          <%= editing ? 'Edit Late Payment Charge Rule' : 'Create Late Payment Charge Rule' %>
+        </h3>
+      </div>
+
+      <form method="POST" action="<%= editing ? '/staff/fees/late-payment-charges/' + editing.id + '/update' : '/staff/fees/late-payment-charges' %>">
+        <% if (csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+        <div class="card-body">
+          <div class="row">
+            <div class="form-group col-md-6">
+              <label>Title</label>
+              <input
+                type="text"
+                name="title"
+                class="form-control"
+                required
+                value="<%= editing ? editing.title : '' %>"
+                placeholder="e.g. 2025/2026 First Semester Tuition Late Charge"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Session</label>
+              <select name="session_id" class="form-control" required>
+                <option value="">-- Select Session --</option>
+                <% (sessions || []).forEach((s) => { %>
+                  <option value="<%= s.id %>" <%= editing && Number(editing.session_id) === Number(s.id) ? 'selected' : '' %>>
+                    <%= s.name %> <%= Number(s.is_current) === 1 ? '(Current)' : '' %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Semester</label>
+              <select name="semester" class="form-control" required>
+                <% ['ALL','FIRST','SECOND'].forEach((sem) => { %>
+                  <option value="<%= sem %>" <%= editing && editing.semester === sem ? 'selected' : '' %>>
+                    <%= sem === 'ALL' ? 'All Semesters' : (sem === 'FIRST' ? 'First Semester' : 'Second Semester') %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Deadline Date/Time</label>
+              <input
+                type="datetime-local"
+                name="deadline_at"
+                class="form-control"
+                required
+                value="<%= editing && editing.deadline_at ? new Date(editing.deadline_at).toISOString().slice(0,16) : '' %>"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Late Charge Amount (₦)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                name="amount"
+                class="form-control"
+                required
+                value="<%= editing ? Number(editing.amount || 0) : '' %>"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Scope</label>
+              <select name="scope_type" id="scopeType" class="form-control" required>
+                <% ['ALL','SCHOOL','DEPARTMENT','PROGRAMME'].forEach((scope) => { %>
+                  <option value="<%= scope %>" <%= editing && editing.scope_type === scope ? 'selected' : '' %>>
+                    <%= scope === 'ALL' ? 'All Students' : scope.charAt(0) + scope.slice(1).toLowerCase() %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Status</label>
+              <select name="is_active" class="form-control">
+                <option value="1" <%= !editing || Number(editing.is_active) === 1 ? 'selected' : '' %>>Active</option>
+                <option value="0" <%= editing && Number(editing.is_active) === 0 ? 'selected' : '' %>>Inactive</option>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4 scope-field" data-scope-field="SCHOOL">
+              <label>School</label>
+              <select name="school_id" class="form-control">
+                <option value="">-- Select School --</option>
+                <% (schools || []).forEach((s) => { %>
+                  <option value="<%= s.id %>" <%= editing && Number(editing.school_id) === Number(s.id) ? 'selected' : '' %>>
+                    <%= s.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4 scope-field" data-scope-field="DEPARTMENT">
+              <label>Department</label>
+              <select name="department_id" class="form-control">
+                <option value="">-- Select Department --</option>
+                <% (departments || []).forEach((d) => { %>
+                  <option value="<%= d.id %>" <%= editing && Number(editing.department_id) === Number(d.id) ? 'selected' : '' %>>
+                    <%= d.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4 scope-field" data-scope-field="PROGRAMME">
+              <label>Programme</label>
+              <select name="programme_id" class="form-control">
+                <option value="">-- Select Programme --</option>
+                <% (programmes || []).forEach((p) => { %>
+                  <option value="<%= p.id %>" <%= editing && Number(editing.programme_id) === Number(p.id) ? 'selected' : '' %>>
+                    <%= p.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-12">
+              <label>Affected Payment Types</label>
+              <div class="border rounded p-2" style="max-height:260px; overflow:auto;">
+                <% const selectedPaymentTypeIds = new Set((editing && editing.payment_type_ids ? editing.payment_type_ids : []).map(Number)); %>
+                <% (paymentTypes || []).forEach((pt) => { %>
+                  <label class="d-block mb-1">
+                    <input
+                      type="checkbox"
+                      name="payment_type_ids"
+                      value="<%= pt.id %>"
+                      <%= selectedPaymentTypeIds.has(Number(pt.id)) ? 'checked' : '' %>
+                    >
+                    <strong><%= pt.name %></strong>
+                    <span class="text-muted">— <%= pt.purpose %> | ₦<%= Number(pt.amount || 0).toLocaleString('en-NG') %> | <%= pt.scope %></span>
+                  </label>
+                <% }) %>
+              </div>
+              <small class="text-muted">Only the selected payment type(s) will be affected later. Other payments remain untouched.</small>
+            </div>
+
+            <div class="form-group col-md-12">
+              <label>Notice Message</label>
+              <textarea
+                name="notice_message"
+                class="form-control"
+                rows="3"
+                placeholder="Optional custom notice shown to users before/after the deadline"
+              ><%= editing ? (editing.notice_message || '') : '' %></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <button class="btn btn-primary">
+            <i class="fas fa-save mr-1"></i>
+            <%= editing ? 'Update Rule' : 'Create Rule' %>
+          </button>
+
+          <% if (editing) { %>
+            <a href="/staff/fees/late-payment-charges" class="btn btn-secondary">Cancel Edit</a>
+          <% } %>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" id="configured-rules">
+      <div class="card-header">
+        <h3 class="card-title m-0">Configured Late Payment Rules</h3>
+      </div>
+
+      <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Session</th>
+              <th>Semester</th>
+              <th>Deadline</th>
+              <th>Amount</th>
+              <th>Scope</th>
+              <th>Payment Types</th>
+              <th>Status</th>
+              <th style="width:150px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if ((rules || []).length) { %>
+              <% rules.forEach((rule) => { %>
+                <tr>
+                  <td><%= rule.title %></td>
+                  <td><%= rule.session_name || rule.session_id %></td>
+                  <td><%= rule.semester %></td>
+                  <td><%= rule.deadline_at ? new Date(rule.deadline_at).toLocaleString('en-GB') : '' %></td>
+                  <td>₦<%= Number(rule.amount || 0).toLocaleString('en-NG') %></td>
+                  <td>
+                    <strong><%= rule.scope_type %></strong>
+                    <% if (rule.scope_type === 'SCHOOL') { %><br><small><%= rule.school_name || '' %></small><% } %>
+                    <% if (rule.scope_type === 'DEPARTMENT') { %><br><small><%= rule.department_name || '' %></small><% } %>
+                    <% if (rule.scope_type === 'PROGRAMME') { %><br><small><%= rule.programme_name || '' %></small><% } %>
+                  </td>
+                  <td>
+                    <% (rule.payment_type_labels || []).forEach((label) => { %>
+                      <div><small><%= label %></small></div>
+                    <% }) %>
+                  </td>
+                  <td>
+                    <% if (Number(rule.is_active) === 1) { %>
+                      <span class="badge badge-success">Active</span>
+                    <% } else { %>
+                      <span class="badge badge-secondary">Inactive</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <a class="btn btn-xs btn-primary" href="/staff/fees/late-payment-charges/<%= rule.id %>/edit">Edit</a>
+                    <form method="POST" action="/staff/fees/late-payment-charges/<%= rule.id %>/toggle" style="display:inline;">
+                      <% if (csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+                      <button class="btn btn-xs btn-warning" type="submit">
+                        <%= Number(rule.is_active) === 1 ? 'Deactivate' : 'Activate' %>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } else { %>
+              <tr>
+                <td colspan="9" class="text-center text-muted p-4">No late payment charge rule configured yet.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function () {
+  function refreshScopeFields() {
+    var selected = document.getElementById('scopeType').value;
+    document.querySelectorAll('.scope-field').forEach(function (el) {
+      var target = el.getAttribute('data-scope-field');
+      el.style.display = selected === target ? '' : 'none';
+    });
+  }
+
+  document.getElementById('scopeType').addEventListener('change', refreshScopeFields);
+  refreshScopeFields();
+})();
+</script>

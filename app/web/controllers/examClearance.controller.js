@@ -77,7 +77,7 @@ function drawTableRow(doc, y, cols, opts = {}) {
 
 function drawClearanceWatermark(doc, data, logo, hasLogo, fonts) {
   if (hasLogo) {
-    doc.opacity(0.04).image(logo, 150, 205, { width: 300 });
+    doc.opacity(0.09).image(logo, 150, 205, { width: 300 });
   }
 
   const watermarkText = [

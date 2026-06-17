@@ -5,6 +5,14 @@ import { Router } from "express";
 import * as pt from "../../controllers/paymentTypeController.js";
 import * as gp from "../../controllers/generalPaymentController.js";
 import db from "../../../core/db.js";
+import {
+  listLatePaymentCharges,
+  createLatePaymentCharge,
+  editLatePaymentCharge,
+  updateLatePaymentCharge,
+  toggleLatePaymentCharge,
+} from "../../controllers/latePaymentChargeController.js";
+
 
 const r = Router();
 
@@ -64,5 +72,13 @@ r.get("/api/schools/:id/programmes", async (req, res, next) => {
     next(e);
   }
 });
+
+
+// Late payment charge rules - admin only, no student payable impact yet
+r.get("/late-payment-charges", listLatePaymentCharges);
+r.post("/late-payment-charges", createLatePaymentCharge);
+r.get("/late-payment-charges/:id/edit", editLatePaymentCharge);
+r.post("/late-payment-charges/:id/update", updateLatePaymentCharge);
+r.post("/late-payment-charges/:id/toggle", toggleLatePaymentCharge);
 
 export default r;

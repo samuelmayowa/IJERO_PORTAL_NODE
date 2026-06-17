@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import db from "../core/db.js";
 import { listStudentScopedPaymentTypes } from "./studentPaymentScopeResolver.js";
+import { listApplicableLatePaymentCharges } from "./latePaymentChargeService.js";
 
 function clean(v) {
   return String(v ?? "").trim();
@@ -289,6 +290,22 @@ export async function buildClearanceData({
     publicUser,
     sessionId: selectedSession.id,
   });
+
+  const lateCharges = await listApplicableLatePaymentCharges({
+    studentId,
+    publicUser,
+    currentSessionId: selectedSession.id,
+    semesterKey: normalizedSemester,
+    payableRows,
+  });
+
+  for (const charge of lateCharges.rows || []) {
+    payableRows.push({
+      ...charge,
+      amount: money(charge.amount),
+      portal_charge: 0,
+    });
+  }
 
   const sessionPaymentTypeIds = await loadSessionPaymentTypeIds(selectedSession.id);
 
