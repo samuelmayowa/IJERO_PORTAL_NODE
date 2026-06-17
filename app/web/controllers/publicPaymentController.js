@@ -194,7 +194,7 @@ function renderInvoicePDF(res, p, inline = false, kind = "invoice") {
   doc.y = 120;
 
   const inst = String(
-    p.institution_name || "EKITI STATE COLLEGE OF HEALTH, SCIENCES & TECH.",
+    p.institution_name || "EKITI STATE COLLEGE OF TECHNOLOGY, IJERO-EKITI",
   ).toUpperCase();
   const addr = String(
     p.institution_address || "PMB 316, IJERO EKITI, EKITI STATE OF NIGERIA",
