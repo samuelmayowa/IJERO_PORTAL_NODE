@@ -1,0 +1,102 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-7">
+        <h1>
+          <i class="fas fa-file-alt mr-2"></i>
+          Application Results
+        </h1>
+      </div>
+
+      <div class="col-sm-5">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item">
+            <a href="/applicant/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item active">
+            Check Result
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-outline card-info">
+      <div class="card-header">
+        <h3 class="card-title">
+          Select an Application
+        </h3>
+      </div>
+
+      <div class="card-body p-0">
+        <% if (!applications.length) { %>
+          <div class="p-5 text-center text-muted">
+            You have not started an application yet.
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Application Number</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th style="width:170px">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <% applications.forEach((item) => { %>
+                  <tr>
+                    <td>
+                      <strong>
+                        <%= item.application_title %>
+                      </strong>
+
+                      <div class="small text-muted">
+                        <%= item.category || '' %>
+                      </div>
+                    </td>
+
+                    <td>
+                      <%= item.application_number || '-' %>
+                    </td>
+
+                    <td>
+                      <span class="badge badge-info">
+                        <%= String(
+                          item.application_status || ''
+                        ).replaceAll('_', ' ') %>
+                      </span>
+                    </td>
+
+                    <td>
+                      <%= new Date(
+                        item.submitted_at ||
+                        item.created_at
+                      ).toLocaleDateString('en-GB') %>
+                    </td>
+
+                    <td>
+                      <a
+                        class="btn btn-info btn-sm"
+                        href="/applicant/result/check/<%= item.id %>"
+                      >
+                        <i class="fas fa-search mr-1"></i>
+                        Check Result
+                      </a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>

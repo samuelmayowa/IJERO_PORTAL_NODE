@@ -1,0 +1,1034 @@
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-8">
+        <h1>
+          <i class="fas fa-file-signature mr-2"></i>
+          Manage Application Forms
+        </h1>
+      </div>
+      <div class="col-sm-4">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item">
+            <a href="/staff/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item active">
+            Application Forms
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        <%= messages.error %>
+      </div>
+    <% } %>
+
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success">
+        <i class="fas fa-check mr-1"></i>
+        <%= messages.success %>
+      </div>
+    <% } %>
+
+    <% if (notice) { %>
+      <div class="alert alert-success">
+        <i class="fas fa-check mr-1"></i>
+        <%= notice %>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h3 class="card-title m-0">
+          <%= editing ? 'Edit Application Form' : 'Open a New Application' %>
+        </h3>
+      </div>
+
+      <form
+        method="POST"
+        action="<%= editing
+          ? '/staff/fees/application-forms/' + editing.id + '/update'
+          : '/staff/fees/application-forms' %>"
+      >
+        <% if (csrfToken) { %>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <% } %>
+
+        <div class="card-body">
+          <div class="row">
+
+            <div class="form-group col-md-3">
+              <label>Application Code</label>
+              <input
+                type="text"
+                name="code"
+                class="form-control"
+                required
+                value="<%= editing ? editing.code : '' %>"
+                placeholder="e.g. JAMB-2026"
+              >
+            </div>
+
+            <div class="form-group col-md-6">
+              <label>Application Name</label>
+              <input
+                type="text"
+                name="title"
+                class="form-control"
+                required
+                value="<%= editing ? editing.title : '' %>"
+                placeholder="e.g. 2026 JAMB Admission Application"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Application Category</label>
+              <input
+                type="text"
+                name="category"
+                class="form-control"
+                list="applicationCategories"
+                value="<%= editing ? editing.category : 'JAMB' %>"
+                placeholder="JAMB, Direct Entry, HND..."
+              >
+              <datalist id="applicationCategories">
+                <option value="JAMB">
+                <option value="DIRECT ENTRY">
+                <option value="HND">
+                <option value="VACANCY">
+                <option value="SCREENING">
+                <option value="GENERAL">
+              </datalist>
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Academic Session</label>
+              <select name="session_id" class="form-control" required>
+                <option value="">-- Select Session --</option>
+                <% (sessions || []).forEach((session) => { %>
+                  <option
+                    value="<%= session.id %>"
+                    <%= editing &&
+                      Number(editing.session_id) === Number(session.id)
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= session.name %>
+                    <%= Number(session.is_current) === 1 ? '(Current)' : '' %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Opening Date/Time</label>
+              <input
+                type="datetime-local"
+                name="opens_at"
+                class="form-control"
+                required
+                value="<%= editing ? dateTimeLocal(editing.opens_at) : '' %>"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Closing Date/Time</label>
+              <input
+                type="datetime-local"
+                name="closes_at"
+                class="form-control"
+                required
+                value="<%= editing ? dateTimeLocal(editing.closes_at) : '' %>"
+              >
+            </div>
+
+            <div class="form-group col-md-3">
+              <label>Status</label>
+              <select name="status" class="form-control">
+                <% ['DRAFT','OPEN','CLOSED','INACTIVE'].forEach((status) => { %>
+                  <option
+                    value="<%= status %>"
+                    <%= editing && editing.status === status
+                      ? 'selected'
+                      : (!editing && status === 'DRAFT' ? 'selected' : '') %>
+                  >
+                    <%= status %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-12">
+              <label>Description</label>
+              <textarea
+                name="description"
+                class="form-control"
+                rows="3"
+                placeholder="Describe the application and who should apply"
+              ><%= editing ? (editing.description || '') : '' %></textarea>
+            </div>
+
+            <div class="form-group col-md-12">
+              <label>Applicant Instructions</label>
+              <textarea
+                name="instructions"
+                id="applicationInstructions"
+                class="form-control"
+                rows="5"
+                maxlength="600"
+                oninput="refreshInstructionCounter()"
+                placeholder="Summarise instructions in no more than 5 lines, with a maximum of 10 words per line."
+              ><%= editing ? (editing.instructions || '') : '' %></textarea>
+
+              <small
+                id="instructionCounter"
+                class="form-text text-muted"
+              >
+                Maximum 5 non-empty lines and 10 words per line.
+              </small>
+            </div>
+
+            <div class="form-group col-md-6">
+              <label>Application Remita Payment Type</label>
+              <select
+                name="application_payment_type_id"
+                class="form-control"
+              >
+                <option value="">
+                  -- Not required for a completely free application --
+                </option>
+                <% (paymentTypes || []).forEach((pt) => { %>
+                  <option
+                    value="<%= pt.id %>"
+                    <%= editing &&
+                      Number(editing.application_payment_type_id) === Number(pt.id)
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= pt.name %> — <%= pt.purpose %>
+                    <%= pt.remita_service_type_id
+                      ? ' | STID: ' + pt.remita_service_type_id
+                      : ' | No STID' %>
+                  </option>
+                <% }) %>
+              </select>
+              <small class="text-muted">
+                This payment type supplies the Remita service type. The actual
+                amount will come from the charge lines below.
+              </small>
+            </div>
+
+            <div class="form-group col-md-6">
+              <label>Acceptance Remita Payment Type</label>
+              <select
+                name="acceptance_payment_type_id"
+                class="form-control"
+              >
+                <option value="">
+                  -- Not required when acceptance charges total ₦0 --
+                </option>
+                <% (paymentTypes || []).forEach((pt) => { %>
+                  <option
+                    value="<%= pt.id %>"
+                    <%= editing &&
+                      Number(editing.acceptance_payment_type_id) === Number(pt.id)
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= pt.name %> — <%= pt.purpose %>
+                    <%= pt.remita_service_type_id
+                      ? ' | STID: ' + pt.remita_service_type_id
+                      : ' | No STID' %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+          </div>
+
+          <hr>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card card-outline card-success">
+                <div class="card-header">
+                  <h3 class="card-title">Application Charges</h3>
+                  <div class="card-tools">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-success"
+                      onclick="addCharge('application')"
+                    >
+                      <i class="fas fa-plus mr-1"></i>Add Charge
+                    </button>
+                  </div>
+                </div>
+
+                <div class="card-body p-0 table-responsive">
+                  <table class="table table-bordered mb-0">
+                    <thead>
+                      <tr>
+                        <th>Charge Name</th>
+                        <th style="width:150px">Amount (₦)</th>
+                        <th style="width:60px"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="applicationChargesBody">
+                      <%
+                        const applicationChargeRows =
+                          editing && editing.application_charges?.length
+                            ? editing.application_charges
+                            : [
+                                { charge_name: 'Application Fee', amount: 0 },
+                                { charge_name: 'ICT/Portal Charges', amount: 0 }
+                              ];
+                      %>
+
+                      <% applicationChargeRows.forEach((charge) => { %>
+                        <tr>
+                          <td>
+                            <input
+                              type="text"
+                              name="application_charge_name"
+                              class="form-control"
+                              required
+                              value="<%= charge.charge_name %>"
+                            >
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              name="application_charge_amount"
+                              class="form-control charge-amount"
+                              min="0"
+                              step="0.01"
+                              value="<%= Number(charge.amount || 0) %>"
+                              onchange="refreshTotals()"
+                              onkeyup="refreshTotals()"
+                            >
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger"
+                              onclick="removeCharge(this)"
+                            >
+                              <i class="fas fa-times"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th>Total</th>
+                        <th id="applicationTotal">₦0.00</th>
+                        <th></th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card card-outline card-warning">
+                <div class="card-header">
+                  <h3 class="card-title">Acceptance Charges</h3>
+                  <div class="card-tools">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-warning"
+                      onclick="addCharge('acceptance')"
+                    >
+                      <i class="fas fa-plus mr-1"></i>Add Charge
+                    </button>
+                  </div>
+                </div>
+
+                <div class="card-body p-0 table-responsive">
+                  <table class="table table-bordered mb-0">
+                    <thead>
+                      <tr>
+                        <th>Charge Name</th>
+                        <th style="width:150px">Amount (₦)</th>
+                        <th style="width:60px"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="acceptanceChargesBody">
+                      <%
+                        const acceptanceChargeRows =
+                          editing && editing.acceptance_charges?.length
+                            ? editing.acceptance_charges
+                            : [
+                                { charge_name: 'Acceptance Fee', amount: 0 }
+                              ];
+                      %>
+
+                      <% acceptanceChargeRows.forEach((charge) => { %>
+                        <tr>
+                          <td>
+                            <input
+                              type="text"
+                              name="acceptance_charge_name"
+                              class="form-control"
+                              value="<%= charge.charge_name %>"
+                            >
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              name="acceptance_charge_amount"
+                              class="form-control charge-amount"
+                              min="0"
+                              step="0.01"
+                              value="<%= Number(charge.amount || 0) %>"
+                              onchange="refreshTotals()"
+                              onkeyup="refreshTotals()"
+                            >
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger"
+                              onclick="removeCharge(this)"
+                            >
+                              <i class="fas fa-times"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th>Total</th>
+                        <th id="acceptanceTotal">₦0.00</th>
+                        <th></th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+
+            <div class="form-group col-md-4">
+              <div class="custom-control custom-checkbox mt-4">
+                <input
+                  type="checkbox"
+                  class="custom-control-input"
+                  id="requiresPrerequisite"
+                  name="requires_prerequisite"
+                  value="1"
+                  <%= editing && Number(editing.requires_prerequisite) === 1
+                    ? 'checked'
+                    : '' %>
+                >
+                <label
+                  class="custom-control-label"
+                  for="requiresPrerequisite"
+                >
+                  Applicant must be on an uploaded prerequisite list
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Prerequisite Matching Method</label>
+              <select
+                name="prerequisite_match_mode"
+                id="prerequisiteMatchMode"
+                class="form-control"
+              >
+                <% ['NONE','EMAIL','PHONE','REFERENCE','NAME'].forEach((mode) => { %>
+                  <option
+                    value="<%= mode %>"
+                    <%= editing &&
+                      editing.prerequisite_match_mode === mode
+                        ? 'selected'
+                        : (!editing && mode === 'NONE' ? 'selected' : '') %>
+                  >
+                    <%= mode %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4">
+              <div class="custom-control custom-checkbox mt-4">
+                <input
+                  type="checkbox"
+                  class="custom-control-input"
+                  id="allowMultipleApplications"
+                  name="allow_multiple_applications"
+                  value="1"
+                  <%= editing &&
+                    Number(editing.allow_multiple_applications) === 1
+                      ? 'checked'
+                      : '' %>
+                >
+                <label
+                  class="custom-control-label"
+                  for="allowMultipleApplications"
+                >
+                  Allow the same applicant to submit more than once
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <button class="btn btn-primary">
+            <i class="fas fa-save mr-1"></i>
+            <%= editing ? 'Update Application' : 'Create Application' %>
+          </button>
+
+          <% if (editing) { %>
+            <a
+              href="/staff/fees/application-forms"
+              class="btn btn-secondary"
+            >
+              Cancel Edit
+            </a>
+          <% } %>
+        </div>
+      </form>
+    </div>
+
+
+    <div
+      class="card card-outline card-info"
+      id="prerequisite-upload"
+      style="display:none;"
+    >
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-file-csv mr-1"></i>
+          Prerequisite Candidate List
+        </h3>
+      </div>
+
+      <div class="card-body">
+        <div class="alert alert-info">
+          Only applicants appearing on this uploaded list will be permitted
+          to start the application.
+
+          If prerequisite restriction is not enabled, no candidate list is
+          required and all registered applicants can apply.
+        </div>
+
+        <h6><strong>Expected columns</strong></h6>
+
+        <code class="d-block border rounded p-2 mb-3">
+          s_n, candidate_reference, first_name, middle_name, surname,
+          email, phone, jamb_total_score, state_of_origin, lga, gender
+        </code>
+
+        <p class="text-muted">
+          The compulsory column depends on the selected matching method:
+          Reference requires <strong>candidate_reference</strong>;
+          Email requires <strong>email</strong>;
+          Phone requires <strong>phone</strong>;
+          Name requires <strong>first_name</strong> and
+          <strong>surname</strong>.
+        </p>
+
+        <a
+          href="/staff/fees/application-forms/prerequisite-template.csv"
+          class="btn btn-outline-success mb-3"
+        >
+          <i class="fas fa-download mr-1"></i>
+          Download Sample CSV Template
+        </a>
+
+        <% if (editing && Number(editing.requires_prerequisite) === 1) { %>
+          <div class="row">
+            <div class="form-group col-md-8">
+              <label>Upload CSV or Excel File</label>
+              <input
+                type="file"
+                id="prerequisiteFile"
+                class="form-control"
+                accept=".csv,.xlsx,.xls"
+              >
+              <small class="text-muted">
+                Maximum file size: 5 MB.
+              </small>
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>&nbsp;</label>
+              <button
+                type="button"
+                class="btn btn-info btn-block"
+                id="uploadPrerequisiteButton"
+                onclick="uploadPrerequisiteFile(<%= editing.id %>)"
+              >
+                <i class="fas fa-upload mr-1"></i>
+                Upload Candidate List
+              </button>
+            </div>
+          </div>
+
+          <div id="prerequisiteUploadResult"></div>
+
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <div class="small-box bg-info">
+                <div class="inner">
+                  <h3>
+                    <%= Number(
+                      editing.prerequisite_summary?.total_rows || 0
+                    ) %>
+                  </h3>
+                  <p>Total Imported Rows</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="small-box bg-success">
+                <div class="inner">
+                  <h3>
+                    <%= Number(
+                      editing.prerequisite_summary?.valid_rows || 0
+                    ) %>
+                  </h3>
+                  <p>Valid Candidate Rows</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="small-box bg-warning">
+                <div class="inner">
+                  <h3>
+                    <%= Number(
+                      editing.prerequisite_summary?.invalid_rows || 0
+                    ) %>
+                  </h3>
+                  <p>Invalid Candidate Rows</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <% if (
+            editing.prerequisite_batches &&
+            editing.prerequisite_batches.length
+          ) { %>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Imported</th>
+                    <th>Valid</th>
+                    <th>Invalid</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% editing.prerequisite_batches.forEach((batch) => { %>
+                    <tr>
+                      <td><%= batch.original_filename || '-' %></td>
+                      <td><%= Number(batch.imported_rows || 0) %></td>
+                      <td><%= Number(batch.valid_rows || 0) %></td>
+                      <td><%= Number(batch.invalid_rows || 0) %></td>
+                      <td><%= batch.status %></td>
+                      <td>
+                        <%= new Date(batch.uploaded_at).toLocaleString() %>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        <% } else if (editing) { %>
+          <div class="alert alert-warning mb-0">
+            Enable the prerequisite checkbox and save the application before
+            uploading a candidate list.
+          </div>
+        <% } else { %>
+          <div class="alert alert-warning mb-0">
+            Create the application first. You will then be redirected here
+            to upload the prerequisite candidate list.
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="card" id="configured-forms">
+      <div class="card-header">
+        <h3 class="card-title m-0">Configured Applications</h3>
+      </div>
+
+      <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>Application</th>
+              <th>Session</th>
+              <th>Window</th>
+              <th>Application Charges</th>
+              <th>Acceptance Charges</th>
+              <th>Applications</th>
+              <th>Status</th>
+              <th style="min-width:260px">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!(forms || []).length) { %>
+              <tr>
+                <td colspan="8" class="text-center text-muted p-4">
+                  No application form has been configured.
+                </td>
+              </tr>
+            <% } %>
+
+            <% (forms || []).forEach((form) => { %>
+              <tr>
+                <td>
+                  <strong><%= form.title %></strong><br>
+                  <small class="text-muted">
+                    <%= form.code %> | <%= form.category %>
+                  </small>
+                </td>
+                <td><%= form.session_name || '-' %></td>
+                <td>
+                  <small>
+                    Open: <%= new Date(form.opens_at).toLocaleString() %><br>
+                    Close: <%= new Date(form.closes_at).toLocaleString() %>
+                  </small>
+                </td>
+                <td>
+                  ₦<%= Number(form.application_total || 0)
+                    .toLocaleString('en-NG', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }) %>
+                </td>
+                <td>
+                  ₦<%= Number(form.acceptance_total || 0)
+                    .toLocaleString('en-NG', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }) %>
+                </td>
+                <td><%= Number(form.application_count || 0) %></td>
+                <td>
+                  <span class="badge
+                    <%= form.status === 'OPEN'
+                      ? 'badge-success'
+                      : form.status === 'CLOSED'
+                        ? 'badge-danger'
+                        : form.status === 'DRAFT'
+                          ? 'badge-warning'
+                          : 'badge-secondary' %>
+                  ">
+                    <%= form.status %>
+                  </span>
+                </td>
+                <td>
+                  <a
+                    href="/staff/fees/application-forms/<%= form.id %>/edit"
+                    class="btn btn-sm btn-outline-primary mb-1"
+                  >
+                    <i class="fas fa-edit mr-1"></i>Edit
+                  </a>
+
+                  <% if (form.status !== 'OPEN') { %>
+                    <form
+                      method="POST"
+                      action="/staff/fees/application-forms/<%= form.id %>/status"
+                      class="d-inline"
+                    >
+                      <% if (csrfToken) { %>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <% } %>
+                      <input type="hidden" name="status" value="OPEN">
+                      <button class="btn btn-sm btn-success mb-1">
+                        Open
+                      </button>
+                    </form>
+                  <% } %>
+
+                  <% if (form.status !== 'CLOSED') { %>
+                    <form
+                      method="POST"
+                      action="/staff/fees/application-forms/<%= form.id %>/status"
+                      class="d-inline"
+                    >
+                      <% if (csrfToken) { %>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <% } %>
+                      <input type="hidden" name="status" value="CLOSED">
+                      <button class="btn btn-sm btn-danger mb-1">
+                        Close
+                      </button>
+                    </form>
+                  <% } %>
+
+                  <% if (form.status !== 'INACTIVE') { %>
+                    <form
+                      method="POST"
+                      action="/staff/fees/application-forms/<%= form.id %>/status"
+                      class="d-inline"
+                    >
+                      <% if (csrfToken) { %>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <% } %>
+                      <input type="hidden" name="status" value="INACTIVE">
+                      <button class="btn btn-sm btn-secondary mb-1">
+                        Disable
+                      </button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  const prerequisiteCsrfToken =
+    <%- JSON.stringify(typeof csrfToken !== 'undefined' ? csrfToken : '') %>;
+
+  function refreshPrerequisiteControls() {
+    const checkbox = document.getElementById('requiresPrerequisite');
+    const panel = document.getElementById('prerequisite-upload');
+    const matching = document.getElementById('prerequisiteMatchMode');
+
+    if (!checkbox || !panel || !matching) return;
+
+    if (checkbox.checked) {
+      panel.style.display = 'block';
+      matching.disabled = false;
+
+      if (matching.value === 'NONE') {
+        matching.value = 'REFERENCE';
+      }
+    } else {
+      panel.style.display = 'none';
+      matching.value = 'NONE';
+      matching.disabled = true;
+    }
+  }
+
+  async function uploadPrerequisiteFile(applicationFormId) {
+    const input = document.getElementById('prerequisiteFile');
+    const result = document.getElementById('prerequisiteUploadResult');
+    const button = document.getElementById('uploadPrerequisiteButton');
+
+    if (!input || !input.files || !input.files.length) {
+      result.innerHTML =
+        '<div class="alert alert-danger">Select a CSV or Excel file.</div>';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('prerequisite_file', input.files[0]);
+
+    button.disabled = true;
+    result.innerHTML =
+      '<div class="alert alert-info">Uploading and validating candidate records...</div>';
+
+    try {
+      const response = await fetch(
+        `/staff/fees/application-forms/${applicationFormId}/prerequisites/upload`,
+        {
+          method: 'POST',
+          headers: {
+            'CSRF-Token': prerequisiteCsrfToken
+          },
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Upload failed.');
+      }
+
+      result.innerHTML = `
+        <div class="alert alert-success">
+          ${data.message}
+          Imported: <strong>${data.imported_rows}</strong>,
+          Valid: <strong>${data.valid_rows}</strong>,
+          Invalid: <strong>${data.invalid_rows}</strong>.
+        </div>
+      `;
+
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      result.innerHTML = `
+        <div class="alert alert-danger">
+          ${error.message || 'Unable to upload prerequisite list.'}
+        </div>
+      `;
+      button.disabled = false;
+    }
+  }
+
+  function refreshInstructionCounter() {
+    const input = document.getElementById(
+      'applicationInstructions'
+    );
+
+    const counter = document.getElementById(
+      'instructionCounter'
+    );
+
+    if (!input || !counter) return;
+
+    const lines = input.value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const invalidLines = [];
+
+    lines.forEach((line, index) => {
+      const wordCount = line
+        .split(/\s+/)
+        .filter(Boolean)
+        .length;
+
+      if (wordCount > 10) {
+        invalidLines.push(index + 1);
+      }
+    });
+
+    let message =
+      `${lines.length}/5 lines used. ` +
+      `Maximum 10 words on each line.`;
+
+    if (lines.length > 5) {
+      message = 'Instructions must not exceed 5 lines.';
+    } else if (invalidLines.length) {
+      message =
+        'More than 10 words detected on line(s): ' +
+        invalidLines.join(', ') +
+        '.';
+    }
+
+    const invalid =
+      lines.length > 5 ||
+      invalidLines.length > 0;
+
+    counter.textContent = message;
+    counter.className = invalid
+      ? 'form-text text-danger'
+      : 'form-text text-muted';
+
+    input.setCustomValidity(
+      invalid ? message : ''
+    );
+  }
+
+  function addCharge(stage, name = '', amount = 0) {
+    const body = document.getElementById(stage + 'ChargesBody');
+    const row = document.createElement('tr');
+
+    row.innerHTML = `
+      <td>
+        <input
+          type="text"
+          name="${stage}_charge_name"
+          class="form-control"
+          value="${name}"
+          ${stage === 'application' ? 'required' : ''}
+        >
+      </td>
+      <td>
+        <input
+          type="number"
+          name="${stage}_charge_amount"
+          class="form-control charge-amount"
+          min="0"
+          step="0.01"
+          value="${amount}"
+          onchange="refreshTotals()"
+          onkeyup="refreshTotals()"
+        >
+      </td>
+      <td>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          onclick="removeCharge(this)"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+    `;
+
+    body.appendChild(row);
+    refreshTotals();
+  }
+
+  function removeCharge(button) {
+    button.closest('tr').remove();
+    refreshTotals();
+  }
+
+  function stageTotal(stage) {
+    const body = document.getElementById(stage + 'ChargesBody');
+
+    return Array.from(
+      body.querySelectorAll('input[name$="_charge_amount"]')
+    ).reduce((sum, input) => {
+      const value = Number(input.value || 0);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+  }
+
+  function refreshTotals() {
+    document.getElementById('applicationTotal').textContent =
+      '₦' + stageTotal('application').toLocaleString('en-NG', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+    document.getElementById('acceptanceTotal').textContent =
+      '₦' + stageTotal('acceptance').toLocaleString('en-NG', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    refreshTotals();
+    refreshPrerequisiteControls();
+    refreshInstructionCounter();
+
+    const checkbox = document.getElementById('requiresPrerequisite');
+
+    if (checkbox) {
+      checkbox.addEventListener(
+        'change',
+        refreshPrerequisiteControls
+      );
+    }
+  });
+</script>

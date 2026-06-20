@@ -941,24 +941,213 @@ export async function studentPaymentHistory(req, res) {
 
 /* ------------------ end dynamic student dashboard ------------------ */
 
-export async function applicantDashboard(req, res) {
-  const [sessRows] = await pool.query(
-    `SELECT name FROM sessions WHERE is_current = 1 LIMIT 1`,
-  );
+export async function applicantDashboard(req, res, next) {
+  try {
+    const publicUser = req.session?.publicUser || {};
+    const applicantUserId = Number(publicUser.id);
 
-  return res.render("pages/applicant-dashboard", {
-    layout: "layouts/adminlte",
-    _role: "applicant",
-    _user: {
-      full_name: req.session?.publicUser?.full_name || "Applicant",
-    },
-    allowedModules: [],
-    currentPath: req.path || "",
-    currentSession: sessRows[0] || null,
-    totalPaid: 0,
-    pendingActions: 0,
-    notices: 0,
-  });
+    if (!applicantUserId) {
+      return res.redirect("/login");
+    }
+
+    const [sessRows] = await pool.query(
+      `
+        SELECT name
+        FROM sessions
+        WHERE is_current = 1
+        LIMIT 1
+      `,
+    );
+
+    const [applicationRows] = await pool.query(
+      `
+        SELECT
+          aa.id,
+          aa.application_number,
+          aa.status,
+          aa.created_at,
+          aa.submitted_at,
+          af.title,
+          af.category,
+          af.slug
+        FROM applicant_applications aa
+        JOIN application_forms af
+          ON af.id = aa.application_form_id
+        WHERE aa.applicant_user_id = ?
+          AND aa.status <> 'WITHDRAWN'
+        ORDER BY
+          COALESCE(aa.submitted_at, aa.created_at) DESC,
+          aa.id DESC
+        LIMIT 5
+      `,
+      [applicantUserId],
+    );
+
+    const [applicationCountRows] = await pool.query(
+      `
+        SELECT
+          SUM(
+            CASE
+              WHEN status IN (
+                'SUBMITTED',
+                'UNDER_REVIEW',
+                'ADMITTED',
+                'REJECTED'
+              )
+              THEN 1
+              ELSE 0
+            END
+          ) AS submitted_count,
+
+          SUM(
+            CASE
+              WHEN status IN (
+                'DRAFT',
+                'AWAITING_PAYMENT',
+                'IN_PROGRESS'
+              )
+              THEN 1
+              ELSE 0
+            END
+          ) AS in_progress_count
+        FROM applicant_applications
+        WHERE applicant_user_id = ?
+          AND status <> 'WITHDRAWN'
+      `,
+      [applicantUserId],
+    );
+
+    const [paymentRows] = await pool.query(
+      `
+        SELECT
+          pi.order_id,
+          pi.rrr,
+          pi.purpose,
+          pi.amount,
+          pi.portal_charge,
+          pi.status,
+          pi.method,
+          pi.created_at,
+          pi.paid_at,
+
+          CASE
+            WHEN aa.application_invoice_id = pi.id
+              THEN 'APPLICATION'
+            WHEN aa.acceptance_invoice_id = pi.id
+              THEN 'ACCEPTANCE'
+            ELSE 'OTHER'
+          END AS payment_stage
+
+        FROM applicant_applications aa
+        JOIN payment_invoices pi
+          ON (
+            pi.id = aa.application_invoice_id
+            OR pi.id = aa.acceptance_invoice_id
+          )
+        WHERE aa.applicant_user_id = ?
+        ORDER BY
+          COALESCE(pi.paid_at, pi.created_at) DESC,
+          pi.id DESC
+        LIMIT 5
+      `,
+      [applicantUserId],
+    );
+
+    const [paymentSummaryRows] = await pool.query(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              CASE
+                WHEN pi.status = 'PAID'
+                THEN
+                  COALESCE(pi.amount, 0) +
+                  COALESCE(pi.portal_charge, 0)
+                ELSE 0
+              END
+            ),
+            0
+          ) AS total_paid,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN pi.status = 'PAID'
+                  AND aa.application_invoice_id = pi.id
+                THEN
+                  COALESCE(pi.amount, 0) +
+                  COALESCE(pi.portal_charge, 0)
+                ELSE 0
+              END
+            ),
+            0
+          ) AS application_paid,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN pi.status = 'PAID'
+                  AND aa.acceptance_invoice_id = pi.id
+                THEN
+                  COALESCE(pi.amount, 0) +
+                  COALESCE(pi.portal_charge, 0)
+                ELSE 0
+              END
+            ),
+            0
+          ) AS acceptance_paid
+
+        FROM applicant_applications aa
+        JOIN payment_invoices pi
+          ON (
+            pi.id = aa.application_invoice_id
+            OR pi.id = aa.acceptance_invoice_id
+          )
+        WHERE aa.applicant_user_id = ?
+      `,
+      [applicantUserId],
+    );
+
+    const counts = applicationCountRows?.[0] || {};
+    const paymentSummary = paymentSummaryRows?.[0] || {};
+
+    return res.render("pages/applicant-dashboard", {
+      layout: "layouts/adminlte",
+      _role: "applicant",
+      _user: {
+        full_name:
+          publicUser.full_name ||
+          publicUser.username ||
+          "Applicant",
+      },
+      user: res.locals.user || publicUser,
+      allowedModules: [],
+      currentPath: req.originalUrl || req.path || "",
+
+      currentSession: sessRows?.[0] || null,
+
+      totalPaid:
+        Number(paymentSummary.total_paid || 0),
+
+      paymentsBreakdown: {
+        application:
+          Number(paymentSummary.application_paid || 0),
+        acceptance:
+          Number(paymentSummary.acceptance_paid || 0),
+      },
+
+      submittedApplications:
+        Number(counts.submitted_count || 0),
+
+      inProgressApplications:
+        Number(counts.in_progress_count || 0),
+
+      recentApplications: applicationRows || [],
+      recentPayments: paymentRows || [],
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 /* Legacy export names used in routes */

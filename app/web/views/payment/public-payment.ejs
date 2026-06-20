@@ -205,6 +205,18 @@ const PREFILL = (typeof prefill !== 'undefined' && prefill) ? prefill : null;
   <form class="payment-card" id="payForm" method="POST" action="/payment" data-csrf="<%= CSRF %>">
     <% if (CSRF) { %><input type="hidden" name="_csrf" value="<%= CSRF %>"><% } %>
 
+    <% if (
+      typeof prefill !== 'undefined' &&
+      prefill &&
+      prefill.existing_order_id
+    ) { %>
+      <input
+        type="hidden"
+        name="existing_order_id"
+        value="<%= prefill.existing_order_id %>"
+      >
+    <% } %>
+
     <div class="card-head">
       <img src="/public/img/logo.png" class="logo" alt="College logo">
       <div class="title">All Payments</div>
@@ -261,9 +273,36 @@ const PREFILL = (typeof prefill !== 'undefined' && prefill) ? prefill : null;
         <label for="paymentMethod" class="field-label">Payment Method</label>
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 7h20v10H2zM2 10h20"/></svg>
         <select id="paymentMethod" name="method">
-          <option value="BANK" selected>Pay at Bank Branch</option>
-          <% if (!FAKE) { %><option value="ONLINE">Pay Online</option><% } %>
-        </select>
+                <%
+                  const initialPaymentMethod =
+                    typeof prefill !== 'undefined' &&
+                    prefill &&
+                    prefill.method
+                      ? String(prefill.method).toUpperCase()
+                      : 'ONLINE';
+                %>
+
+                <% if (ONLINE_ENABLED) { %>
+                  <option
+                    value="ONLINE"
+                    <%= initialPaymentMethod !== 'BANK'
+                      ? 'selected'
+                      : '' %>
+                  >
+                    Pay Online
+                  </option>
+                <% } %>
+
+                <option
+                  value="BANK"
+                  <%= !ONLINE_ENABLED ||
+                      initialPaymentMethod === 'BANK'
+                    ? 'selected'
+                    : '' %>
+                >
+                  Pay at Bank Branch
+                </option>
+              </select>
 
         <% if (FAKE) { %>
           <div class="alert-warning">
@@ -404,7 +443,7 @@ async function applyPrefill(){
 
   if (isDashboardPrefill) {
     elType.style.pointerEvents = 'none';
-    elType.tabIndex = -1; 
+    elType.tabIndex = -1;
     if (elPayeeId) elPayeeId.readOnly = true;
     if (elPayeeFullname) elPayeeFullname.readOnly = true;
     if (elPayeeEmail) elPayeeEmail.readOnly = true;

@@ -9,6 +9,29 @@ import { getResolvedPaymentTypeForStudent } from "../../services/studentPaymentS
 
 const ONLINE_ENABLED = true;
 
+function resolveStageEnvironmentStid(stage) {
+  const mode =
+    String(process.env.REMITA_MODE || "test")
+      .trim()
+      .toLowerCase() === "live"
+      ? "LIVE"
+      : "TEST";
+
+  const normalizedStage = String(stage || "")
+    .trim()
+    .toUpperCase();
+
+  return String(
+    process.env[
+      `REMITA_${mode}_STID_${normalizedStage}`
+    ] ||
+    process.env[
+      `REMITA_STID_${normalizedStage}`
+    ] ||
+    "",
+  ).trim();
+}
+
 function resolveServiceTypeId(pt) {
   const nm = String(pt?.name || "")
     .trim()
@@ -33,10 +56,30 @@ function resolveServiceTypeId(pt) {
     pt?.stid ||
     "";
 
+  const paymentLabel = [
+    pt?.name,
+    pt?.purpose,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const stageEnvironmentStid =
+    paymentLabel.includes("acceptance")
+      ? resolveStageEnvironmentStid(
+          "ACCEPTANCE_FEE",
+        )
+      : paymentLabel.includes("application")
+        ? resolveStageEnvironmentStid(
+            "APPLICATION_FORM",
+          )
+        : "";
+
   return String(
-    process.env.REMITA_SERVICE_TYPE_ID ||
+    fromRow ||
+      stageEnvironmentStid ||
       byName ||
-      fromRow ||
+      process.env.REMITA_SERVICE_TYPE_ID ||
       process.env.REMITA_STID_DEFAULT ||
       "",
   ).trim();
@@ -383,6 +426,176 @@ function renderInvoicePDF(res, p, inline = false, kind = "invoice") {
   doc.end();
 }
 
+
+async function getApplicationInvoiceContext(orderId) {
+  const [rows] = await db.query(
+    `
+      SELECT
+        inv.*,
+        pt.name AS payment_type_name,
+        pt.purpose AS payment_type_purpose,
+        aa.id AS applicant_application_id,
+        aa.applicant_user_id,
+        aa.application_payment_status,
+        aa.status AS application_status,
+        CASE
+          WHEN aa.acceptance_invoice_id = inv.id
+            THEN 'ACCEPTANCE'
+          ELSE 'APPLICATION'
+        END AS payment_stage,
+        af.id AS application_form_id,
+        af.slug AS application_slug,
+        af.title AS application_title
+      FROM payment_invoices inv
+      JOIN payment_types pt
+        ON pt.id = inv.payment_type_id
+      JOIN applicant_applications aa
+        ON (
+          aa.application_invoice_id = inv.id
+          OR aa.acceptance_invoice_id = inv.id
+        )
+      JOIN application_forms af
+        ON af.id = aa.application_form_id
+      WHERE inv.order_id = ?
+      LIMIT 1
+    `,
+    [String(orderId || "").trim()],
+  );
+
+  return rows?.[0] || null;
+}
+
+function applicantOwnsApplicationInvoice(req, invoice) {
+  const publicUser = req.session?.publicUser || null;
+
+  return Boolean(
+    publicUser &&
+    String(publicUser.role || "").toLowerCase() === "applicant" &&
+    Number(publicUser.id) === Number(invoice?.applicant_user_id),
+  );
+}
+
+
+export async function applicationPaymentCheckout(req, res, next) {
+  try {
+    const orderId = String(req.params.orderId || "").trim();
+    const invoice = await getApplicationInvoiceContext(orderId);
+
+    if (!invoice) {
+      return res.status(404).send("Application payment invoice not found.");
+    }
+
+    if (!applicantOwnsApplicationInvoice(req, invoice)) {
+      return res.status(403).send(
+        "You are not authorised to access this application payment.",
+      );
+    }
+
+    if (String(invoice.status).toUpperCase() === "PAID") {
+      return res.redirect("/applicant/dashboard");
+    }
+
+    return res.render("payment/application-checkout", {
+      layout: false,
+      title: "Application Payment",
+      invoice,
+      total:
+        Number(invoice.amount || 0) +
+        Number(invoice.portal_charge || 0),
+      csrfToken: req.csrfToken?.(),
+      messages: req.flash ? req.flash() : {},
+      backUrl:
+        `/applicant/applications/${encodeURIComponent(
+          invoice.application_slug,
+        )}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function payApplicationOnline(
+  req,
+  res,
+  next,
+) {
+  try {
+    const orderId = String(
+      req.params.orderId || "",
+    ).trim();
+
+    const invoice =
+      await getApplicationInvoiceContext(orderId);
+
+    if (!invoice) {
+      return res
+        .status(404)
+        .send("Application payment invoice not found.");
+    }
+
+    if (!applicantOwnsApplicationInvoice(req, invoice)) {
+      return res
+        .status(403)
+        .send(
+          "You are not authorised to access this application payment.",
+        );
+    }
+
+    if (
+      String(invoice.status || "").toUpperCase() ===
+      "PAID"
+    ) {
+      return res.redirect(
+        `/applicant/applications/${encodeURIComponent(
+          invoice.application_slug,
+        )}/form`,
+      );
+    }
+
+    return res.redirect(
+      `/payment?from=application&order_id=${encodeURIComponent(
+        orderId,
+      )}`,
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function payApplicationAtBank(req, res, next) {
+  try {
+    const orderId = String(req.params.orderId || "").trim();
+    const invoice = await getApplicationInvoiceContext(orderId);
+
+    if (!invoice) {
+      return res.status(404).send("Application payment invoice not found.");
+    }
+
+    if (!applicantOwnsApplicationInvoice(req, invoice)) {
+      return res.status(403).send(
+        "You are not authorised to access this application payment.",
+      );
+    }
+
+    await db.query(
+      `
+        UPDATE payment_invoices
+        SET method = 'BANK'
+        WHERE id = ?
+      `,
+      [invoice.id],
+    );
+
+    return res.redirect(
+      `/payment/print/${encodeURIComponent(
+        orderId,
+      )}?type=invoice&dl=0`,
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function paymentForm(req, res, next) {
   try {
     const types = await svc.listActivePaymentTypes();
@@ -393,10 +606,64 @@ export async function paymentForm(req, res, next) {
     const dashboardBucket = String(req.query.dashboard_bucket || "")
       .trim()
       .toUpperCase();
-    const publicUser = req.session?.publicUser || null;
+    const publicUser =
+      req.session?.publicUser || null;
+
+    let applicationInvoice = null;
+
+    if (from === "application") {
+      const applicationOrderId = String(
+        req.query.order_id || "",
+      ).trim();
+
+      applicationInvoice =
+        await getApplicationInvoiceContext(
+          applicationOrderId,
+        );
+
+      if (!applicationInvoice) {
+        return res
+          .status(404)
+          .send(
+            "Application payment invoice not found.",
+          );
+      }
+
+      if (
+        !applicantOwnsApplicationInvoice(
+          req,
+          applicationInvoice,
+        )
+      ) {
+        return res
+          .status(403)
+          .send(
+            "You are not authorised to access this application payment.",
+          );
+      }
+
+      if (
+        String(
+          applicationInvoice.status || "",
+        ).toUpperCase() === "PAID"
+      ) {
+        return res.redirect(
+          `/applicant/applications/${encodeURIComponent(
+            applicationInvoice.application_slug,
+          )}/form`,
+        );
+      }
+    }
 
     let selectedType = null;
-    if (paymentTypeId > 0) {
+
+    if (applicationInvoice) {
+      selectedType = await svc.getPaymentType(
+        applicationInvoice.payment_type_id,
+      );
+    }
+
+    if (!selectedType && paymentTypeId > 0) {
       if (
         from === "student-dashboard" &&
         publicUser?.role === "student" &&
@@ -453,34 +720,78 @@ export async function paymentForm(req, res, next) {
       dashboardBucket === "40" ? 0 : Number(selectedType?.portal_charge || 0);
 
     const prefill =
-      from === "student-dashboard" && selectedType
+      applicationInvoice && selectedType
         ? {
-            source: "student-dashboard",
-            payment_type_id: selectedType.id,
+            source: "application",
+            existing_order_id:
+              applicationInvoice.order_id,
+            payment_type_id:
+              applicationInvoice.payment_type_id,
             amount:
-              Number.isFinite(dashboardAmount) && dashboardAmount > 0
-                ? dashboardAmount
-                : selectedType.amount,
-            portal_charge: dashboardPortalCharge,
-            purpose: selectedType.purpose || selectedType.name || "",
-            payee_id:
-              publicUser?.matric_number ||
-              publicUser?.username ||
-              guessedPhone ||
+              Number(applicationInvoice.amount || 0),
+            portal_charge:
+              Number(
+                applicationInvoice.portal_charge || 0,
+              ),
+            purpose:
+              applicationInvoice.purpose ||
+              selectedType.purpose ||
+              selectedType.name ||
               "",
-            payee_fullname: publicUser?.full_name || "",
-            payee_email: guessedEmail,
-            payee_phone: guessedPhone,
-            dashboard_bucket: dashboardBucket,
+            payee_id:
+              applicationInvoice.payee_id || "",
+            payee_fullname:
+              applicationInvoice.payee_fullname || "",
+            payee_email:
+              applicationInvoice.payee_email || "",
+            payee_phone:
+              applicationInvoice.payee_phone || "",
+            application_slug:
+              applicationInvoice.application_slug,
+            locked: true,
           }
-        : null;
+        : from === "student-dashboard" &&
+            selectedType
+          ? {
+              source: "student-dashboard",
+              payment_type_id: selectedType.id,
+              amount:
+                Number.isFinite(dashboardAmount) &&
+                dashboardAmount > 0
+                  ? dashboardAmount
+                  : selectedType.amount,
+              portal_charge:
+                dashboardPortalCharge,
+              purpose:
+                selectedType.purpose ||
+                selectedType.name ||
+                "",
+              payee_id:
+                publicUser?.matric_number ||
+                publicUser?.username ||
+                guessedPhone ||
+                "",
+              payee_fullname:
+                publicUser?.full_name || "",
+              payee_email: guessedEmail,
+              payee_phone: guessedPhone,
+              dashboard_bucket:
+                dashboardBucket,
+            }
+          : null;
 
     const renderTypes =
-      from === "student-dashboard" &&
-      selectedType &&
-      !types.some((t) => Number(t.id) === Number(selectedType.id))
-        ? [selectedType, ...types]
-        : types;
+      applicationInvoice && selectedType
+        ? [selectedType]
+        : from === "student-dashboard" &&
+            selectedType &&
+            !types.some(
+              (type) =>
+                Number(type.id) ===
+                Number(selectedType.id),
+            )
+          ? [selectedType, ...types]
+          : types;
 
     res.render("payment/public-payment", {
       title: "Other Payments",
@@ -522,7 +833,213 @@ export async function fetchType(req, res, next) {
 export async function createInvoice(req, res, next) {
   try {
     const body = req.body || {};
-    const method = String(body.method || "BANK").toUpperCase();
+    const method = String(
+      body.method || "BANK",
+    ).toUpperCase();
+
+    const existingOrderId = String(
+      body.existing_order_id || "",
+    ).trim();
+
+    if (existingOrderId) {
+      const invoice =
+        await getApplicationInvoiceContext(
+          existingOrderId,
+        );
+
+      if (!invoice) {
+        throw new Error(
+          "Application payment invoice not found.",
+        );
+      }
+
+      if (
+        !applicantOwnsApplicationInvoice(req, invoice)
+      ) {
+        return res.status(403).json({
+          ok: false,
+          error:
+            "You are not authorised to use this application invoice.",
+        });
+      }
+
+      if (
+        String(invoice.status || "").toUpperCase() ===
+        "PAID"
+      ) {
+        const completedUrl =
+          `/applicant/applications/${encodeURIComponent(
+            invoice.application_slug,
+          )}/form`;
+
+        if (wantsJson(req)) {
+          return res.json({
+            kind: "redirect",
+            redirectUrl: completedUrl,
+            order_id: invoice.order_id,
+          });
+        }
+
+        return res.redirect(completedUrl);
+      }
+
+      let rrr = String(invoice.rrr || "")
+        .trim()
+        .replace(/[-\s]/g, "");
+
+      if (!rrr) {
+        const paymentType = await svc.getPaymentType(
+          invoice.payment_type_id,
+        );
+
+        if (!paymentType) {
+          throw new Error(
+            "Application payment type was not found.",
+          );
+        }
+
+        const total =
+          Number(invoice.amount || 0) +
+          Number(invoice.portal_charge || 0);
+
+        const totalAmount =
+          Number.isFinite(total) ? total : 0;
+
+        const payerName =
+          String(invoice.payee_fullname || "").trim() ||
+          String(invoice.payee_id || "").trim() ||
+          "Portal Payer";
+
+        const payerEmail =
+          String(invoice.payee_email || "").trim() ||
+          "no-reply@example.com";
+
+        const payerPhone =
+          String(invoice.payee_phone || "").trim() ||
+          "00000000000";
+
+        const description =
+          String(
+            invoice.purpose ||
+            paymentType.purpose ||
+            paymentType.name ||
+            "Payment",
+          ).trim();
+
+        const serviceTypeId =
+          resolveServiceTypeId(paymentType);
+
+        if (!serviceTypeId) {
+          throw new Error(
+            "Remita Service Type ID is not configured for this payment type.",
+          );
+        }
+
+        // This is deliberately identical to the normal school-fee
+        // RRR-generation payload.
+        const generated = await remita.createRRR({
+          orderId: String(Date.now()),
+          amount: totalAmount,
+          payerName,
+          payerEmail,
+          payerPhone,
+          description,
+          serviceTypeId,
+          customFields: [
+            {
+              name: "Payer Name",
+              value: payerName,
+              type: "ALL",
+            },
+            {
+              name: "Payer Email",
+              value: payerEmail,
+              type: "ALL",
+            },
+            {
+              name: "Payer Phone",
+              value: payerPhone,
+              type: "ALL",
+            },
+            {
+              name: "Portal OrderId",
+              value: String(invoice.order_id),
+              type: "ALL",
+            },
+          ],
+        });
+
+        rrr = String(generated.rrr || "").trim();
+
+        await svc.attachRRR(
+          invoice.order_id,
+          rrr,
+        );
+
+        await db.query(
+          `
+            UPDATE payment_invoices
+            SET remita_service_type_id = ?
+            WHERE id = ?
+          `,
+          [serviceTypeId, invoice.id],
+        );
+      }
+
+      await db.query(
+        `
+          UPDATE payment_invoices
+          SET method = ?
+          WHERE id = ?
+        `,
+        [
+          method === "BANK" ? "BANK" : "ONLINE",
+          invoice.id,
+        ],
+      );
+
+      if (method === "ONLINE") {
+        const forwardUrl =
+          `/payment/forward/${encodeURIComponent(
+            rrr,
+          )}?order=${encodeURIComponent(
+            invoice.order_id,
+          )}`;
+
+        if (wantsJson(req)) {
+          return res.json({
+            kind: "redirect",
+            redirectUrl: forwardUrl,
+            order_id: invoice.order_id,
+          });
+        }
+
+        return res.redirect(forwardUrl);
+      }
+
+      const viewUrl =
+        `/payment/print/${encodeURIComponent(
+          invoice.order_id,
+        )}?type=invoice&dl=0`;
+
+      const downloadUrl =
+        `/payment/print/${encodeURIComponent(
+          invoice.order_id,
+        )}?type=invoice&dl=1`;
+
+      if (wantsJson(req)) {
+        return res.json({
+          ok: true,
+          kind: "invoice",
+          order_id: invoice.order_id,
+          rrr,
+          view_url: viewUrl,
+          download_url: downloadUrl,
+        });
+      }
+
+      return res.redirect(viewUrl);
+    }
 
     const created = await svc.createInvoice({
       payment_type_id: body.payment_type_id,
@@ -814,6 +1331,53 @@ export async function remitaCallback(req, res) {
         remita: status,
         rrr: rrr || undefined,
       });
+
+      const applicationInvoice =
+        await getApplicationInvoiceContext(String(orderId));
+
+      if (applicationInvoice) {
+        const applicationReceiptUrl =
+          `/payment/print/${encodeURIComponent(
+            orderId,
+          )}?type=receipt&dl=0`;
+
+        const applicationReceiptDownloadUrl =
+          `/payment/print/${encodeURIComponent(
+            orderId,
+          )}?type=receipt&dl=1`;
+
+        const isAcceptancePayment =
+          String(
+            applicationInvoice.payment_stage || "",
+          ).toUpperCase() === "ACCEPTANCE";
+
+        const continueUrl = isAcceptancePayment
+          ? "/applicant/payments/acceptance"
+          : `/applicant/applications/${encodeURIComponent(
+              applicationInvoice.application_slug,
+            )}/form`;
+
+        return res.render("payment/result", {
+          title: isAcceptancePayment
+            ? "Acceptance Fee Payment Successful"
+            : "Application Payment Successful",
+
+          user: null,
+          allowedModules: new Set(),
+          currentPath: req.path || "",
+
+          modeTitle: isAcceptancePayment
+            ? "ACCEPTANCE FEE PAYMENT SUCCESSFUL"
+            : "APPLICATION PAYMENT SUCCESSFUL",
+          viewUrl: applicationReceiptUrl,
+          downloadUrl:
+            applicationReceiptDownloadUrl,
+          backUrl: continueUrl,
+          backLabel: isAcceptancePayment
+            ? "Back to Acceptance Fee"
+            : "Continue Application",
+        });
+      }
     }
 
     const kind = paid ? "receipt" : "invoice";
@@ -919,10 +1483,19 @@ export async function forwardToRemita(req, res) {
             return;
           }
 
+          var inlineTransactionId =
+            'PAY-' +
+            Date.now() +
+            '-' +
+            Math.random()
+              .toString(36)
+              .slice(2, 10)
+              .toUpperCase();
+
           var paymentEngine = RmPaymentEngine.init({
             key: publicKey,
+            transactionId: inlineTransactionId,
             processRrr: true,
-            transactionId: Math.floor(Math.random() * 1101233),
             extendedData: {
               customFields: [
                 { name: 'rrr', value: rrr }

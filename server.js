@@ -21,6 +21,10 @@ import legacyPaymentRecoveryRoutes from "./app/web/routes/staff/legacy-payment-r
 import { ROLE_MENUS } from "./app/web/config/role-menus.js";
 import { requireMenuPermission } from "./app/core/permissions.js";
 import { ensureAdminUser } from "./app/services/user.service.js";
+import {
+  listOpenApplicationForms,
+} from "./app/services/applicationPortalService.js";
+
 
 import * as authRoutesMod from "./app/web/routes/auth.routes.js";
 import * as staffRoutesMod from "./app/web/routes/staff.routes.js";
@@ -194,6 +198,35 @@ app.use((req, res, next) => {
   }
 
   res.locals.currentPath = req.path;
+  next();
+});
+
+
+// Load currently open application forms for the applicant sidebar.
+app.use(async (req, res, next) => {
+  const role = String(
+    res.locals.user?.role ||
+    req.session?.publicUser?.role ||
+    "",
+  ).toLowerCase();
+
+  if (role !== "applicant") {
+    res.locals.availableApplicationForms = [];
+    return next();
+  }
+
+  try {
+    res.locals.availableApplicationForms =
+      await listOpenApplicationForms();
+  } catch (error) {
+    console.error(
+      "[applicationPortal] Unable to load open applications:",
+      error,
+    );
+
+    res.locals.availableApplicationForms = [];
+  }
+
   next();
 });
 

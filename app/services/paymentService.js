@@ -1,6 +1,10 @@
 // app/services/paymentService.js
 import db from "../core/db.js";
 import crypto from "crypto";
+import {
+  syncApplicationPaymentByOrderId,
+} from "./applicationPaymentSyncService.js";
+
 
 function toRows(x) {
   return Array.isArray(x) && Array.isArray(x[0]) ? x[0] : x || [];
@@ -110,6 +114,8 @@ export async function markPaid(order_id, extra = {}) {
       WHERE order_id=? LIMIT 1`,
     [JSON.stringify(extra || {}), order_id],
   );
+
+  await syncApplicationPaymentByOrderId(order_id);
 }
 
 export async function refreshInvoice(order_id) {

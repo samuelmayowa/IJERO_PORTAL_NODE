@@ -201,12 +201,18 @@ const inAttendance = cur.startsWith('/staff/attendance');
       </li>
 
       <!-- Admissions -->
-      <li class="nav-item has-treeview <%= cur.startsWith('/staff/admissions') ? 'menu-open' : '' %>">
-        <a href="#" class="nav-link <%= cur.startsWith('/staff/admissions') ? 'active' : '' %>">
+      <li class="nav-item has-treeview <%= cur.startsWith('/staff/admissions') || cur.startsWith('/staff/fees/application-forms') ? 'menu-open' : '' %>">
+        <a href="#" class="nav-link <%= cur.startsWith('/staff/admissions') || cur.startsWith('/staff/fees/application-forms') ? 'active' : '' %>">
           <i class="nav-icon fas fa-user-graduate"></i>
           <p><strong>Admissions</strong> <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
+          <li class="nav-item">
+            <a href="/staff/fees/application-forms" class="nav-link <%= cur.startsWith('/staff/fees/application-forms') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i>
+              <p>Manage Application Forms</p>
+            </a>
+          </li>
           <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admissions</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/upload"           class="nav-link <%= cur.startsWith('/staff/admissions/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload Admission List</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/status"           class="nav-link <%= cur.startsWith('/staff/admissions/status') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Status</p></a></li>

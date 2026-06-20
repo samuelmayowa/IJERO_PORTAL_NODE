@@ -1,0 +1,215 @@
+<%
+function money(value) {
+  return Number(value || 0).toLocaleString(
+    'en-NG',
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }
+  );
+}
+
+function dateTime(value) {
+  if (!value) return '-';
+
+  return new Date(value).toLocaleString(
+    'en-GB',
+    {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }
+  );
+}
+%>
+
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-7">
+        <h1>
+          <i class="fas fa-undo mr-2"></i>
+          My Applications
+        </h1>
+      </div>
+
+      <div class="col-sm-5">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item">
+            <a href="/applicant/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item active">
+            Return to Application
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-outline card-success">
+      <div class="card-header">
+        <h3 class="card-title">
+          Started and Submitted Applications
+        </h3>
+      </div>
+
+      <div class="card-body p-0">
+        <% if (!applications.length) { %>
+          <div class="p-4 text-center text-muted">
+            You have not started an application yet.
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Application Number</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th style="width:210px">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <% applications.forEach((item) => {
+                  const paymentStatus = String(
+                    item.application_payment_status || ''
+                  ).toUpperCase();
+
+                  const applicationStatus = String(
+                    item.application_status || ''
+                  ).toUpperCase();
+
+                  const paymentComplete = [
+                    'PAID',
+                    'NOT_REQUIRED'
+                  ].includes(paymentStatus);
+                %>
+                  <tr>
+                    <td>
+                      <strong>
+                        <%= item.application_title %>
+                      </strong>
+
+                      <% if (item.category) { %>
+                        <div class="small text-muted">
+                          <%= item.category %>
+                        </div>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <%= item.application_number || '-' %>
+                    </td>
+
+                    <td>
+                      <% if (paymentStatus === 'PAID') { %>
+                        <span class="badge badge-success">
+                          Paid
+                        </span>
+
+                        <div class="small mt-1">
+                          ₦<%= money(
+                            Number(item.amount || 0) +
+                            Number(item.portal_charge || 0)
+                          ) %>
+                        </div>
+                      <% } else if (
+                        paymentStatus === 'NOT_REQUIRED'
+                      ) { %>
+                        <span class="badge badge-info">
+                          No Charge
+                        </span>
+                      <% } else { %>
+                        <span class="badge badge-warning">
+                          <%= paymentStatus || 'Pending' %>
+                        </span>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <% if (
+                        applicationStatus === 'SUBMITTED'
+                      ) { %>
+                        <span class="badge badge-success">
+                          Submitted
+                        </span>
+                      <% } else if (
+                        applicationStatus === 'IN_PROGRESS'
+                      ) { %>
+                        <span class="badge badge-primary">
+                          In Progress
+                        </span>
+                      <% } else if (
+                        applicationStatus ===
+                        'AWAITING_PAYMENT'
+                      ) { %>
+                        <span class="badge badge-warning">
+                          Awaiting Payment
+                        </span>
+                      <% } else { %>
+                        <span class="badge badge-secondary">
+                          <%= applicationStatus || 'Draft' %>
+                        </span>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <%= dateTime(
+                        item.submitted_at ||
+                        item.created_at
+                      ) %>
+                    </td>
+
+                    <td>
+                      <% if (!paymentComplete) { %>
+                        <% if (item.order_id) { %>
+                          <a
+                            class="btn btn-warning btn-sm"
+                            href="/payment/application/<%= encodeURIComponent(
+                              item.order_id
+                            ) %>"
+                          >
+                            <i class="fas fa-credit-card mr-1"></i>
+                            Continue Payment
+                          </a>
+                        <% } else { %>
+                          <a
+                            class="btn btn-warning btn-sm"
+                            href="/applicant/applications/<%= encodeURIComponent(
+                              item.application_slug
+                            ) %>"
+                          >
+                            Continue Payment
+                          </a>
+                        <% } %>
+                      <% } else { %>
+                        <a
+                          class="btn btn-success btn-sm"
+                          href="/applicant/applications/<%= encodeURIComponent(
+                            item.application_slug
+                          ) %>/form"
+                        >
+                          <i class="fas fa-file-alt mr-1"></i>
+
+                          <%= applicationStatus ===
+                            'SUBMITTED'
+                              ? 'View Application'
+                              : 'Continue Application' %>
+                        </a>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>

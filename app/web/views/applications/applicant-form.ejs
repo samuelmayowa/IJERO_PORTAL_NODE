@@ -1,0 +1,214 @@
+<%
+const candidate =
+  formData &&
+  formData.verified_prerequisite
+    ? formData.verified_prerequisite
+    : {};
+
+const sample =
+  formData &&
+  formData.sample_application
+    ? formData.sample_application
+    : {};
+
+const isSubmitted =
+  String(progress.status || '').toUpperCase() === 'SUBMITTED';
+%>
+
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-8">
+        <h1>
+          <i class="fas fa-file-alt mr-2"></i>
+          <%= form.title %>
+        </h1>
+      </div>
+
+      <div class="col-sm-4">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item">
+            <a href="/applicant/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item active">
+            Application Form
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+
+    <% if (messages && messages.error) { %>
+      <div class="alert alert-danger">
+        <%= messages.error %>
+      </div>
+    <% } %>
+
+    <% if (messages && messages.success) { %>
+      <div class="alert alert-success">
+        <%= messages.success %>
+      </div>
+    <% } %>
+
+    <div class="card card-outline card-success">
+      <div class="card-header">
+        <h3 class="card-title">
+          Verified Candidate Information
+        </h3>
+      </div>
+
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tbody>
+            <tr>
+              <th style="width:35%">Application Number</th>
+              <td><strong><%= progress.application_number %></strong></td>
+            </tr>
+            <tr>
+              <th>First Name</th>
+              <td><%= candidate.first_name || '-' %></td>
+            </tr>
+            <tr>
+              <th>Middle Name</th>
+              <td><%= candidate.middle_name || '-' %></td>
+            </tr>
+            <tr>
+              <th>Surname</th>
+              <td><%= candidate.surname || '-' %></td>
+            </tr>
+            <tr>
+              <th>JAMB Registration Number</th>
+              <td><%= candidate.candidate_reference || '-' %></td>
+            </tr>
+            <tr>
+              <th>State of Origin</th>
+              <td><%= candidate.state_of_origin || '-' %></td>
+            </tr>
+            <tr>
+              <th>LGA</th>
+              <td><%= candidate.lga || '-' %></td>
+            </tr>
+            <tr>
+              <th>Gender</th>
+              <td><%= candidate.gender || '-' %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card-footer text-muted">
+        These verified details are read-only.
+      </div>
+    </div>
+
+    <form
+      method="POST"
+      action="/applicant/applications/<%= encodeURIComponent(
+        form.slug
+      ) %>/form"
+    >
+      <% if (csrfToken) { %>
+        <input
+          type="hidden"
+          name="_csrf"
+          value="<%= csrfToken %>"
+        >
+      <% } %>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            Sample Application Form
+          </h3>
+        </div>
+
+        <div class="card-body">
+          <div class="form-group">
+            <label>Programme Choice</label>
+            <input
+              type="text"
+              name="programme_choice"
+              class="form-control"
+              required
+              <%= isSubmitted ? 'readonly' : '' %>
+              value="<%= sample.programme_choice ||
+                progress.programme_choice ||
+                '' %>"
+              placeholder="Enter programme choice"
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Qualification Summary</label>
+            <textarea
+              name="qualification_summary"
+              class="form-control"
+              rows="4"
+              <%= isSubmitted ? 'readonly' : '' %>
+              placeholder="Temporary field pending the full application form"
+            ><%= sample.qualification_summary ||
+              progress.qualification_summary ||
+              '' %></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Additional Note</label>
+            <textarea
+              name="additional_note"
+              class="form-control"
+              rows="3"
+              <%= isSubmitted ? 'readonly' : '' %>
+            ><%= sample.additional_note ||
+              progress.additional_note ||
+              '' %></textarea>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <% if (!isSubmitted) { %>
+            <button
+              type="submit"
+              name="action"
+              value="save"
+              class="btn btn-outline-primary"
+            >
+              <i class="fas fa-save mr-1"></i>
+              Save Draft
+            </button>
+
+            <button
+              type="submit"
+              name="action"
+              value="submit"
+              class="btn btn-success"
+              onclick="return confirm(
+                'Submit this application? You will no longer be able to edit it.'
+              );"
+            >
+              <i class="fas fa-paper-plane mr-1"></i>
+              Submit Application
+            </button>
+          <% } else { %>
+            <span class="badge badge-success p-2">
+              Application Submitted
+            </span>
+          <% } %>
+
+          <a
+            href="/applicant/applications/<%= encodeURIComponent(
+              form.slug
+            ) %>"
+            class="btn btn-secondary float-right"
+          >
+            Back
+          </a>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</section>

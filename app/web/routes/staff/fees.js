@@ -2,6 +2,7 @@
 // This router is mounted by server.js at: app.use('/staff/fees', feesRoutes)
 
 import { Router } from "express";
+import multer from "multer";
 import * as pt from "../../controllers/paymentTypeController.js";
 import * as gp from "../../controllers/generalPaymentController.js";
 import db from "../../../core/db.js";
@@ -14,7 +15,42 @@ import {
 } from "../../controllers/latePaymentChargeController.js";
 
 
+import {
+  listApplicationForms,
+  createApplicationForm,
+  editApplicationForm,
+  updateApplicationForm,
+  setApplicationFormStatus,
+} from "../../controllers/applicationFormController.js";
+
+import {
+  downloadPrerequisiteTemplate,
+  uploadPrerequisites,
+} from "../../controllers/applicationPrerequisiteController.js";
+
 const r = Router();
+const prerequisiteUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, callback) => {
+    const filename = String(file.originalname || "").toLowerCase();
+    const allowed =
+      filename.endsWith(".csv") ||
+      filename.endsWith(".xlsx") ||
+      filename.endsWith(".xls");
+
+    if (!allowed) {
+      return callback(
+        new Error("Only CSV or Excel prerequisite files are allowed."),
+      );
+    }
+
+    callback(null, true);
+  },
+});
+
 
 r.use((req, res, next) => {
   res.locals.layout = "layouts/adminlte";
@@ -73,6 +109,26 @@ r.get("/api/schools/:id/programmes", async (req, res, next) => {
   }
 });
 
+
+
+
+r.get(
+  "/application-forms/prerequisite-template.csv",
+  downloadPrerequisiteTemplate,
+);
+
+r.post(
+  "/application-forms/:id/prerequisites/upload",
+  prerequisiteUpload.single("prerequisite_file"),
+  uploadPrerequisites,
+);
+
+// Generic application portal form management - admin only
+r.get("/application-forms", listApplicationForms);
+r.post("/application-forms", createApplicationForm);
+r.get("/application-forms/:id/edit", editApplicationForm);
+r.post("/application-forms/:id/update", updateApplicationForm);
+r.post("/application-forms/:id/status", setApplicationFormStatus);
 
 // Late payment charge rules - admin only, no student payable impact yet
 r.get("/late-payment-charges", listLatePaymentCharges);

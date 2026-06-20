@@ -1,0 +1,217 @@
+<%
+function money(value) {
+  return Number(value || 0).toLocaleString(
+    'en-NG',
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }
+  );
+}
+
+function dateTime(value) {
+  if (!value) return '-';
+
+  return new Date(value).toLocaleString(
+    'en-GB',
+    {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }
+  );
+}
+%>
+
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-7">
+        <h1>
+          <i class="fas fa-receipt mr-2"></i>
+          Application Payment History
+        </h1>
+      </div>
+
+      <div class="col-sm-5">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item">
+            <a href="/applicant/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item active">
+            Payment History
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-outline card-success">
+      <div class="card-header">
+        <h3 class="card-title">
+          Application Payments
+        </h3>
+      </div>
+
+      <div class="card-body p-0">
+        <% if (!payments.length) { %>
+          <div class="p-4 text-center text-muted">
+            No application payment record was found.
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Order ID / RRR</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th style="width:230px">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <% payments.forEach((payment) => {
+                  const invoiceStatus = String(
+                    payment.invoice_status || ''
+                  ).toUpperCase();
+
+                  const paymentStatus = String(
+                    payment.application_payment_status || ''
+                  ).toUpperCase();
+
+                  const paid =
+                    invoiceStatus === 'PAID' ||
+                    paymentStatus === 'PAID';
+
+                  const noCharge =
+                    paymentStatus === 'NOT_REQUIRED';
+
+                  const total =
+                    Number(payment.amount || 0) +
+                    Number(payment.portal_charge || 0);
+                %>
+                  <tr>
+                    <td>
+                      <strong>
+                        <%= payment.application_title %>
+                      </strong>
+
+                      <div class="small text-muted">
+                        <%= payment.application_number || '-' %>
+                      </div>
+                    </td>
+
+                    <td>
+                      <div>
+                        <strong>
+                          <%= payment.order_id || '-' %>
+                        </strong>
+                      </div>
+
+                      <div class="small text-muted">
+                        RRR: <%= payment.rrr || '-' %>
+                      </div>
+                    </td>
+
+                    <td>
+                      <% if (noCharge) { %>
+                        <span class="badge badge-info">
+                          No Charge
+                        </span>
+                      <% } else { %>
+                        ₦<%= money(total) %>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <%= payment.method || '-' %>
+                    </td>
+
+                    <td>
+                      <% if (paid) { %>
+                        <span class="badge badge-success">
+                          Paid
+                        </span>
+                      <% } else if (noCharge) { %>
+                        <span class="badge badge-info">
+                          Not Required
+                        </span>
+                      <% } else { %>
+                        <span class="badge badge-warning">
+                          <%= invoiceStatus ||
+                            paymentStatus ||
+                            'Pending' %>
+                        </span>
+                      <% } %>
+                    </td>
+
+                    <td>
+                      <%= dateTime(
+                        payment.paid_at ||
+                        payment.created_at
+                      ) %>
+                    </td>
+
+                    <td>
+                      <% if (
+                        paid &&
+                        payment.order_id
+                      ) { %>
+                        <a
+                          class="btn btn-success btn-sm"
+                          target="_blank"
+                          href="/payment/print/<%= encodeURIComponent(
+                            payment.order_id
+                          ) %>?type=receipt&dl=0"
+                        >
+                          <i class="fas fa-eye mr-1"></i>
+                          View Receipt
+                        </a>
+
+                        <a
+                          class="btn btn-outline-success btn-sm"
+                          href="/payment/print/<%= encodeURIComponent(
+                            payment.order_id
+                          ) %>?type=receipt&dl=1"
+                        >
+                          <i class="fas fa-download"></i>
+                        </a>
+                      <% } else if (
+                        !noCharge &&
+                        payment.order_id
+                      ) { %>
+                        <a
+                          class="btn btn-warning btn-sm"
+                          href="/payment/application/<%= encodeURIComponent(
+                            payment.order_id
+                          ) %>"
+                        >
+                          Continue Payment
+                        </a>
+                      <% } else { %>
+                        <a
+                          class="btn btn-outline-primary btn-sm"
+                          href="/applicant/applications/<%= encodeURIComponent(
+                            payment.application_slug
+                          ) %>/form"
+                        >
+                          View Application
+                        </a>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>

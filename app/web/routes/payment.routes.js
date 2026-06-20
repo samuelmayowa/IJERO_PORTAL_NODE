@@ -8,7 +8,10 @@ import {
   fetchType,
   print,
   remitaCallback,
-  forwardToRemita,   // single, named import
+  forwardToRemita,
+  applicationPaymentCheckout,
+  payApplicationOnline,
+  payApplicationAtBank,
 } from '../controllers/publicPaymentController.js';
 
 const r = Router();
@@ -18,6 +21,23 @@ r.get('/payment', paymentForm);
 r.post('/payment', createInvoice);
 r.get('/payment/reprint', reprintForm);
 r.post('/payment/reprint', reprintDownload);
+
+
+// Existing application invoice payment choices
+r.get(
+  '/payment/application/:orderId',
+  applicationPaymentCheckout
+);
+
+r.post(
+  '/payment/application/:orderId/online',
+  payApplicationOnline
+);
+
+r.post(
+  '/payment/application/:orderId/bank',
+  payApplicationAtBank
+);
 
 // Ajax: get payment type details (amount, charge)
 r.get('/payment/api/payment-types/:id', fetchType);
