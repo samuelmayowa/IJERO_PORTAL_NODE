@@ -1,18 +1,335 @@
 <%
 const candidate =
   formData &&
-  formData.verified_prerequisite
+  formData.verified_prerequisite &&
+  typeof formData.verified_prerequisite === 'object'
     ? formData.verified_prerequisite
     : {};
 
-const sample =
+const applicationDetails =
   formData &&
-  formData.sample_application
-    ? formData.sample_application
+  formData.application_details &&
+  typeof formData.application_details === 'object'
+    ? formData.application_details
     : {};
 
-const isSubmitted =
-  String(progress.status || '').toUpperCase() === 'SUBMITTED';
+const personal =
+  applicationDetails.personal &&
+  typeof applicationDetails.personal === 'object'
+    ? applicationDetails.personal
+    : {};
+
+const programmeChoice =
+  applicationDetails.programme_choice &&
+  typeof applicationDetails.programme_choice === 'object'
+    ? applicationDetails.programme_choice
+    : {};
+
+const olevel =
+  applicationDetails.olevel &&
+  typeof applicationDetails.olevel === 'object'
+    ? applicationDetails.olevel
+    : {};
+
+const olevelSittings =
+  Array.isArray(olevel.sittings)
+    ? olevel.sittings
+    : [];
+
+const olevelSittingCount =
+  Number(olevel.sitting_count) === 2
+    ? 2
+    : 1;
+
+const olevelSubjects = [
+  {
+    key: 'english_language',
+    label: 'English Language'
+  },
+  {
+    key: 'mathematics',
+    label: 'Mathematics'
+  },
+  {
+    key: 'biology',
+    label: 'Biology'
+  },
+  {
+    key: 'physics',
+    label: 'Physics'
+  },
+  {
+    key: 'chemistry',
+    label: 'Chemistry'
+  },
+  {
+    key: 'economics',
+    label: 'Economics'
+  },
+  {
+    key: 'agricultural_science',
+    label: 'Agricultural Science'
+  },
+  {
+    key: 'geography',
+    label: 'Geography'
+  },
+  {
+    key: 'civic_education',
+    label: 'Civic Education'
+  }
+];
+
+const olevelGrades = [
+  'A1',
+  'B2',
+  'B3',
+  'C4',
+  'C5',
+  'C6',
+  'D7',
+  'E8',
+  'F9',
+  'ABS'
+];
+
+const currentOLevelYear =
+  new Date().getFullYear();
+
+const olevelYears = Array.from(
+  {
+    length: Math.max(
+      1,
+      currentOLevelYear - 1979
+    )
+  },
+  (_, index) => currentOLevelYear - index
+);
+
+const getOLevelSitting = (number) =>
+  olevelSittings.find(
+    (sitting) =>
+      Number(sitting.sitting_number) === number
+  ) || {
+    sitting_number: number,
+    examination_type: '',
+    examination_number: '',
+    examination_year: '',
+    subjects: {}
+  };
+
+const profile = applicantProfile || {};
+
+const applicationStatus =
+  String(progress.status || '').toUpperCase();
+
+const isLocked = [
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'ADMITTED',
+  'REJECTED'
+].includes(applicationStatus);
+
+const applicationType =
+  String(
+    form.category ||
+    applicationDetails.application_type ||
+    ''
+  ).toUpperCase();
+
+const applicationTypeLabels = {
+  ND: 'ND Application',
+  HND: 'HND Application',
+  PRELIM: 'Prelim Application',
+  UTME: 'UTME/Post-UTME Application'
+};
+
+const hasVerifiedCandidate = Boolean(
+  candidate.id || candidate.candidate_reference
+);
+
+const pickValue = (...values) => {
+  for (const value of values) {
+    const cleaned = String(value ?? '').trim();
+
+    if (cleaned) return cleaned;
+  }
+
+  return '';
+};
+
+const profileUsername =
+  String(profile.username || '').trim();
+
+const profileEmail =
+  profileUsername.includes('@')
+    ? profileUsername
+    : '';
+
+const firstName = hasVerifiedCandidate
+  ? String(candidate.first_name || '').trim()
+  : pickValue(personal.first_name, profile.first_name);
+
+const middleName = hasVerifiedCandidate
+  ? String(candidate.middle_name || '').trim()
+  : pickValue(personal.middle_name, profile.middle_name);
+
+const surname = hasVerifiedCandidate
+  ? String(candidate.surname || '').trim()
+  : pickValue(personal.surname, profile.last_name);
+
+const gender = hasVerifiedCandidate
+  ? String(candidate.gender || '').trim()
+  : pickValue(personal.gender);
+
+const stateOfOrigin = hasVerifiedCandidate
+  ? String(candidate.state_of_origin || '').trim()
+  : pickValue(
+      personal.state_of_origin,
+      profile.state_of_origin
+    );
+
+const lga = pickValue(
+  personal.lga,
+  candidate.lga,
+  profile.lga
+);
+
+const jambRegistrationNumber =
+  applicationType === 'UTME'
+    ? (
+        hasVerifiedCandidate
+          ? String(
+              candidate.candidate_reference || ''
+            ).trim()
+          : pickValue(
+              personal.jamb_registration_number
+            )
+      )
+    : '';
+
+const jambTotalScore =
+  applicationType === 'UTME'
+    ? (
+        hasVerifiedCandidate
+          ? String(
+              candidate.jamb_total_score || ''
+            ).trim()
+          : pickValue(personal.jamb_total_score)
+      )
+    : '';
+
+const selectedSchoolId =
+  String(programmeChoice.school_id || '');
+
+const selectedDepartmentId =
+  String(programmeChoice.department_id || '');
+
+const selectedProgrammeId =
+  String(programmeChoice.programme_id || '');
+
+const schoolOptions =
+  Array.isArray(schools) ? schools : [];
+
+const departmentOptions =
+  Array.isArray(departments) ? departments : [];
+
+const programmeOptions =
+  Array.isArray(programmes) ? programmes : [];
+
+const currentApplicationType =
+  String(
+    form.category ||
+    applicationDetails.application_type ||
+    ''
+  ).toUpperCase();
+
+const currentApplicationDocuments =
+  Array.isArray(applicationDocuments)
+    ? applicationDocuments
+    : [];
+
+const currentApplicationDocumentMap =
+  currentApplicationDocuments.reduce(
+    (result, document) => {
+      result[
+        String(document.document_type || '')
+          .toUpperCase()
+      ] = document;
+
+      return result;
+    },
+    {}
+  );
+
+const applicationDocumentDefinitions = [
+  {
+    routeType: 'passport',
+    databaseType: 'PASSPORT',
+    label: 'Passport Photograph',
+    description:
+      'Upload a recent passport photograph with a plain background.',
+    accept: '.jpg,.jpeg,.png',
+    formatText: 'JPG or PNG, maximum 5 MB',
+    required: true
+  },
+  {
+    routeType: 'jamb-result',
+    databaseType: 'JAMB_RESULT',
+    label: 'JAMB Result or Registration Slip',
+    description:
+      'Upload the official JAMB result or registration slip.',
+    accept: '.pdf,.jpg,.jpeg,.png',
+    formatText: 'PDF, JPG or PNG, maximum 5 MB',
+    required: true,
+    utmeOnly: true
+  },
+  {
+    routeType: 'olevel-result',
+    databaseType: 'OLEVEL_RESULT',
+    label: "O'Level Result",
+    description:
+      'Upload the result corresponding to the grades entered above.',
+    accept: '.pdf,.jpg,.jpeg,.png',
+    formatText: 'PDF, JPG or PNG, maximum 5 MB',
+    required: true
+  },
+  {
+    routeType: 'birth-certificate',
+    databaseType: 'BIRTH_CERTIFICATE',
+    label: 'Birth Certificate or Declaration of Age',
+    description:
+      'Upload a clear copy of the birth certificate or declaration of age.',
+    accept: '.pdf,.jpg,.jpeg,.png',
+    formatText: 'PDF, JPG or PNG, maximum 5 MB',
+    required: true
+  },
+  {
+    routeType: 'lga-identification',
+    databaseType: 'LGA_IDENTIFICATION',
+    label: 'LGA or State Identification',
+    description:
+      'Upload a valid Local Government or state-of-origin identification document.',
+    accept: '.pdf,.jpg,.jpeg,.png',
+    formatText: 'PDF, JPG or PNG, maximum 5 MB',
+    required: true
+  },
+  {
+    routeType: 'other',
+    databaseType: 'OTHER',
+    label: 'Additional Supporting Document',
+    description:
+      'Upload another relevant supporting document where applicable.',
+    accept: '.pdf,.jpg,.jpeg,.png',
+    formatText: 'PDF, JPG or PNG, maximum 5 MB',
+    required: false
+  }
+].filter(
+  (definition) =>
+    !definition.utmeOnly ||
+    currentApplicationType === 'UTME'
+);
+
 %>
 
 <section class="content-header">
@@ -28,8 +345,11 @@ const isSubmitted =
       <div class="col-sm-4">
         <ol class="breadcrumb float-sm-right">
           <li class="breadcrumb-item">
-            <a href="/applicant/dashboard">Dashboard</a>
+            <a href="/applicant/dashboard">
+              Dashboard
+            </a>
           </li>
+
           <li class="breadcrumb-item active">
             Application Form
           </li>
@@ -41,7 +361,6 @@ const isSubmitted =
 
 <section class="content">
   <div class="container-fluid">
-
     <% if (messages && messages.error) { %>
       <div class="alert alert-danger">
         <%= messages.error %>
@@ -57,7 +376,7 @@ const isSubmitted =
     <div class="card card-outline card-success">
       <div class="card-header">
         <h3 class="card-title">
-          Verified Candidate Information
+          Application Summary
         </h3>
       </div>
 
@@ -65,47 +384,112 @@ const isSubmitted =
         <table class="table table-bordered mb-0">
           <tbody>
             <tr>
-              <th style="width:35%">Application Number</th>
-              <td><strong><%= progress.application_number %></strong></td>
+              <th style="width:35%">
+                Application Number
+              </th>
+              <td>
+                <strong>
+                  <%= progress.application_number %>
+                </strong>
+              </td>
             </tr>
+
             <tr>
-              <th>First Name</th>
-              <td><%= candidate.first_name || '-' %></td>
+              <th>Application Type</th>
+              <td>
+                <%= applicationTypeLabels[
+                  applicationType
+                ] || applicationType || '-' %>
+              </td>
             </tr>
+
             <tr>
-              <th>Middle Name</th>
-              <td><%= candidate.middle_name || '-' %></td>
+              <th>Academic Session</th>
+              <td><%= form.session_name || '-' %></td>
             </tr>
+
             <tr>
-              <th>Surname</th>
-              <td><%= candidate.surname || '-' %></td>
-            </tr>
-            <tr>
-              <th>JAMB Registration Number</th>
-              <td><%= candidate.candidate_reference || '-' %></td>
-            </tr>
-            <tr>
-              <th>State of Origin</th>
-              <td><%= candidate.state_of_origin || '-' %></td>
-            </tr>
-            <tr>
-              <th>LGA</th>
-              <td><%= candidate.lga || '-' %></td>
-            </tr>
-            <tr>
-              <th>Gender</th>
-              <td><%= candidate.gender || '-' %></td>
+              <th>Application Status</th>
+              <td>
+                <span
+                  class="badge <%= isLocked
+                    ? 'badge-success'
+                    : 'badge-warning' %>"
+                >
+                  <%= applicationStatus
+                    .replace(/_/g, ' ') || 'IN PROGRESS' %>
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <div class="card-footer text-muted">
-        These verified details are read-only.
-      </div>
     </div>
 
+    <% if (hasVerifiedCandidate) { %>
+      <div class="card card-outline card-info">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="fas fa-user-check mr-1"></i>
+            Verified JAMB Information
+          </h3>
+        </div>
+
+        <div class="card-body p-0">
+          <table class="table table-bordered mb-0">
+            <tbody>
+              <tr>
+                <th style="width:35%">Candidate Name</th>
+                <td>
+                  <%= [
+                    candidate.first_name,
+                    candidate.middle_name,
+                    candidate.surname
+                  ].filter(Boolean).join(' ') || '-' %>
+                </td>
+              </tr>
+
+              <tr>
+                <th>JAMB Registration Number</th>
+                <td>
+                  <%= candidate.candidate_reference || '-' %>
+                </td>
+              </tr>
+
+              <% if (applicationType === 'UTME') { %>
+                <tr>
+                  <th>UTME Score</th>
+                  <td>
+                    <%= candidate.jamb_total_score || '-' %>
+                  </td>
+                </tr>
+              <% } %>
+
+              <tr>
+                <th>State of Origin</th>
+                <td>
+                  <%= candidate.state_of_origin || '-' %>
+                </td>
+              </tr>
+
+              <tr>
+                <th>Gender</th>
+                <td><%= candidate.gender || '-' %></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card-footer text-muted">
+          Verified JAMB fields are protected. Your LGA is
+          prefilled below and may be corrected before final
+          submission.
+        </div>
+      </div>
+    <% } %>
+
     <form
+      id="applicationForm"
       method="POST"
       action="/applicant/applications/<%= encodeURIComponent(
         form.slug
@@ -119,62 +503,690 @@ const isSubmitted =
         >
       <% } %>
 
+      <div
+        id="clientValidationSummary"
+        class="alert alert-danger d-none"
+        role="alert"
+        aria-live="assertive"
+      ></div>
+
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">
-            Sample Application Form
+            <i class="fas fa-user mr-1"></i>
+            Personal Information
           </h3>
         </div>
 
         <div class="card-body">
-          <div class="form-group">
-            <label>Programme Choice</label>
-            <input
-              type="text"
-              name="programme_choice"
-              class="form-control"
-              required
-              <%= isSubmitted ? 'readonly' : '' %>
-              value="<%= sample.programme_choice ||
-                progress.programme_choice ||
-                '' %>"
-              placeholder="Enter programme choice"
-            >
+          <div class="alert alert-light border">
+            You may save this application as a draft and
+            continue later. Final submission will become
+            available after all required sections have been
+            completed and reviewed.
+          </div>
+
+          <div class="row">
+            <div class="form-group col-md-4">
+              <label>First Name</label>
+              <input
+                type="text"
+                name="first_name"
+                class="form-control"
+                value="<%= firstName %>"
+                <%= hasVerifiedCandidate || isLocked
+                  ? 'readonly'
+                  : '' %>
+              >
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>
+                Middle Name
+                <small class="text-muted">(optional)</small>
+              </label>
+              <input
+                type="text"
+                name="middle_name"
+                class="form-control"
+                value="<%= middleName %>"
+                <%= hasVerifiedCandidate || isLocked
+                  ? 'readonly'
+                  : '' %>
+              >
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Surname</label>
+              <input
+                type="text"
+                name="surname"
+                class="form-control"
+                value="<%= surname %>"
+                <%= hasVerifiedCandidate || isLocked
+                  ? 'readonly'
+                  : '' %>
+              >
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="form-group col-md-4">
+              <label>Gender</label>
+
+              <% if (hasVerifiedCandidate || isLocked) { %>
+                <input
+                  type="text"
+                  name="gender"
+                  class="form-control"
+                  value="<%= gender %>"
+                  readonly
+                >
+              <% } else { %>
+                <select
+                  name="gender"
+                  class="form-control"
+                >
+                  <option value="">Select gender</option>
+                  <option
+                    value="Male"
+                    <%= String(gender).toLowerCase() ===
+                      'male'
+                        ? 'selected'
+                        : '' %>
+                  >
+                    Male
+                  </option>
+                  <option
+                    value="Female"
+                    <%= String(gender).toLowerCase() ===
+                      'female'
+                        ? 'selected'
+                        : '' %>
+                  >
+                    Female
+                  </option>
+                </select>
+              <% } %>
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Date of Birth</label>
+              <input
+                type="date"
+                name="date_of_birth"
+                class="form-control"
+                value="<%= personal.date_of_birth || '' %>"
+                <%= isLocked ? 'readonly' : '' %>
+              >
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Email Address</label>
+              <input
+                type="email"
+                name="email"
+                class="form-control"
+                value="<%= pickValue(
+                  personal.email,
+                  profileEmail
+                ) %>"
+                <%= isLocked ? 'readonly' : '' %>
+              >
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="form-group col-md-4">
+              <label>Phone Number</label>
+              <input
+                type="text"
+                name="phone"
+                class="form-control"
+                value="<%= pickValue(
+                  personal.phone,
+                  profile.phone
+                ) %>"
+                <%= isLocked ? 'readonly' : '' %>
+              >
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>State of Origin</label>
+              <input
+                type="text"
+                name="state_of_origin"
+                class="form-control"
+                value="<%= stateOfOrigin %>"
+                <%= hasVerifiedCandidate || isLocked
+                  ? 'readonly'
+                  : '' %>
+              >
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Local Government Area</label>
+              <input
+                type="text"
+                name="lga"
+                class="form-control"
+                value="<%= lga %>"
+                <%= isLocked ? 'readonly' : '' %>
+              >
+              <small class="form-text text-muted">
+                You may correct this value even when it was
+                prefilled from your JAMB record.
+              </small>
+            </div>
           </div>
 
           <div class="form-group">
-            <label>Qualification Summary</label>
+            <label>Residential Address</label>
             <textarea
-              name="qualification_summary"
-              class="form-control"
-              rows="4"
-              <%= isSubmitted ? 'readonly' : '' %>
-              placeholder="Temporary field pending the full application form"
-            ><%= sample.qualification_summary ||
-              progress.qualification_summary ||
-              '' %></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>Additional Note</label>
-            <textarea
-              name="additional_note"
+              name="residential_address"
               class="form-control"
               rows="3"
-              <%= isSubmitted ? 'readonly' : '' %>
-            ><%= sample.additional_note ||
-              progress.additional_note ||
-              '' %></textarea>
+              <%= isLocked ? 'readonly' : '' %>
+            ><%= personal.residential_address || '' %></textarea>
+          </div>
+        </div>
+      </div>
+
+      <% if (applicationType === 'UTME') { %>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <i class="fas fa-graduation-cap mr-1"></i>
+              UTME Information
+            </h3>
+          </div>
+
+          <div class="card-body">
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label>JAMB Registration Number</label>
+                <input
+                  type="text"
+                  name="jamb_registration_number"
+                  class="form-control"
+                  value="<%= jambRegistrationNumber %>"
+                  <%= hasVerifiedCandidate || isLocked
+                    ? 'readonly'
+                    : '' %>
+                >
+              </div>
+
+              <div class="form-group col-md-6">
+                <label>UTME Total Score</label>
+                <input
+                  type="number"
+                  name="jamb_total_score"
+                  class="form-control"
+                  min="0"
+                  max="400"
+                  value="<%= jambTotalScore %>"
+                  <%= hasVerifiedCandidate || isLocked
+                    ? 'readonly'
+                    : '' %>
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="fas fa-certificate mr-1"></i>
+            O'Level Result Information
+          </h3>
+        </div>
+
+        <div class="card-body">
+          <div class="alert alert-light border">
+            Enter the result details exactly as they appear
+            on your WAEC, NECO or NABTEB result. You may use
+            a maximum of two sittings.
+          </div>
+
+          <div class="row">
+            <div class="form-group col-md-4">
+              <label>Number of Sittings</label>
+
+              <select
+                id="olevelSittingCount"
+                name="olevel_sitting_count"
+                class="form-control"
+                <%= isLocked ? 'disabled' : '' %>
+              >
+                <option
+                  value="1"
+                  <%= olevelSittingCount === 1
+                    ? 'selected'
+                    : '' %>
+                >
+                  One Sitting
+                </option>
+
+                <option
+                  value="2"
+                  <%= olevelSittingCount === 2
+                    ? 'selected'
+                    : '' %>
+                >
+                  Two Sittings
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <% [1, 2].forEach((sittingNumber) => {
+            const sitting =
+              getOLevelSitting(sittingNumber);
+
+            const subjects =
+              sitting.subjects &&
+              typeof sitting.subjects === 'object'
+                ? sitting.subjects
+                : {};
+
+            const showSitting =
+              sittingNumber === 1 ||
+              olevelSittingCount === 2;
+          %>
+            <div
+              class="card card-outline card-secondary olevel-sitting <%= showSitting
+                ? ''
+                : 'd-none' %>"
+              data-olevel-sitting="<%= sittingNumber %>"
+            >
+              <div class="card-header">
+                <h3 class="card-title">
+                  <i class="fas fa-list-alt mr-1"></i>
+                  <%= sittingNumber === 1
+                    ? 'First Sitting'
+                    : 'Second Sitting' %>
+                </h3>
+              </div>
+
+              <div class="card-body">
+                <div class="row">
+                  <div class="form-group col-md-4">
+                    <label>Examination Type</label>
+
+                    <select
+                      name="sitting_<%= sittingNumber %>_exam_type"
+                      class="form-control"
+                      data-olevel-field="exam_type"
+                      <%= isLocked ? 'disabled' : '' %>
+                    >
+                      <option value="">
+                        Select examination type
+                      </option>
+
+                      <% [
+                        'WAEC',
+                        'NECO',
+                        'NABTEB'
+                      ].forEach((examType) => { %>
+                        <option
+                          value="<%= examType %>"
+                          <%= String(
+                            sitting.examination_type || ''
+                          ).toUpperCase() === examType
+                            ? 'selected'
+                            : '' %>
+                        >
+                          <%= examType %>
+                        </option>
+                      <% }) %>
+                    </select>
+                  </div>
+
+                  <div class="form-group col-md-4">
+                    <label>Examination Number</label>
+
+                    <input
+                      type="text"
+                      name="sitting_<%= sittingNumber %>_exam_number"
+                      class="form-control text-uppercase"
+                      maxlength="30"
+                      value="<%= sitting.examination_number || '' %>"
+                      data-olevel-field="exam_number"
+                      <%= isLocked ? 'readonly' : '' %>
+                      placeholder="Enter examination number"
+                    >
+                  </div>
+
+                  <div class="form-group col-md-4">
+                    <label>Examination Year</label>
+
+                    <select
+                      name="sitting_<%= sittingNumber %>_exam_year"
+                      class="form-control"
+                      data-olevel-field="exam_year"
+                      <%= isLocked ? 'disabled' : '' %>
+                    >
+                      <option value="">
+                        Select examination year
+                      </option>
+
+                      <% olevelYears.forEach((year) => { %>
+                        <option
+                          value="<%= year %>"
+                          <%= String(
+                            sitting.examination_year || ''
+                          ) === String(year)
+                            ? 'selected'
+                            : '' %>
+                        >
+                          <%= year %>
+                        </option>
+                      <% }) %>
+                    </select>
+                  </div>
+                </div>
+
+                <h6 class="font-weight-bold mt-2 mb-3">
+                  Subject Grades
+                </h6>
+
+                <div class="row">
+                  <% olevelSubjects.forEach(
+                    (subject) => {
+                  %>
+                    <div class="form-group col-md-4">
+                      <label>
+                        <%= subject.label %>
+                      </label>
+
+                      <select
+                        name="sitting_<%= sittingNumber %>_<%= subject.key %>"
+                        class="form-control"
+                        data-olevel-field="grade"
+                        data-olevel-subject="<%= subject.key %>"
+                        <%= isLocked ? 'disabled' : '' %>
+                      >
+                        <option value="">
+                          Select grade
+                        </option>
+
+                        <% olevelGrades.forEach(
+                          (grade) => {
+                        %>
+                          <option
+                            value="<%= grade %>"
+                            <%= String(
+                              subjects[subject.key] || ''
+                            ).toUpperCase() === grade
+                              ? 'selected'
+                              : '' %>
+                          >
+                            <%= grade %>
+                          </option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  <% }) %>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <div
+        id="applicationDocumentsCard"
+        class="card card-outline card-info"
+      >
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="fas fa-paperclip mr-1"></i>
+            Application Documents
+          </h3>
+        </div>
+
+        <div class="card-body">
+          <div class="alert alert-light border">
+            Upload clear and readable documents. Required
+            documents must be uploaded before final submission.
+            Uploading a new file for the same document type will
+            replace the previous current file.
+          </div>
+
+          <div
+            id="applicationDocumentGeneralMessage"
+            class="alert d-none"
+            role="alert"
+            aria-live="polite"
+          ></div>
+
+          <div class="row">
+            <% applicationDocumentDefinitions.forEach(
+              (definition) => {
+                const uploadedDocument =
+                  currentApplicationDocumentMap[
+                    definition.databaseType
+                  ] || null;
+            %>
+              <div class="col-lg-6 mb-3">
+                <div
+                  class="border rounded p-3 h-100 application-document-panel"
+                  data-document-panel="<%= definition.routeType %>"
+                >
+                  <div
+                    class="d-flex justify-content-between align-items-start mb-2"
+                  >
+                    <h6 class="font-weight-bold mb-0">
+                      <%= definition.label %>
+
+                      <% if (definition.required) { %>
+                        <span class="text-danger">*</span>
+                      <% } %>
+                    </h6>
+
+                    <span
+                      class="badge <%= uploadedDocument
+                        ? 'badge-success'
+                        : definition.required
+                          ? 'badge-warning'
+                          : 'badge-secondary' %>"
+                      data-document-status-badge
+                    >
+                      <%= uploadedDocument
+                        ? 'Uploaded'
+                        : definition.required
+                          ? 'Required'
+                          : 'Optional' %>
+                    </span>
+                  </div>
+
+                  <p class="text-muted small mb-2">
+                    <%= definition.description %>
+                  </p>
+
+                  <p class="small mb-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <%= definition.formatText %>
+                  </p>
+
+                  <div
+                    class="application-current-document mb-3"
+                    data-current-document
+                  >
+                    <% if (uploadedDocument) { %>
+                      <div class="alert alert-success py-2 px-3 mb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <div class="mr-2 text-truncate">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            <span data-current-filename>
+                              <%= uploadedDocument.original_filename %>
+                            </span>
+
+                            <small class="d-block text-muted">
+                              <%= (
+                                Number(uploadedDocument.size_bytes || 0)
+                                / 1024
+                              ).toFixed(1) %> KB
+                            </small>
+                          </div>
+
+                          <a
+                            href="/applicant/applications/<%= progress.id %>/documents/<%= uploadedDocument.id %>/download"
+                            class="btn btn-sm btn-outline-success"
+                            data-current-download
+                          >
+                            <i class="fas fa-download"></i>
+                          </a>
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <div class="alert alert-secondary py-2 px-3 mb-0">
+                        No file uploaded yet.
+                      </div>
+                    <% } %>
+                  </div>
+
+                  <% if (!isLocked) { %>
+                    <div class="form-group mb-2">
+                      <input
+                        type="file"
+                        class="form-control-file"
+                        accept="<%= definition.accept %>"
+                        data-document-input
+                        data-document-type="<%= definition.routeType %>"
+                        data-document-label="<%= definition.label %>"
+                      >
+                    </div>
+
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-info"
+                      data-document-upload
+                      data-document-type="<%= definition.routeType %>"
+                    >
+                      <i class="fas fa-upload mr-1"></i>
+                      <%= uploadedDocument
+                        ? 'Replace Document'
+                        : 'Upload Document' %>
+                    </button>
+                  <% } %>
+
+                  <div
+                    class="small mt-2 d-none"
+                    data-document-message
+                    aria-live="polite"
+                  ></div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="fas fa-university mr-1"></i>
+            Programme Selection
+          </h3>
+        </div>
+
+        <div class="card-body">
+          <div class="row">
+            <div class="form-group col-md-4">
+              <label>School</label>
+              <select
+                id="schoolId"
+                name="school_id"
+                class="form-control"
+                <%= isLocked ? 'disabled' : '' %>
+              >
+                <option value="">Select school</option>
+
+                <% schoolOptions.forEach((school) => { %>
+                  <option
+                    value="<%= school.id %>"
+                    <%= String(school.id) ===
+                      selectedSchoolId
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= school.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Department</label>
+              <select
+                id="departmentId"
+                name="department_id"
+                class="form-control"
+                <%= isLocked ? 'disabled' : '' %>
+              >
+                <option value="">
+                  Select department
+                </option>
+
+                <% departmentOptions.forEach(
+                  (department) => {
+                %>
+                  <option
+                    value="<%= department.id %>"
+                    data-school-id="<%= department.school_id %>"
+                    <%= String(department.id) ===
+                      selectedDepartmentId
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= department.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group col-md-4">
+              <label>Programme</label>
+              <select
+                id="programmeId"
+                name="programme_id"
+                class="form-control"
+                <%= isLocked ? 'disabled' : '' %>
+              >
+                <option value="">
+                  Select programme
+                </option>
+
+                <% programmeOptions.forEach(
+                  (programme) => {
+                %>
+                  <option
+                    value="<%= programme.id %>"
+                    data-school-id="<%= programme.school_id %>"
+                    data-department-id="<%= programme.department_id %>"
+                    <%= String(programme.id) ===
+                      selectedProgrammeId
+                        ? 'selected'
+                        : '' %>
+                  >
+                    <%= programme.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
           </div>
         </div>
 
         <div class="card-footer">
-          <% if (!isSubmitted) { %>
+          <% if (!isLocked) { %>
             <button
               type="submit"
               name="action"
               value="save"
-              class="btn btn-outline-primary"
+              class="btn btn-primary"
             >
               <i class="fas fa-save mr-1"></i>
               Save Draft
@@ -183,20 +1195,33 @@ const isSubmitted =
             <button
               type="submit"
               name="action"
-              value="submit"
-              class="btn btn-success"
-              onclick="return confirm(
-                'Submit this application? You will no longer be able to edit it.'
-              );"
+              value="preview"
+              class="btn btn-success ml-2"
             >
-              <i class="fas fa-paper-plane mr-1"></i>
-              Submit Application
+              <i class="fas fa-eye mr-1"></i>
+              Preview Application
             </button>
+
+            <span class="text-muted ml-2">
+              Save incomplete work as a draft, or preview the
+              application after completing all required fields.
+            </span>
           <% } else { %>
             <span class="badge badge-success p-2">
-              Application Submitted
+              This application is read-only
             </span>
           <% } %>
+
+          <!-- PermanentPrintApplication -->
+          <a
+            href="/applicant/applications/<%= progress.id %>/print"
+            target="_blank"
+            rel="noopener"
+            class="btn btn-success mr-2"
+          >
+            <i class="fas fa-print mr-1"></i>
+            Print Application
+          </a>
 
           <a
             href="/applicant/applications/<%= encodeURIComponent(
@@ -209,6 +1234,1251 @@ const isSubmitted =
         </div>
       </div>
     </form>
-
   </div>
 </section>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form =
+      document.getElementById("applicationForm");
+
+    const validationSummary =
+      document.getElementById(
+        "clientValidationSummary",
+      );
+
+    const schoolSelect =
+      document.getElementById("schoolId");
+
+    const departmentSelect =
+      document.getElementById("departmentId");
+
+    const programmeSelect =
+      document.getElementById("programmeId");
+
+    const serverValidationFields = <%- JSON.stringify(
+      typeof validationFields !== "undefined" &&
+      Array.isArray(validationFields)
+        ? validationFields
+        : []
+    ) %>;
+
+    const serverValidationMessages = <%- JSON.stringify(
+      typeof validationMessages !== "undefined" &&
+      validationMessages &&
+      typeof validationMessages === "object"
+        ? validationMessages
+        : {}
+    ) %>;
+
+    const requiredFieldNames = [
+      "first_name",
+      "surname",
+      "gender",
+      "date_of_birth",
+      "email",
+      "phone",
+      "state_of_origin",
+      "lga",
+      "residential_address",
+      "school_id",
+      "department_id",
+      "programme_id",
+    ];
+
+    if (
+      form &&
+      form.elements.jamb_registration_number
+    ) {
+      requiredFieldNames.push(
+        "jamb_registration_number",
+      );
+    }
+
+    if (form && form.elements.jamb_total_score) {
+      requiredFieldNames.push(
+        "jamb_total_score",
+      );
+    }
+
+    const namePattern =
+      /^[A-Za-zÀ-ÖØ-öø-ÿ' -]{2,60}$/;
+
+    const locationPattern =
+      /^[A-Za-zÀ-ÖØ-öø-ÿ'.() -]{2,80}$/;
+
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const jambPattern =
+      /^[A-Za-z0-9/-]{6,30}$/;
+
+    let lastSubmitter = null;
+
+    function fieldByName(name) {
+      if (!form) return null;
+
+      const field = form.elements[name];
+
+      if (!field) return null;
+
+      if (
+        typeof RadioNodeList !== "undefined" &&
+        field instanceof RadioNodeList
+      ) {
+        return field[0] || null;
+      }
+
+      return field;
+    }
+
+    function feedbackId(name) {
+      return `application-error-${name.replace(
+        /[^A-Za-z0-9_-]/g,
+        "-",
+      )}`;
+    }
+
+    function clearFieldError(field) {
+      if (!field) return;
+
+      field.classList.remove("is-invalid");
+      field.removeAttribute("aria-invalid");
+
+      const id = feedbackId(field.name);
+      const feedback = document.getElementById(id);
+
+      if (feedback) {
+        feedback.remove();
+      }
+
+      const describedBy = (
+        field.getAttribute("aria-describedby") || ""
+      )
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(function (value) {
+          return value !== id;
+        });
+
+      if (describedBy.length) {
+        field.setAttribute(
+          "aria-describedby",
+          describedBy.join(" "),
+        );
+      } else {
+        field.removeAttribute("aria-describedby");
+      }
+    }
+
+    function showFieldError(field, message) {
+      if (!field) return;
+
+      clearFieldError(field);
+
+      const id = feedbackId(field.name);
+
+      field.classList.add("is-invalid");
+      field.setAttribute("aria-invalid", "true");
+      field.setAttribute("aria-describedby", id);
+
+      const feedback =
+        document.createElement("div");
+
+      feedback.id = id;
+      feedback.className =
+        "invalid-feedback d-block";
+      feedback.dataset.validationFor =
+        field.name;
+      feedback.textContent = message;
+
+      field.insertAdjacentElement(
+        "afterend",
+        feedback,
+      );
+    }
+
+    function clearAllErrors() {
+      if (!form) return;
+
+      form
+        .querySelectorAll(".is-invalid")
+        .forEach(function (field) {
+          clearFieldError(field);
+        });
+
+      if (validationSummary) {
+        validationSummary.classList.add("d-none");
+        validationSummary.replaceChildren();
+      }
+    }
+
+    function showValidationSummary(errors) {
+      if (!validationSummary) return;
+
+      validationSummary.replaceChildren();
+
+      const heading =
+        document.createElement("strong");
+
+      heading.textContent =
+        "Please correct the highlighted fields:";
+
+      const list = document.createElement("ul");
+      list.className = "mb-0 mt-2";
+
+      errors.forEach(function (error) {
+        const item = document.createElement("li");
+        item.textContent = error.message;
+        list.appendChild(item);
+      });
+
+      validationSummary.appendChild(heading);
+      validationSummary.appendChild(list);
+      validationSummary.classList.remove("d-none");
+    }
+
+    function validateField(field) {
+      if (!field || field.disabled) return "";
+
+      const name = field.name;
+      const value = String(field.value || "").trim();
+
+      const olevelExamTypeMatch =
+        name.match(
+          /^sitting_([12])_exam_type$/,
+        );
+
+      if (olevelExamTypeMatch) {
+        if (!value) {
+          return "Examination type is required.";
+        }
+
+        if (
+          !["WAEC", "NECO", "NABTEB"].includes(
+            value.toUpperCase(),
+          )
+        ) {
+          return "Select a valid examination type.";
+        }
+
+        return "";
+      }
+
+      const olevelExamNumberMatch =
+        name.match(
+          /^sitting_([12])_exam_number$/,
+        );
+
+      if (olevelExamNumberMatch) {
+        if (!value) {
+          return "Examination number is required.";
+        }
+
+        if (
+          !/^[A-Za-z0-9/-]{5,30}$/.test(value)
+        ) {
+          return "Enter a valid examination number.";
+        }
+
+        return "";
+      }
+
+      const olevelExamYearMatch =
+        name.match(
+          /^sitting_([12])_exam_year$/,
+        );
+
+      if (olevelExamYearMatch) {
+        const year = Number(value);
+        const currentYear =
+          new Date().getFullYear();
+
+        if (!value) {
+          return "Examination year is required.";
+        }
+
+        if (
+          !Number.isInteger(year) ||
+          year < 1980 ||
+          year > currentYear
+        ) {
+          return "Select a valid examination year.";
+        }
+
+        return "";
+      }
+
+      const olevelGradeMatch =
+        name.match(
+          /^sitting_([12])_(english_language|mathematics|biology|physics|chemistry|economics|agricultural_science|geography|civic_education)$/,
+        );
+
+      if (olevelGradeMatch) {
+        const allowedGrades = [
+          "A1",
+          "B2",
+          "B3",
+          "C4",
+          "C5",
+          "C6",
+          "D7",
+          "E8",
+          "F9",
+          "ABS",
+        ];
+
+        if (
+          value &&
+          !allowedGrades.includes(
+            value.toUpperCase(),
+          )
+        ) {
+          return "Select a valid O'Level grade.";
+        }
+
+        return "";
+      }
+
+      switch (name) {
+        case "first_name":
+          if (!value) return "First name is required.";
+          if (!namePattern.test(value)) {
+            return "Enter a valid first name using letters, spaces, apostrophes or hyphens.";
+          }
+          return "";
+
+        case "middle_name":
+          if (value && !namePattern.test(value)) {
+            return "Enter a valid middle name using letters, spaces, apostrophes or hyphens.";
+          }
+          return "";
+
+        case "surname":
+          if (!value) return "Surname is required.";
+          if (!namePattern.test(value)) {
+            return "Enter a valid surname using letters, spaces, apostrophes or hyphens.";
+          }
+          return "";
+
+        case "gender":
+          if (!value) return "Gender is required.";
+          if (
+            !["male", "female", "m", "f"].includes(
+              value.toLowerCase(),
+            )
+          ) {
+            return "Select a valid gender.";
+          }
+          return "";
+
+        case "date_of_birth": {
+          if (!value) {
+            return "Date of birth is required.";
+          }
+
+          const birthDate =
+            new Date(`${value}T00:00:00`);
+
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+
+          if (
+            Number.isNaN(birthDate.getTime()) ||
+            birthDate > today
+          ) {
+            return "Enter a valid date of birth that is not in the future.";
+          }
+
+          return "";
+        }
+
+        case "email":
+          if (!value) {
+            return "Email address is required.";
+          }
+          if (!emailPattern.test(value)) {
+            return "Enter a valid email address.";
+          }
+          return "";
+
+        case "phone": {
+          if (!value) {
+            return "Phone number is required.";
+          }
+
+          const digits = value.replace(/\D+/g, "");
+
+          if (
+            digits.length < 7 ||
+            digits.length > 15
+          ) {
+            return "Enter a valid phone number containing 7 to 15 digits.";
+          }
+
+          return "";
+        }
+
+        case "state_of_origin":
+          if (!value) {
+            return "State of origin is required.";
+          }
+          if (!locationPattern.test(value)) {
+            return "Enter a valid state of origin.";
+          }
+          return "";
+
+        case "lga":
+          if (!value) {
+            return "Local Government Area is required.";
+          }
+          if (!locationPattern.test(value)) {
+            return "Enter a valid Local Government Area.";
+          }
+          return "";
+
+        case "residential_address":
+          if (!value || value.length < 10) {
+            return "Enter a complete residential address of at least 10 characters.";
+          }
+          if (value.length > 250) {
+            return "Residential address must not exceed 250 characters.";
+          }
+          return "";
+
+        case "school_id":
+          return value ? "" : "Select a school.";
+
+        case "department_id":
+          return value
+            ? ""
+            : "Select a department.";
+
+        case "programme_id":
+          return value
+            ? ""
+            : "Select a programme as your course of study.";
+
+        case "jamb_registration_number":
+          if (!value) {
+            return "JAMB registration number is required.";
+          }
+          if (!jambPattern.test(value)) {
+            return "Enter a valid JAMB registration number.";
+          }
+          return "";
+
+        case "jamb_total_score": {
+          if (!value) {
+            return "UTME total score is required.";
+          }
+
+          const score = Number(value);
+
+          if (
+            !Number.isInteger(score) ||
+            score < 0 ||
+            score > 400
+          ) {
+            return "UTME score must be a whole number between 0 and 400.";
+          }
+
+          return "";
+        }
+
+        default:
+          return "";
+      }
+    }
+
+    function validateOLevelSection(errors) {
+      if (!form) return;
+
+      const sittingCountField =
+        fieldByName("olevel_sitting_count");
+
+      const sittingCount =
+        sittingCountField &&
+        String(sittingCountField.value) === "2"
+          ? 2
+          : 1;
+
+      const subjectNames = [
+        "english_language",
+        "mathematics",
+        "biology",
+        "physics",
+        "chemistry",
+        "economics",
+        "agricultural_science",
+        "geography",
+        "civic_education",
+      ];
+
+      const completedSubjects = new Set();
+
+      function addOLevelError(field, message) {
+        if (!field) return;
+
+        const duplicate = errors.some(
+          function (error) {
+            return (
+              error.field === field &&
+              error.message === message
+            );
+          },
+        );
+
+        if (duplicate) return;
+
+        showFieldError(field, message);
+
+        errors.push({
+          field,
+          message,
+        });
+      }
+
+      for (
+        let sittingNumber = 1;
+        sittingNumber <= sittingCount;
+        sittingNumber += 1
+      ) {
+        const metadataFields = [
+          `sitting_${sittingNumber}_exam_type`,
+          `sitting_${sittingNumber}_exam_number`,
+          `sitting_${sittingNumber}_exam_year`,
+        ];
+
+        metadataFields.forEach(function (name) {
+          const field = fieldByName(name);
+
+          if (!field || field.disabled) return;
+
+          const message = validateField(field);
+
+          if (message) {
+            addOLevelError(field, message);
+          }
+        });
+
+        subjectNames.forEach(function (subject) {
+          const field = fieldByName(
+            `sitting_${sittingNumber}_${subject}`,
+          );
+
+          if (!field || field.disabled) return;
+
+          const value = String(
+            field.value || "",
+          ).trim().toUpperCase();
+
+          const message = validateField(field);
+
+          if (message) {
+            addOLevelError(field, message);
+            return;
+          }
+
+          if (value && value !== "ABS") {
+            completedSubjects.add(subject);
+          }
+        });
+      }
+
+      if (completedSubjects.size < 5) {
+        addOLevelError(
+          sittingCountField,
+          "Enter valid results for at least five distinct O'Level subjects across the selected sitting or sittings.",
+        );
+      }
+
+      if (
+        !completedSubjects.has(
+          "english_language",
+        )
+      ) {
+        const englishField =
+          fieldByName(
+            "sitting_1_english_language",
+          );
+
+        addOLevelError(
+          englishField,
+          "English Language result is required.",
+        );
+      }
+
+      if (
+        !completedSubjects.has("mathematics")
+      ) {
+        const mathematicsField =
+          fieldByName(
+            "sitting_1_mathematics",
+          );
+
+        addOLevelError(
+          mathematicsField,
+          "Mathematics result is required.",
+        );
+      }
+    }
+
+    function validateCompleteApplication() {
+      const errors = [];
+
+      clearAllErrors();
+
+      const fieldsToValidate = [
+        ...requiredFieldNames,
+        "middle_name",
+      ];
+
+      fieldsToValidate.forEach(function (name) {
+        const field = fieldByName(name);
+
+        if (!field) return;
+
+        const message = validateField(field);
+
+        if (!message) return;
+
+        showFieldError(field, message);
+
+        errors.push({
+          field,
+          message,
+        });
+      });
+
+      validateOLevelSection(errors);
+
+      if (errors.length) {
+        showValidationSummary(errors);
+
+        const firstField = errors[0].field;
+
+        firstField.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        window.setTimeout(function () {
+          try {
+            firstField.focus({
+              preventScroll: true,
+            });
+          } catch {
+            firstField.focus();
+          }
+        }, 350);
+
+        return false;
+      }
+
+      return true;
+    }
+
+    function markRequiredLabels() {
+      requiredFieldNames.forEach(function (name) {
+        const field = fieldByName(name);
+
+        if (!field) return;
+
+        const group = field.closest(".form-group");
+        const label = group
+          ? group.querySelector("label")
+          : null;
+
+        if (
+          !label ||
+          label.querySelector(
+            "[data-required-marker]",
+          )
+        ) {
+          return;
+        }
+
+        const marker =
+          document.createElement("span");
+
+        marker.className = "text-danger ml-1";
+        marker.dataset.requiredMarker = "true";
+        marker.textContent = "*";
+        marker.setAttribute(
+          "aria-label",
+          "required",
+        );
+
+        label.appendChild(marker);
+      });
+    }
+
+    function applyServerValidationErrors() {
+      if (
+        !Array.isArray(serverValidationFields) ||
+        !serverValidationFields.length
+      ) {
+        return;
+      }
+
+      const errors = [];
+
+      serverValidationFields.forEach(function (name) {
+        const field = fieldByName(name);
+
+        if (!field) return;
+
+        const message =
+          serverValidationMessages[name] ||
+          validateField(field) ||
+          "Please correct this field.";
+
+        showFieldError(field, message);
+
+        errors.push({
+          field,
+          message,
+        });
+      });
+
+      if (!errors.length) return;
+
+      showValidationSummary(errors);
+
+      const firstField = errors[0].field;
+
+      window.setTimeout(function () {
+        firstField.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        try {
+          firstField.focus({
+            preventScroll: true,
+          });
+        } catch {
+          firstField.focus();
+        }
+      }, 250);
+    }
+
+    function configureDateOfBirth() {
+      const field = fieldByName("date_of_birth");
+
+      if (!field) return;
+
+      field.max =
+        new Date().toISOString().split("T")[0];
+    }
+
+    function configureLiveValidation() {
+      if (!form) return;
+
+      form
+        .querySelectorAll(
+          "input[name], select[name], textarea[name]",
+        )
+        .forEach(function (field) {
+          const eventName =
+            field.tagName === "SELECT"
+              ? "change"
+              : "input";
+
+          field.addEventListener(
+            eventName,
+            function () {
+              if (
+                !field.classList.contains(
+                  "is-invalid",
+                )
+              ) {
+                return;
+              }
+
+              const message =
+                validateField(field);
+
+              if (message) {
+                showFieldError(
+                  field,
+                  message,
+                );
+              } else {
+                clearFieldError(field);
+              }
+            },
+          );
+        });
+    }
+
+    function configureFormSubmission() {
+      if (!form) return;
+
+      form
+        .querySelectorAll(
+          'button[type="submit"]',
+        )
+        .forEach(function (button) {
+          button.addEventListener(
+            "click",
+            function () {
+              lastSubmitter = button;
+            },
+          );
+        });
+
+      form.addEventListener(
+        "submit",
+        function (event) {
+          const submitter =
+            event.submitter || lastSubmitter;
+
+          const action = submitter
+            ? String(submitter.value || "")
+            : "";
+
+          // Saving a draft remains available even when
+          // mandatory fields are still incomplete.
+          if (action === "save") {
+            clearAllErrors();
+            return;
+          }
+
+          if (
+            action !== "preview" &&
+            action !== "submit"
+          ) {
+            return;
+          }
+
+          if (!validateCompleteApplication()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+      );
+    }
+
+    function markOLevelRequiredLabels() {
+      if (!form) return;
+
+      const sittingCount =
+        String(
+          form.elements.olevel_sitting_count
+            ?.value || "1",
+        ) === "2"
+          ? 2
+          : 1;
+
+      for (
+        let sittingNumber = 1;
+        sittingNumber <= sittingCount;
+        sittingNumber += 1
+      ) {
+        [
+          "exam_type",
+          "exam_number",
+          "exam_year",
+        ].forEach(function (suffix) {
+          const field = fieldByName(
+            `sitting_${sittingNumber}_${suffix}`,
+          );
+
+          if (!field) return;
+
+          const group =
+            field.closest(".form-group");
+
+          const label = group
+            ? group.querySelector("label")
+            : null;
+
+          if (
+            !label ||
+            label.querySelector(
+              "[data-required-marker]",
+            )
+          ) {
+            return;
+          }
+
+          const marker =
+            document.createElement("span");
+
+          marker.className =
+            "text-danger ml-1";
+          marker.dataset.requiredMarker = "true";
+          marker.textContent = "*";
+          marker.setAttribute(
+            "aria-label",
+            "required",
+          );
+
+          label.appendChild(marker);
+        });
+      }
+    }
+
+    function configureOLevelSittings() {
+      if (!form) return;
+
+      const sittingCountField =
+        form.elements.olevel_sitting_count;
+
+      const secondSitting =
+        form.querySelector(
+          '[data-olevel-sitting="2"]',
+        );
+
+      if (!sittingCountField || !secondSitting) {
+        return;
+      }
+
+      function updateSecondSitting() {
+        const showSecondSitting =
+          String(sittingCountField.value) === "2";
+
+        secondSitting.classList.toggle(
+          "d-none",
+          !showSecondSitting,
+        );
+
+        secondSitting
+          .querySelectorAll(
+            "input[name], select[name], textarea[name]",
+          )
+          .forEach(function (field) {
+            if (
+              field.hasAttribute("readonly") ||
+              field.closest("form") === null
+            ) {
+              return;
+            }
+
+            field.disabled = !showSecondSitting;
+
+            if (!showSecondSitting) {
+              clearFieldError(field);
+            }
+          });
+      }
+
+      sittingCountField.addEventListener(
+        "change",
+        updateSecondSitting,
+      );
+
+      updateSecondSitting();
+    }
+
+    function configureApplicationDocumentUploads() {
+      if (!form) return;
+
+      const applicationId =
+        Number(<%= Number(progress.id || 0) %>);
+
+      const csrfToken = <%- JSON.stringify(
+        typeof csrfToken !== "undefined"
+          ? csrfToken
+          : ""
+      ) %>;
+
+      const panels = form.querySelectorAll(
+        "[data-document-panel]",
+      );
+
+      const generalMessage =
+        document.getElementById(
+          "applicationDocumentGeneralMessage",
+        );
+
+      function showGeneralMessage(
+        message,
+        type,
+      ) {
+        if (!generalMessage) return;
+
+        generalMessage.className =
+          `alert alert-${type || "info"}`;
+
+        generalMessage.textContent = message;
+      }
+
+      function showPanelMessage(
+        panel,
+        message,
+        type,
+      ) {
+        const target = panel.querySelector(
+          "[data-document-message]",
+        );
+
+        if (!target) return;
+
+        target.className =
+          `small mt-2 text-${type || "muted"}`;
+
+        target.textContent = message;
+      }
+
+      panels.forEach(function (panel) {
+        const input = panel.querySelector(
+          "[data-document-input]",
+        );
+
+        const button = panel.querySelector(
+          "[data-document-upload]",
+        );
+
+        if (!input || !button) return;
+
+        button.addEventListener(
+          "click",
+          async function () {
+            const file = input.files?.[0] || null;
+
+            if (!file) {
+              showPanelMessage(
+                panel,
+                "Select a file before uploading.",
+                "danger",
+              );
+
+              input.focus();
+              return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+              showPanelMessage(
+                panel,
+                "The selected file exceeds 5 MB.",
+                "danger",
+              );
+
+              return;
+            }
+
+            const documentType =
+              button.dataset.documentType || "";
+
+            const formData = new FormData();
+            formData.append("document", file);
+
+            const originalHtml =
+              button.innerHTML;
+
+            button.disabled = true;
+            input.disabled = true;
+
+            button.innerHTML =
+              '<i class="fas fa-spinner fa-spin mr-1"></i>Uploading...';
+
+            showPanelMessage(
+              panel,
+              "Uploading document securely...",
+              "info",
+            );
+
+            try {
+              const response = await fetch(
+                `/applicant/applications/${applicationId}` +
+                `/documents/${encodeURIComponent(documentType)}`,
+                {
+                  method: "POST",
+                  credentials: "same-origin",
+                  headers: csrfToken
+                    ? {
+                        "X-CSRF-Token": csrfToken,
+                      }
+                    : {},
+                  body: formData,
+                },
+              );
+
+              let result = {};
+
+              try {
+                result = await response.json();
+              } catch {
+                result = {};
+              }
+
+              if (!response.ok || !result.ok) {
+                throw new Error(
+                  result.message ||
+                  "The document could not be uploaded.",
+                );
+              }
+
+              showPanelMessage(
+                panel,
+                result.message ||
+                  "Document uploaded successfully.",
+                "success",
+              );
+
+              showGeneralMessage(
+                result.message ||
+                  "Document uploaded successfully.",
+                "success",
+              );
+
+              window.setTimeout(function () {
+                window.location.reload();
+              }, 650);
+            } catch (error) {
+              showPanelMessage(
+                panel,
+                error.message ||
+                  "The document could not be uploaded.",
+                "danger",
+              );
+
+              showGeneralMessage(
+                error.message ||
+                  "The document could not be uploaded.",
+                "danger",
+              );
+
+              button.disabled = false;
+              input.disabled = false;
+              button.innerHTML = originalHtml;
+            }
+          },
+        );
+      });
+    }
+
+    function filterProgrammes() {
+      if (
+        !schoolSelect ||
+        !departmentSelect ||
+        !programmeSelect
+      ) {
+        return;
+      }
+
+      const schoolId = schoolSelect.value;
+      const departmentId =
+        departmentSelect.value;
+
+      let currentProgrammeIsValid = false;
+
+      Array.from(
+        programmeSelect.options,
+      ).forEach(function (option, index) {
+        if (index === 0) {
+          option.hidden = false;
+          option.disabled = false;
+          return;
+        }
+
+        const isVisible =
+          Boolean(schoolId) &&
+          Boolean(departmentId) &&
+          option.dataset.schoolId === schoolId &&
+          option.dataset.departmentId ===
+            departmentId;
+
+        option.hidden = !isVisible;
+        option.disabled = !isVisible;
+
+        if (
+          isVisible &&
+          option.value === programmeSelect.value
+        ) {
+          currentProgrammeIsValid = true;
+        }
+      });
+
+      if (!currentProgrammeIsValid) {
+        programmeSelect.value = "";
+      }
+    }
+
+    function filterDepartments() {
+      if (
+        !schoolSelect ||
+        !departmentSelect ||
+        !programmeSelect
+      ) {
+        return;
+      }
+
+      const schoolId = schoolSelect.value;
+
+      let currentDepartmentIsValid = false;
+
+      Array.from(
+        departmentSelect.options,
+      ).forEach(function (option, index) {
+        if (index === 0) {
+          option.hidden = false;
+          option.disabled = false;
+          return;
+        }
+
+        const isVisible =
+          Boolean(schoolId) &&
+          option.dataset.schoolId === schoolId;
+
+        option.hidden = !isVisible;
+        option.disabled = !isVisible;
+
+        if (
+          isVisible &&
+          option.value === departmentSelect.value
+        ) {
+          currentDepartmentIsValid = true;
+        }
+      });
+
+      if (!currentDepartmentIsValid) {
+        departmentSelect.value = "";
+      }
+
+      filterProgrammes();
+    }
+
+    if (schoolSelect) {
+      schoolSelect.addEventListener(
+        "change",
+        function () {
+          clearFieldError(schoolSelect);
+          filterDepartments();
+        },
+      );
+    }
+
+    if (departmentSelect) {
+      departmentSelect.addEventListener(
+        "change",
+        function () {
+          clearFieldError(departmentSelect);
+          filterProgrammes();
+        },
+      );
+    }
+
+    if (programmeSelect) {
+      programmeSelect.addEventListener(
+        "change",
+        function () {
+          clearFieldError(programmeSelect);
+        },
+      );
+    }
+
+    filterDepartments();
+    configureOLevelSittings();
+    markOLevelRequiredLabels();
+    configureApplicationDocumentUploads();
+    configureDateOfBirth();
+    markRequiredLabels();
+    configureLiveValidation();
+    configureFormSubmission();
+    applyServerValidationErrors();
+  });
+</script>

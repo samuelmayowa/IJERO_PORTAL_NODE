@@ -1,3 +1,6 @@
 Archive.zip
 
 node_modules/
+
+# Local applicant document uploads
+/app/uploads/applications/

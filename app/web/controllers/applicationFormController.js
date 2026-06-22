@@ -178,6 +178,26 @@ function parseCharges(namesValue, amountsValue, stage) {
   return rows;
 }
 
+const APPLICATION_TYPES = new Set([
+  "ND",
+  "HND",
+  "PRELIM",
+  "UTME",
+]);
+
+function normalizeApplicationType(value) {
+  const normalized = clean(value).toUpperCase();
+
+  const aliases = {
+    JAMB: "UTME",
+    PUTME: "UTME",
+    "POST UTME": "UTME",
+    "POST-UTME": "UTME",
+  };
+
+  return aliases[normalized] || normalized;
+}
+
 function readPayload(req) {
   const body = req.body || {};
 
@@ -200,7 +220,7 @@ function readPayload(req) {
     code,
     slug: slugify(body.slug || `${code}-${title}`),
     title,
-    category: clean(body.category) || "GENERAL",
+    category: normalizeApplicationType(body.category),
     description: clean(body.description),
     instructions: normalizeInstructions(body.instructions),
     session_id: Number(body.session_id || 0),
@@ -231,6 +251,10 @@ function readPayload(req) {
 function validatePayload(payload) {
   if (!payload.code) return "Application code is required.";
   if (!payload.title) return "Application title is required.";
+
+  if (!APPLICATION_TYPES.has(payload.category)) {
+    return "Select a valid application type.";
+  }
 
   const instructionError = validateInstructions(
     payload.instructions,

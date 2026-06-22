@@ -1,0 +1,799 @@
+<%
+const details =
+  formData?.application_details &&
+  typeof formData.application_details === 'object'
+    ? formData.application_details
+    : {};
+
+const personal =
+  details.personal &&
+  typeof details.personal === 'object'
+    ? details.personal
+    : {};
+
+const choice =
+  details.programme_choice &&
+  typeof details.programme_choice === 'object'
+    ? details.programme_choice
+    : {};
+
+const olevel =
+  details.olevel &&
+  typeof details.olevel === 'object'
+    ? details.olevel
+    : {};
+
+const declaration =
+  details.declaration &&
+  typeof details.declaration === 'object'
+    ? details.declaration
+    : {};
+
+const jamb =
+  details.utme ||
+  details.jamb ||
+  details.verified_candidate ||
+  formData?.verified_candidate ||
+  formData?.candidate ||
+  {};
+
+const status = String(
+  application.application_status || ''
+).toUpperCase();
+
+const isOfficial = [
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'ADMITTED',
+  'REJECTED'
+].includes(status);
+
+const documents =
+  Array.isArray(applicationDocuments)
+    ? applicationDocuments
+    : [];
+
+const documentMap = documents.reduce(
+  (result, document) => {
+    result[
+      String(
+        document.document_type || ''
+      ).toUpperCase()
+    ] = document;
+
+    return result;
+  },
+  {}
+);
+
+const passport = documentMap.PASSPORT || null;
+
+const fullName = [
+  personal.first_name ||
+    applicantProfile?.first_name,
+  personal.middle_name ||
+    applicantProfile?.middle_name,
+  personal.surname ||
+    personal.last_name ||
+    applicantProfile?.last_name
+]
+  .filter(Boolean)
+  .join(' ');
+
+const formatDate = (value) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
+const sittingList =
+  Array.isArray(olevel.sittings)
+    ? olevel.sittings
+    : [];
+
+const subjectLabels = {
+  english: 'English Language',
+  english_language: 'English Language',
+  mathematics: 'Mathematics',
+  biology: 'Biology',
+  physics: 'Physics',
+  chemistry: 'Chemistry',
+  economics: 'Economics',
+  agricultural_science:
+    'Agricultural Science',
+  geography: 'Geography',
+  civic_education: 'Civic Education'
+};
+
+const documentLabels = {
+  PASSPORT: 'Passport Photograph',
+  JAMB_RESULT:
+    'JAMB Result or Registration Slip',
+  OLEVEL_RESULT: "O'Level Result",
+  BIRTH_CERTIFICATE:
+    'Birth Certificate or Declaration of Age',
+  LGA_IDENTIFICATION:
+    'LGA or State Identification',
+  OTHER: 'Additional Supporting Document'
+};
+
+const requiredDocumentTypes = [
+  'PASSPORT',
+  ...(String(application.category || '')
+    .toUpperCase() === 'UTME'
+      ? ['JAMB_RESULT']
+      : []),
+  'OLEVEL_RESULT',
+  'BIRTH_CERTIFICATE',
+  'LGA_IDENTIFICATION',
+  'OTHER'
+];
+%>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title><%= title %></title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #e9ecef;
+      color: #1f2933;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      background: #183153;
+    }
+
+    .toolbar button,
+    .toolbar a {
+      padding: 9px 16px;
+      border: 0;
+      border-radius: 4px;
+      background: #fff;
+      color: #183153;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .sheet {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      padding: 12mm;
+      overflow: hidden;
+      background: #fff;
+      box-shadow:
+        0 2px 14px rgba(0, 0, 0, 0.16);
+    }
+
+    .draft-watermark {
+      position: fixed;
+      top: 46%;
+      left: 5%;
+      width: 90%;
+      transform: rotate(-28deg);
+      color: rgba(180, 20, 20, 0.11);
+      font-size: 48px;
+      font-weight: 800;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 90px 1fr 105px;
+      gap: 14px;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #087f5b;
+    }
+
+    .college-logo {
+      width: 82px;
+      height: 82px;
+      object-fit: contain;
+    }
+
+    .header-title {
+      text-align: center;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      color: #087f5b;
+      font-size: 20px;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .header-title p {
+      margin: 5px 0 0;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .passport {
+      width: 100px;
+      height: 120px;
+      overflow: hidden;
+      border: 1px solid #6c757d;
+      background: #f4f5f7;
+    }
+
+    .passport img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .passport-placeholder {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      color: #6c757d;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .application-title {
+      margin: 13px 0 9px;
+      padding: 7px;
+      background: #087f5b;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid #adb5bd;
+      border-left: 1px solid #adb5bd;
+    }
+
+    .meta-item {
+      min-height: 49px;
+      padding: 6px;
+      border-right: 1px solid #adb5bd;
+      border-bottom: 1px solid #adb5bd;
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 3px;
+      color: #5c6770;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .section {
+      margin-top: 12px;
+      page-break-inside: avoid;
+    }
+
+    .section h2 {
+      margin: 0;
+      padding: 6px 8px;
+      border-left: 5px solid #087f5b;
+      background: #e6fcf5;
+      color: #075f46;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 5px 7px;
+      border: 1px solid #adb5bd;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      width: 28%;
+      background: #f1f3f5;
+      font-weight: 700;
+    }
+
+    .sitting-heading {
+      margin: 8px 0 4px;
+      font-weight: 700;
+    }
+
+    .uploaded {
+      color: #087f5b;
+      font-weight: 700;
+    }
+
+    .missing {
+      color: #c92a2a;
+      font-weight: 700;
+    }
+
+    .declaration {
+      padding: 9px;
+      border: 1px solid #adb5bd;
+      background: #f8f9fa;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      margin-top: 35px;
+    }
+
+    .signature-line {
+      padding-top: 4px;
+      border-top: 1px solid #212529;
+      text-align: center;
+    }
+
+    .footer {
+      margin-top: 20px;
+      padding-top: 7px;
+      border-top: 1px solid #adb5bd;
+      color: #6c757d;
+      font-size: 9px;
+      text-align: center;
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 8mm;
+      }
+
+      body {
+        background: #fff;
+      }
+
+      .toolbar {
+        display: none !important;
+      }
+
+      .sheet {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="toolbar">
+    <button
+      type="button"
+      onclick="window.print()"
+    >
+      Print / Save as PDF
+    </button>
+
+    <button
+      type="button"
+      onclick="window.close()"
+    >
+      Close
+    </button>
+  </div>
+
+  <main class="sheet">
+    <% if (!isOfficial) { %>
+      <div class="draft-watermark">
+        DRAFT — NOT YET SUBMITTED
+      </div>
+    <% } %>
+
+    <header class="header">
+      <img
+        src="/public/img/logo.png"
+        class="college-logo"
+        alt="College logo"
+      >
+
+      <div class="header-title">
+        <h1>
+          College of Health Sciences and Technology,
+          Ijero-Ekiti
+        </h1>
+
+        <p>
+          <%= isOfficial
+            ? 'Official Application Form'
+            : 'Application Form Preview' %>
+        </p>
+      </div>
+
+      <div class="passport">
+        <% if (passport) { %>
+          <img
+            src="/applicant/applications/<%= application.id %>/documents/<%= passport.id %>/download?inline=1"
+            alt="Applicant passport photograph"
+          >
+        <% } else { %>
+          <div class="passport-placeholder">
+            Passport<br>Photograph
+          </div>
+        <% } %>
+      </div>
+    </header>
+
+    <div class="application-title">
+      <%= application.application_title || 'Application Form' %>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="label">Application Number</span>
+        <span class="value">
+          <%= application.application_number || '-' %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Application Type</span>
+        <span class="value">
+          <%= application.category || '-' %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Academic Session</span>
+        <span class="value">
+          <%= application.session_name || '-' %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Status</span>
+        <span class="value">
+          <%= status.replace(/_/g, ' ') || '-' %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Applicant Name</span>
+        <span class="value"><%= fullName || '-' %></span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Payment Status</span>
+        <span class="value">
+          <%= application.application_payment_status || '-' %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Submitted Date</span>
+        <span class="value">
+          <%= formatDate(application.submitted_at) %>
+        </span>
+      </div>
+
+      <div class="meta-item">
+        <span class="label">Printed Date</span>
+        <span class="value">
+          <%= formatDate(new Date()) %>
+        </span>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Personal Information</h2>
+
+      <table>
+        <tbody>
+          <tr>
+            <th>Full Name</th>
+            <td><%= fullName || '-' %></td>
+          </tr>
+
+          <tr>
+            <th>Gender</th>
+            <td><%= personal.gender || '-' %></td>
+          </tr>
+
+          <tr>
+            <th>Date of Birth</th>
+            <td>
+              <%= formatDate(personal.date_of_birth) %>
+            </td>
+          </tr>
+
+          <tr>
+            <th>Email Address</th>
+            <td>
+              <%= personal.email ||
+                applicantProfile?.username ||
+                '-' %>
+            </td>
+          </tr>
+
+          <tr>
+            <th>Phone Number</th>
+            <td>
+              <%= personal.phone ||
+                applicantProfile?.phone ||
+                '-' %>
+            </td>
+          </tr>
+
+          <tr>
+            <th>State of Origin</th>
+            <td>
+              <%= personal.state_of_origin || '-' %>
+            </td>
+          </tr>
+
+          <tr>
+            <th>Local Government Area</th>
+            <td><%= personal.lga || '-' %></td>
+          </tr>
+
+          <tr>
+            <th>Residential Address</th>
+            <td>
+              <%= personal.residential_address || '-' %>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <% if (
+      String(application.category || '')
+        .toUpperCase() === 'UTME'
+    ) { %>
+      <section class="section">
+        <h2>JAMB / UTME Information</h2>
+
+        <table>
+          <tbody>
+            <tr>
+              <th>JAMB Registration Number</th>
+              <td>
+                <%= jamb.registration_number ||
+                  jamb.jamb_registration_number ||
+                  jamb.candidate_reference ||
+                  jamb.reference ||
+                  personal.jamb_registration_number ||
+                  '-' %>
+              </td>
+            </tr>
+
+            <tr>
+              <th>JAMB Score</th>
+              <td>
+                <%= jamb.score ||
+                  jamb.jamb_score ||
+                  personal.jamb_score ||
+                  '-' %>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    <% } %>
+
+    <section class="section">
+      <h2>Programme Choice</h2>
+
+      <table>
+        <tbody>
+          <tr>
+            <th>School</th>
+            <td><%= choice.school_name || '-' %></td>
+          </tr>
+
+          <tr>
+            <th>Department</th>
+            <td><%= choice.department_name || '-' %></td>
+          </tr>
+
+          <tr>
+            <th>Programme</th>
+            <td>
+              <strong>
+                <%= choice.programme_name || '-' %>
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>O'Level Results</h2>
+
+      <% if (sittingList.length) { %>
+        <% sittingList.forEach(
+          (sitting, index) => {
+        %>
+          <div class="sitting-heading">
+            Sitting <%= index + 1 %>:
+            <%= sitting.examination_type || '-' %> |
+            <%= sitting.examination_number || '-' %> |
+            <%= sitting.examination_year || '-' %>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <% Object.entries(
+                sitting.subjects || {}
+              ).forEach(([subject, grade]) => {
+                if (!grade) return;
+              %>
+                <tr>
+                  <td>
+                    <%= subjectLabels[subject] ||
+                      subject
+                        .replace(/_/g, ' ')
+                        .replace(
+                          /\b\w/g,
+                          (character) =>
+                            character.toUpperCase()
+                        ) %>
+                  </td>
+
+                  <td><%= grade %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% }) %>
+      <% } else { %>
+        <p>No O'Level result details supplied.</p>
+      <% } %>
+    </section>
+
+    <section class="section">
+      <h2>Application Documents</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Filename</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% requiredDocumentTypes.forEach(
+            (documentType) => {
+              const document =
+                documentMap[documentType] || null;
+          %>
+            <tr>
+              <td>
+                <%= documentLabels[documentType] ||
+                  documentType %>
+              </td>
+
+              <td>
+                <%= document?.original_filename || '-' %>
+              </td>
+
+              <td>
+                <span
+                  class="<%= document
+                    ? 'uploaded'
+                    : 'missing' %>"
+                >
+                  <%= document
+                    ? 'Uploaded'
+                    : documentType === 'OTHER'
+                      ? 'Not supplied'
+                      : 'Missing' %>
+                </span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Applicant Declaration</h2>
+
+      <div class="declaration">
+        <% if (declaration.accepted) { %>
+          I confirm that the information and documents
+          supplied in this application are complete and
+          accurate. I understand that false or misleading
+          information may result in rejection or withdrawal
+          of admission.
+
+          <br><br>
+
+          <strong>Declaration accepted:</strong>
+          <%= formatDate(declaration.accepted_at) %>
+        <% } else { %>
+          This application is still a draft. The final
+          applicant declaration has not yet been accepted.
+        <% } %>
+      </div>
+
+      <div class="signature-grid">
+        <div class="signature-line">
+          Applicant's Signature
+        </div>
+
+        <div class="signature-line">
+          Date
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Generated from the College of Health Sciences and
+      Technology, Ijero-Ekiti application portal.
+
+      <% if (!isOfficial) { %>
+        This draft is not evidence of final submission.
+      <% } %>
+    </footer>
+  </main>
+</body>
+</html>

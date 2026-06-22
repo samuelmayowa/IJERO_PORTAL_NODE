@@ -90,23 +90,62 @@
             </div>
 
             <div class="form-group col-md-3">
-              <label>Application Category</label>
-              <input
-                type="text"
+              <label>Application Type</label>
+              <select
                 name="category"
                 class="form-control"
-                list="applicationCategories"
-                value="<%= editing ? editing.category : 'JAMB' %>"
-                placeholder="JAMB, Direct Entry, HND..."
+                required
               >
-              <datalist id="applicationCategories">
-                <option value="JAMB">
-                <option value="DIRECT ENTRY">
-                <option value="HND">
-                <option value="VACANCY">
-                <option value="SCREENING">
-                <option value="GENERAL">
-              </datalist>
+                <option value="">-- Select Application Type --</option>
+
+                <option
+                  value="ND"
+                  <%= editing &&
+                    String(editing.category || '').toUpperCase() === 'ND'
+                      ? 'selected'
+                      : '' %>
+                >
+                  ND Application
+                </option>
+
+                <option
+                  value="HND"
+                  <%= editing &&
+                    String(editing.category || '').toUpperCase() === 'HND'
+                      ? 'selected'
+                      : '' %>
+                >
+                  HND Application
+                </option>
+
+                <option
+                  value="PRELIM"
+                  <%= editing &&
+                    String(editing.category || '').toUpperCase() === 'PRELIM'
+                      ? 'selected'
+                      : '' %>
+                >
+                  Prelim Application
+                </option>
+
+                <option
+                  value="UTME"
+                  <%= editing &&
+                    [
+                      'UTME',
+                      'JAMB',
+                      'PUTME',
+                      'POST UTME',
+                      'POST-UTME'
+                    ].includes(
+                      String(editing.category || '').toUpperCase()
+                    )
+                      ? 'selected'
+                      : '' %>
+                >
+                  UTME/Post-UTME Application
+                </option>
+              </select>
             </div>
 
             <div class="form-group col-md-3">
@@ -531,19 +570,28 @@
 
         <h6><strong>Expected columns</strong></h6>
 
-        <code class="d-block border rounded p-2 mb-3">
-          s_n, candidate_reference, first_name, middle_name, surname,
-          email, phone, jamb_total_score, state_of_origin, lga, gender
-        </code>
+          <code class="d-block border rounded p-2 mb-3">
+            s_n, candidate_reference, first_name, middle_name, surname,
+            email, phone, jamb_total_score, state_of_origin, lga, gender
+          </code>
 
-        <p class="text-muted">
-          The compulsory column depends on the selected matching method:
-          Reference requires <strong>candidate_reference</strong>;
-          Email requires <strong>email</strong>;
-          Phone requires <strong>phone</strong>;
-          Name requires <strong>first_name</strong> and
-          <strong>surname</strong>.
-        </p>
+          <div class="alert alert-light border">
+            For UTME/JAMB lists using
+            <strong>Reference</strong> matching, the
+            <strong>email</strong> and <strong>phone</strong> columns are
+            optional. They may be left blank or omitted when they are not
+            included in the JAMB record.
+          </div>
+
+          <p class="text-muted">
+            The compulsory column depends on the selected matching method:
+            Reference requires only
+            <strong>candidate_reference</strong>;
+            Email requires <strong>email</strong>;
+            Phone requires <strong>phone</strong>;
+            Name requires <strong>first_name</strong> and
+            <strong>surname</strong>.
+          </p>
 
         <a
           href="/staff/fees/application-forms/prerequisite-template.csv"
