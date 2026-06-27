@@ -8,6 +8,7 @@ import {
 } from "../middleware/applicationDocumentUpload.js";
 import {
   getOpenApplicationFormBySlug,
+  getApplicationFormBySlug,
   checkApplicantPrerequisite,
   loadApplicantProfile,
   verifyApplicantReference,
@@ -1435,7 +1436,7 @@ export async function saveApplicationForm(req, res, next) {
 // GET /applicant/applications/:slug/preview
 export async function applicationPreview(req, res, next) {
   try {
-    const form = await getOpenApplicationFormBySlug(
+    const form = await getApplicationFormBySlug(
       req.params.slug,
     );
 

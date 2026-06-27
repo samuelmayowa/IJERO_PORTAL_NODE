@@ -332,19 +332,28 @@
 
         <% } else if (
           applicationProgress &&
-          progressStatus === 'SUBMITTED'
+          [
+            'SUBMITTED',
+            'UNDER_REVIEW',
+            'ADMITTED',
+            'REJECTED',
+            'WITHDRAWN'
+          ].includes(progressStatus)
         ) { %>
           <span class="badge badge-success p-2">
             <i class="fas fa-check-circle mr-1"></i>
-            Application Submitted
+
+            <%= progressStatus
+              .replace(/_/g, ' ') %>
           </span>
 
           <a
             href="/applicant/applications/<%= encodeURIComponent(
               form.slug
-            ) %>/form"
+            ) %>/preview"
             class="btn btn-outline-success ml-2"
           >
+            <i class="fas fa-eye mr-1"></i>
             View Application
           </a>
 

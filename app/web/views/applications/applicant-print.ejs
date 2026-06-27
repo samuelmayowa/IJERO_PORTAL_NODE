@@ -101,6 +101,20 @@ const sittingList =
     ? olevel.sittings
     : [];
 
+const jambTotalScore = [
+  personal.jamb_total_score,
+  jamb.jamb_total_score,
+  jamb.total_score,
+  jamb.jamb_score,
+  jamb.score,
+  personal.jamb_score
+].find(
+  (value) =>
+    value !== undefined &&
+    value !== null &&
+    String(value).trim() !== ''
+);
+
 const subjectLabels = {
   english: 'English Language',
   english_language: 'English Language',
@@ -212,6 +226,48 @@ const requiredDocumentTypes = [
       font-weight: 800;
       text-align: center;
       pointer-events: none;
+    }
+
+    .official-watermark {
+      position: fixed;
+      top: 46%;
+      left: 50%;
+      z-index: 0;
+      width: 430px;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0.07;
+    }
+
+    .official-watermark img {
+      width: 330px;
+      max-width: 100%;
+      height: auto;
+      filter: grayscale(100%);
+    }
+
+    .official-watermark-text {
+      margin-top: 8px;
+      color: #087f5b;
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .sheet > *:not(.official-watermark):not(.draft-watermark) {
+      position: relative;
+      z-index: 1;
+    }
+
+    .institution-address {
+      margin-top: 4px;
+      color: #343a40;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.35;
     }
 
     .header {
@@ -432,6 +488,19 @@ const requiredDocumentTypes = [
   </div>
 
   <main class="sheet">
+    <% if (isOfficial) { %>
+      <div class="official-watermark">
+        <img
+          src="/public/img/logo.png"
+          alt=""
+        >
+
+        <div class="official-watermark-text">
+          <%= application.session_name || '' %>
+          Application Form
+        </div>
+      </div>
+    <% } %>
     <% if (!isOfficial) { %>
       <div class="draft-watermark">
         DRAFT — NOT YET SUBMITTED
@@ -447,9 +516,16 @@ const requiredDocumentTypes = [
 
       <div class="header-title">
         <h1>
-          Ekiti State College of Technology,
-          Ijero
-        </h1>
+            Ekiti State College of Technology,
+            Ijero
+          </h1>
+
+          <div class="institution-address">
+            P.M.B 316, Epe Ara Road, Ijero Ekiti,
+            Ekiti State, Nigeria
+          </div>
+
+
 
         <p>
           <%= isOfficial
@@ -616,12 +692,9 @@ const requiredDocumentTypes = [
             </tr>
 
             <tr>
-              <th>JAMB Score</th>
+              <th>JAMB / UTME Total Score</th>
               <td>
-                <%= jamb.score ||
-                  jamb.jamb_score ||
-                  personal.jamb_score ||
-                  '-' %>
+                <%= jambTotalScore ?? '-' %>
               </td>
             </tr>
           </tbody>
@@ -787,8 +860,24 @@ const requiredDocumentTypes = [
     </section>
 
     <footer class="footer">
-      Generated from the College of Health Sciences and
-      Technology, Ijero-Ekiti application portal.
+      <strong>
+        Ekiti State College of Technology
+      </strong>
+
+      <br>
+
+      P.M.B 316, Epe Ara Road, Ijero Ekiti,
+      Ekiti State, Nigeria
+
+      <br>
+
+      Enquiries or complaints:
+      08036697562, 08069464930, 08068430751
+
+      <br>
+
+      Generated from the official EKSCOTECH
+      application portal.
 
       <% if (!isOfficial) { %>
         This draft is not evidence of final submission.

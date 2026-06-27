@@ -303,7 +303,17 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <p>Manage Applicant <i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="/staff/students/upload"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
+
+          <li class="nav-item">
+            <a
+              href="/staff/admissions/applications"
+              class="nav-link <%= cur.startsWith('/staff/admissions/applications') ? 'active' : '' %>"
+            >
+              <i class="far fa-circle nav-icon"></i>
+              <p><strong>Applications Report</strong></p>
+            </a>
+          </li>
+<li class="nav-item"><a href="/staff/students/upload"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
           <li class="nav-item"><a href="/staff/students/edit"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Edit Applicant</strong></p></a></li>
           <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Reset Password</strong></p></a></li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Payment / Requery</strong></p></a></li>
@@ -335,6 +345,26 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/fees/late-payment-charges" class="nav-link <%= cur.startsWith('/staff/fees/late-payment-charges') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Late Payment Charges</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/utme" class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/applicants" class="nav-link <%= cur.startsWith('/staff/bursary/applicants') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Applicants</p></a></li>
+          <li class="nav-item">
+            <a
+              href="/staff/fees/application-fees"
+              class="nav-link <%= cur.startsWith('/staff/fees/application-fees') ? 'active' : '' %>"
+            >
+              <i class="far fa-circle nav-icon"></i>
+              <p>Application Fee (R)</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a
+              href="/staff/fees/acceptance-fees"
+              class="nav-link <%= cur.startsWith('/staff/fees/acceptance-fees') ? 'active' : '' %>"
+            >
+              <i class="far fa-circle nav-icon"></i>
+              <p>Acceptance Fee (R)</p>
+            </a>
+          </li>
+
           <li class="nav-item"><a href="/staff/bursary/verify-applicant" class="nav-link <%= cur.startsWith('/staff/bursary/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Verify Applicant</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/verify-student" class="nav-link <%= cur.startsWith('/staff/bursary/verify-student') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Verify Student Payment</p></a></li>
           <li class="nav-item"><a href="/staff/payments/legacy-recovery" class="nav-link <%= cur.startsWith('/staff/payments/legacy-recovery') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Legacy Payment Recovery</p></a></li>

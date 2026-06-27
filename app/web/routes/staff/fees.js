@@ -5,6 +5,7 @@ import { Router } from "express";
 import multer from "multer";
 import * as pt from "../../controllers/paymentTypeController.js";
 import * as gp from "../../controllers/generalPaymentController.js";
+import * as applicationPaymentReportCtrl from "../../controllers/applicationPaymentReports.controller.js";
 import db from "../../../core/db.js";
 import {
   listLatePaymentCharges,
@@ -67,6 +68,27 @@ r.post("/payment-types/:id/edit", pt.update);
 // Admin – All / General Payment
 r.get("/payments", gp.index);
 r.get("/payments/export.csv", gp.exportCsv);
+
+// Application and acceptance fee reports
+r.get(
+  "/application-fees/export.csv",
+  applicationPaymentReportCtrl.exportApplicationFeesCsv,
+);
+
+r.get(
+  "/application-fees",
+  applicationPaymentReportCtrl.applicationFeesReport,
+);
+
+r.get(
+  "/acceptance-fees/export.csv",
+  applicationPaymentReportCtrl.exportAcceptanceFeesCsv,
+);
+
+r.get(
+  "/acceptance-fees",
+  applicationPaymentReportCtrl.acceptanceFeesReport,
+);
 
 // Cascading dropdown: departments by school
 r.get("/api/schools/:id/departments", async (req, res, next) => {

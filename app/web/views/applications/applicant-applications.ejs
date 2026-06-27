@@ -188,18 +188,32 @@ function dateTime(value) {
                           </a>
                         <% } %>
                       <% } else { %>
+                        <%
+                          const lockedApplication =
+                            [
+                              'SUBMITTED',
+                              'UNDER_REVIEW',
+                              'ADMITTED',
+                              'REJECTED',
+                              'WITHDRAWN'
+                            ].includes(applicationStatus);
+                        %>
+
                         <a
                           class="btn btn-success btn-sm"
                           href="/applicant/applications/<%= encodeURIComponent(
                             item.application_slug
-                          ) %>/form"
+                          ) %>/<%= lockedApplication
+                            ? 'preview'
+                            : 'form' %>"
                         >
-                          <i class="fas fa-file-alt mr-1"></i>
+                          <i class="fas <%= lockedApplication
+                            ? 'fa-eye'
+                            : 'fa-file-alt' %> mr-1"></i>
 
-                          <%= applicationStatus ===
-                            'SUBMITTED'
-                              ? 'View Application'
-                              : 'Continue Application' %>
+                          <%= lockedApplication
+                            ? 'View Application'
+                            : 'Continue Application' %>
                         </a>
                       <% } %>
                     </td>

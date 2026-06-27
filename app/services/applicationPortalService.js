@@ -194,6 +194,78 @@ export async function getOpenApplicationFormBySlug(slug) {
   return form;
 }
 
+export async function getApplicationFormBySlug(slug) {
+  const openForm =
+    await getOpenApplicationFormBySlug(slug);
+
+  if (openForm) {
+    return openForm;
+  }
+
+  const [rows] = await db.query(
+    `
+      SELECT
+        f.*,
+        s.name AS session_name
+      FROM application_forms f
+      LEFT JOIN sessions s
+        ON s.id = f.session_id
+      WHERE f.slug = ?
+      LIMIT 1
+    `,
+    [clean(slug)],
+  );
+
+  const form = rows?.[0] || null;
+
+  if (!form) {
+    return null;
+  }
+
+  const [charges] = await db.query(
+    `
+      SELECT
+        id,
+        charge_name,
+        charge_stage,
+        amount,
+        display_order
+      FROM application_form_charges
+      WHERE application_form_id = ?
+        AND is_active = 1
+      ORDER BY
+        charge_stage ASC,
+        display_order ASC,
+        id ASC
+    `,
+    [form.id],
+  );
+
+  form.application_charges = (charges || []).filter(
+    (row) => row.charge_stage === "APPLICATION",
+  );
+
+  form.acceptance_charges = (charges || []).filter(
+    (row) => row.charge_stage === "ACCEPTANCE",
+  );
+
+  form.application_total =
+    form.application_charges.reduce(
+      (sum, row) =>
+        sum + Number(row.amount || 0),
+      0,
+    );
+
+  form.acceptance_total =
+    form.acceptance_charges.reduce(
+      (sum, row) =>
+        sum + Number(row.amount || 0),
+      0,
+    );
+
+  return form;
+}
+
 export async function checkApplicantPrerequisite(
   form,
   publicUser = {},

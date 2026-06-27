@@ -13,6 +13,7 @@ import * as courseCtrl from "../controllers/course.controller.js";
 import * as schoolCtrl from "../controllers/school.controller.js";
 import * as departmentCtrl from "../controllers/department.controller.js";
 import * as studentEditCtrl from "../controllers/studentEdit.controller.js";
+import * as applicationReportCtrl from "../controllers/applicationReports.controller.js";
 const router = Router();
 
 /* ──────────────────────────────────────────────────────────
@@ -60,6 +61,23 @@ router.use((req, res, next) => {
    ────────────────────────────────────────────────────────── */
 router.get("/", (_req, res) => res.redirect("/staff/dashboard"));
 router.get("/dashboard", safe("dashboard"));
+
+router.get(
+  "/admissions/applications/export.csv",
+  requireRole("admin", "registry"),
+  applicationReportCtrl.exportApplicationsCsv,
+);
+
+router.get(
+  "/admissions/applications",
+  requireRole("admin", "registry"),
+  applicationReportCtrl.applicationsReport,
+);
+
+
+
+
+
 /* ───────────────────── Student Edit ───────────────────── */
 router.get(
   "/students/edit",
