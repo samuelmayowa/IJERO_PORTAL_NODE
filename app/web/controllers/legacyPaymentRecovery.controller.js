@@ -38,11 +38,14 @@ async function findMissingLegacyPayments({
     `NOT EXISTS (
       SELECT 1
       FROM payment_invoices pi
-      WHERE pi.order_id = CASE
-        WHEN oldp.order_id IS NULL OR TRIM(oldp.order_id) = ''
-          THEN CONCAT('LEGACY-', oldp.pay_id)
-        ELSE oldp.order_id
-      END
+      WHERE BINARY TRIM(pi.order_id) =
+      BINARY TRIM(
+        CASE
+          WHEN oldp.order_id IS NULL OR TRIM(oldp.order_id) = ''
+            THEN CONCAT('LEGACY-', oldp.pay_id)
+          ELSE oldp.order_id
+        END
+      )
       OR (
         NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
         AND
@@ -157,12 +160,15 @@ async function findLegacyPaymentByRrr(rrr) {
          AND NOT EXISTS (
            SELECT 1
            FROM payment_invoices pi
-           WHERE pi.order_id = CASE
-             WHEN oldp.order_id IS NULL
-               OR TRIM(oldp.order_id) = ''
-               THEN CONCAT('LEGACY-', oldp.pay_id)
-             ELSE oldp.order_id
-           END
+           WHERE BINARY TRIM(pi.order_id) =
+           BINARY TRIM(
+             CASE
+               WHEN oldp.order_id IS NULL
+                 OR TRIM(oldp.order_id) = ''
+                 THEN CONCAT('LEGACY-', oldp.pay_id)
+               ELSE oldp.order_id
+             END
+           )
            OR (
              NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
              AND
@@ -311,7 +317,7 @@ export async function importPayments(req, res) {
         `
         SELECT id
         FROM payment_invoices
-        WHERE order_id = ?
+        WHERE BINARY TRIM(order_id) = BINARY TRIM(?)
            OR (
              ? <> ''
              AND TRIM(rrr) = ?
