@@ -32,9 +32,9 @@ async function findMissingLegacyPayments({
   limit = 500,
 } = {}) {
   const where = [
-    `oldp.status = 'Successful'`,
-    `oldp.academic_session = ?`,
-    `LOWER(TRIM(oldp.pay_type)) = 'school fees'`,
+    `BINARY TRIM(oldp.status) = BINARY 'Successful'`,
+    `BINARY TRIM(oldp.academic_session) = BINARY TRIM(?)`,
+    `BINARY LOWER(TRIM(oldp.pay_type)) = BINARY 'school fees'`,
     `NOT EXISTS (
       SELECT 1
       FROM payment_invoices pi
@@ -46,11 +46,9 @@ async function findMissingLegacyPayments({
       OR (
         NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
         AND
-          CONVERT(TRIM(pi.rrr) USING utf8mb4)
-            COLLATE utf8mb4_unicode_ci
+          BINARY TRIM(pi.rrr)
           =
-          CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
-            COLLATE utf8mb4_unicode_ci
+          BINARY TRIM(oldp.ref_number)
       )
     )`,
   ];
@@ -59,27 +57,23 @@ async function findMissingLegacyPayments({
 
   if (matric) {
     where.push(`
-      CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
-        COLLATE utf8mb4_unicode_ci
+      BINARY TRIM(oldp.matric_id)
       =
-      CONVERT(TRIM(?) USING utf8mb4)
-        COLLATE utf8mb4_unicode_ci
+      BINARY TRIM(?)
     `);
     params.push(matric);
   }
 
   if (email) {
-    where.push(`LOWER(TRIM(pu.username)) = LOWER(TRIM(?))`);
+    where.push(`BINARY LOWER(TRIM(pu.username)) = BINARY LOWER(TRIM(?))`);
     params.push(email);
   }
 
   if (rrr) {
     where.push(`
-      CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
-        COLLATE utf8mb4_unicode_ci
+      BINARY TRIM(oldp.ref_number)
       =
-      CONVERT(TRIM(?) USING utf8mb4)
-        COLLATE utf8mb4_unicode_ci
+      BINARY TRIM(?)
     `);
     params.push(rrr);
   }
@@ -115,11 +109,9 @@ async function findMissingLegacyPayments({
     FROM legacy_student_payments oldp
     JOIN public_users pu
       ON
-        CONVERT(TRIM(pu.matric_number) USING utf8mb4)
-          COLLATE utf8mb4_unicode_ci
+        BINARY TRIM(pu.matric_number)
         =
-        CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
-          COLLATE utf8mb4_unicode_ci
+        BINARY TRIM(oldp.matric_id)
      AND pu.role = 'student'
     WHERE ${where.join(" AND ")}
     ORDER BY oldp.date_paid ASC, oldp.pay_id ASC
@@ -158,9 +150,9 @@ async function findLegacyPaymentByRrr(rrr) {
         pu.last_name
       ) AS student_name,
       CASE
-        WHEN oldp.academic_session = ?
-         AND oldp.status = 'Successful'
-         AND LOWER(TRIM(oldp.pay_type)) = 'school fees'
+        WHEN BINARY TRIM(oldp.academic_session) = BINARY TRIM(?)
+         AND BINARY TRIM(oldp.status) = BINARY 'Successful'
+         AND BINARY LOWER(TRIM(oldp.pay_type)) = BINARY 'school fees'
          AND pu.id IS NOT NULL
          AND NOT EXISTS (
            SELECT 1
@@ -174,11 +166,9 @@ async function findLegacyPaymentByRrr(rrr) {
            OR (
              NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
              AND
-               CONVERT(TRIM(pi.rrr) USING utf8mb4)
-                 COLLATE utf8mb4_unicode_ci
+               BINARY TRIM(pi.rrr)
                =
-               CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
-                 COLLATE utf8mb4_unicode_ci
+               BINARY TRIM(oldp.ref_number)
            )
          )
         THEN 1
@@ -187,13 +177,11 @@ async function findLegacyPaymentByRrr(rrr) {
     FROM legacy_student_payments oldp
     LEFT JOIN public_users pu
       ON
-        CONVERT(TRIM(pu.matric_number) USING utf8mb4)
-          COLLATE utf8mb4_unicode_ci
+        BINARY TRIM(pu.matric_number)
         =
-        CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
-          COLLATE utf8mb4_unicode_ci
+        BINARY TRIM(oldp.matric_id)
      AND pu.role = 'student'
-    WHERE LOWER(TRIM(oldp.pay_type)) = 'school fees'
+    WHERE BINARY LOWER(TRIM(oldp.pay_type)) = BINARY 'school fees'
       AND
         CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
           COLLATE utf8mb4_unicode_ci
