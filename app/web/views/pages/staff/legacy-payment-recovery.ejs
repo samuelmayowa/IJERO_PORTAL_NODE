@@ -41,7 +41,7 @@
     >
       <div class="tab-pane fade show active" id="singleMode" role="tabpanel">
         <div class="form-row">
-          <div class="form-group col-md-4">
+          <div class="form-group col-md-3">
             <label>Matric Number</label>
             <input
               id="singleMatric"
@@ -50,7 +50,7 @@
             />
           </div>
 
-          <div class="form-group col-md-4">
+          <div class="form-group col-md-3">
             <label>Email</label>
             <input
               id="singleEmail"
@@ -59,7 +59,16 @@
             />
           </div>
 
-          <div class="form-group col-md-4 d-flex align-items-end">
+          <div class="form-group col-md-3">
+            <label>RRR</label>
+            <input
+              id="singleRrr"
+              class="form-control"
+              placeholder="Enter Remita RRR"
+            />
+          </div>
+
+          <div class="form-group col-md-3 d-flex align-items-end">
             <button id="btnSinglePreview" class="btn btn-primary mr-2">
               Find Legacy Payments
             </button>
@@ -131,11 +140,14 @@
             <th>Ref/RRR</th>
             <th>Order ID</th>
             <th>Date Paid</th>
+            <th>Session</th>
+            <th>Status</th>
+            <th>Eligibility</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td colspan="9" class="text-center text-muted">
+            <td colspan="12" class="text-center text-muted">
               No data loaded yet.
             </td>
           </tr>
@@ -205,7 +217,7 @@
     document.getElementById("summaryMode").textContent = modeLabel || "-";
 
     document.querySelector("#resultTable tbody").innerHTML =
-      '<tr><td colspan="9" class="text-center text-muted">No matching missing legacy payment found.</td></tr>';
+      '<tr><td colspan="12" class="text-center text-muted">No matching missing legacy payment found.</td></tr>';
 
     document.getElementById("btnSingleImport").disabled = true;
     document.getElementById("btnBulkImport").disabled = true;
@@ -215,11 +227,20 @@
     const tbody = document.querySelector("#resultTable tbody");
     tbody.innerHTML = "";
 
-    lastPreviewCount = items.length;
-    document.getElementById("summaryCount").textContent = String(items.length);
+    const eligibleCount = items.filter(
+      (row) => Number(row.eligible_for_credit || 0) === 1,
+    ).length;
+
+    lastPreviewCount = eligibleCount;
+
+    document.getElementById("summaryCount").textContent =
+      String(items.length);
+
     document.getElementById("summaryAmount").textContent =
       fmtMoney(totalAmount);
-    document.getElementById("summaryMode").textContent = modeLabel;
+
+    document.getElementById("summaryMode").textContent =
+      modeLabel;
 
     if (!items.length) {
       resetResults(modeLabel);
@@ -228,29 +249,44 @@
 
     for (const row of items) {
       const tr = document.createElement("tr");
+
       const datePaid = row.date_paid
         ? new Date(row.date_paid).toLocaleString()
         : "";
 
+      const eligible =
+        Number(row.eligible_for_credit || 0) === 1;
+
       tr.innerHTML = `
       <td>${esc(row.pay_id)}</td>
       <td>${esc(row.matric_id)}</td>
-      <td>${esc(row.student_name)}</td>
-      <td>${esc(row.email)}</td>
+      <td>${esc(row.student_name || "Unmatched student")}</td>
+      <td>${esc(row.email || "")}</td>
       <td>${esc(row.pay_type)}</td>
       <td>${fmtMoney(row.amount_paid)}</td>
       <td>${esc(row.ref_number)}</td>
       <td>${esc(row.order_id || "LEGACY-" + row.pay_id)}</td>
       <td>${esc(datePaid)}</td>
+      <td>${esc(row.academic_session || "(No session)")}</td>
+      <td>${esc(row.legacy_status || "")}</td>
+      <td>
+        ${
+          eligible
+            ? '<span class="badge badge-success">Eligible</span>'
+            : '<span class="badge badge-secondary">View only</span>'
+        }
+      </td>
     `;
 
       tbody.appendChild(tr);
     }
 
     if (currentMode === "single") {
-      document.getElementById("btnSingleImport").disabled = false;
+      document.getElementById("btnSingleImport").disabled =
+        eligibleCount === 0;
     } else {
-      document.getElementById("btnBulkImport").disabled = false;
+      document.getElementById("btnBulkImport").disabled =
+        eligibleCount === 0;
     }
   }
 
@@ -262,6 +298,7 @@
     if (mode === "single") {
       params.set("matric", document.getElementById("singleMatric").value);
       params.set("email", document.getElementById("singleEmail").value);
+      params.set("rrr", document.getElementById("singleRrr").value);
     }
 
     const btn =
@@ -314,6 +351,7 @@
     if (mode === "single") {
       body.matric = document.getElementById("singleMatric").value;
       body.email = document.getElementById("singleEmail").value;
+      body.rrr = document.getElementById("singleRrr").value;
     }
 
     const btn =

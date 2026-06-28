@@ -28,6 +28,7 @@ function legacyMeta(row) {
 async function findMissingLegacyPayments({
   matric = "",
   email = "",
+  rrr = "",
   limit = 500,
 } = {}) {
   const where = [
@@ -44,7 +45,12 @@ async function findMissingLegacyPayments({
       END
       OR (
         NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
-        AND TRIM(pi.rrr) = TRIM(oldp.ref_number)
+        AND
+          CONVERT(TRIM(pi.rrr) USING utf8mb4)
+            COLLATE utf8mb4_unicode_ci
+          =
+          CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
+            COLLATE utf8mb4_unicode_ci
       )
     )`,
   ];
@@ -52,13 +58,30 @@ async function findMissingLegacyPayments({
   const params = [LEGACY_SESSION];
 
   if (matric) {
-    where.push(`oldp.matric_id = ?`);
+    where.push(`
+      CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
+        COLLATE utf8mb4_unicode_ci
+      =
+      CONVERT(TRIM(?) USING utf8mb4)
+        COLLATE utf8mb4_unicode_ci
+    `);
     params.push(matric);
   }
 
   if (email) {
-    where.push(`LOWER(pu.username) = LOWER(?)`);
+    where.push(`LOWER(TRIM(pu.username)) = LOWER(TRIM(?))`);
     params.push(email);
+  }
+
+  if (rrr) {
+    where.push(`
+      CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
+        COLLATE utf8mb4_unicode_ci
+      =
+      CONVERT(TRIM(?) USING utf8mb4)
+        COLLATE utf8mb4_unicode_ci
+    `);
+    params.push(rrr);
   }
 
   params.push(Number(limit) || 500);
@@ -82,16 +105,105 @@ async function findMissingLegacyPayments({
       pu.matric_number,
       pu.username AS email,
       pu.phone,
-      CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name
+      CONCAT_WS(
+        ' ',
+        pu.first_name,
+        pu.middle_name,
+        pu.last_name
+      ) AS student_name,
+      1 AS eligible_for_credit
     FROM legacy_student_payments oldp
     JOIN public_users pu
-      ON pu.matric_number = oldp.matric_id
+      ON
+        CONVERT(TRIM(pu.matric_number) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
+        =
+        CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
      AND pu.role = 'student'
     WHERE ${where.join(" AND ")}
     ORDER BY oldp.date_paid ASC, oldp.pay_id ASC
     LIMIT ?
     `,
     params,
+  );
+
+  return rows || [];
+}
+
+async function findLegacyPaymentByRrr(rrr) {
+  const [rows] = await pool.query(
+    `
+    SELECT
+      oldp.pay_id,
+      oldp.student_id,
+      oldp.matric_id,
+      oldp.pay_type,
+      oldp.amount_paid,
+      oldp.ref_number,
+      oldp.order_id,
+      oldp.amount_payable,
+      oldp.date_paid,
+      oldp.status AS legacy_status,
+      oldp.std_level,
+      oldp.academic_session,
+      pu.id AS public_user_id,
+      pu.matric_number,
+      pu.username AS email,
+      pu.phone,
+      CONCAT_WS(
+        ' ',
+        pu.first_name,
+        pu.middle_name,
+        pu.last_name
+      ) AS student_name,
+      CASE
+        WHEN oldp.academic_session = ?
+         AND oldp.status = 'Successful'
+         AND LOWER(TRIM(oldp.pay_type)) = 'school fees'
+         AND pu.id IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1
+           FROM payment_invoices pi
+           WHERE pi.order_id = CASE
+             WHEN oldp.order_id IS NULL
+               OR TRIM(oldp.order_id) = ''
+               THEN CONCAT('LEGACY-', oldp.pay_id)
+             ELSE oldp.order_id
+           END
+           OR (
+             NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
+             AND
+               CONVERT(TRIM(pi.rrr) USING utf8mb4)
+                 COLLATE utf8mb4_unicode_ci
+               =
+               CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
+                 COLLATE utf8mb4_unicode_ci
+           )
+         )
+        THEN 1
+        ELSE 0
+      END AS eligible_for_credit
+    FROM legacy_student_payments oldp
+    LEFT JOIN public_users pu
+      ON
+        CONVERT(TRIM(pu.matric_number) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
+        =
+        CONVERT(TRIM(oldp.matric_id) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
+     AND pu.role = 'student'
+    WHERE LOWER(TRIM(oldp.pay_type)) = 'school fees'
+      AND
+        CONVERT(TRIM(oldp.ref_number) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
+        =
+        CONVERT(TRIM(?) USING utf8mb4)
+          COLLATE utf8mb4_unicode_ci
+    ORDER BY oldp.date_paid DESC, oldp.pay_id DESC
+    LIMIT 20
+    `,
+    [LEGACY_SESSION, rrr],
   );
 
   return rows || [];
@@ -110,42 +222,55 @@ export async function preview(req, res) {
     const mode = normalize(req.query.mode || "single");
     const matric = normalize(req.query.matric);
     const email = normalize(req.query.email).toLowerCase();
+    const rrr = normalize(req.query.rrr);
 
-    if (mode === "single" && !matric && !email) {
+    if (mode === "single" && !matric && !email && !rrr) {
       return res.json({
         success: false,
         items: [],
         total: 0,
+        eligibleTotal: 0,
         totalAmount: 0,
-        message: "Enter student matric number or email.",
+        message: "Enter student matric number, email or RRR.",
       });
     }
 
-    const rows = await findMissingLegacyPayments({
-      matric,
-      email,
-      limit: mode === "bulk" ? 1000 : 100,
-    });
+    const rows = rrr
+      ? await findLegacyPaymentByRrr(rrr)
+      : await findMissingLegacyPayments({
+          matric,
+          email,
+          limit: mode === "bulk" ? 1000 : 100,
+        });
 
     const totalAmount = rows.reduce(
       (sum, row) => sum + Number(row.amount_paid || 0),
       0,
     );
 
+    const eligibleTotal = rows.filter(
+      (row) => Number(row.eligible_for_credit || 0) === 1,
+    ).length;
+
     return res.json({
       success: true,
       items: rows,
       total: rows.length,
+      eligibleTotal,
       totalAmount,
     });
   } catch (err) {
     console.error("legacy payment preview error:", err);
+
     return res.status(500).json({
       success: false,
       items: [],
       total: 0,
+      eligibleTotal: 0,
       totalAmount: 0,
-      message: err.message || "Could not preview legacy payments.",
+      message:
+        err.message ||
+        "Could not preview legacy payments.",
     });
   }
 }
@@ -157,17 +282,19 @@ export async function importPayments(req, res) {
     const mode = normalize(req.body.mode || "single");
     const matric = normalize(req.body.matric);
     const email = normalize(req.body.email).toLowerCase();
+    const rrr = normalize(req.body.rrr);
 
-    if (mode === "single" && !matric && !email) {
+    if (mode === "single" && !matric && !email && !rrr) {
       return res.status(400).json({
         success: false,
-        message: "Enter student matric number or email.",
+        message: "Enter student matric number, email or RRR.",
       });
     }
 
     const rows = await findMissingLegacyPayments({
       matric,
       email,
+      rrr,
       limit: mode === "bulk" ? 1000 : 100,
     });
 
