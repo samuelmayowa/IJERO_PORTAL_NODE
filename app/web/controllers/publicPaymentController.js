@@ -1216,7 +1216,19 @@ export async function reprintDownload(req, res, next) {
       } catch (e) {}
     }
 
-    const kind = inv.status === "PAID" ? "receipt" : "invoice";
+    const fromStudentHistory =
+      String(
+        req.body?.studentHistory ||
+        req.query?.studentHistory ||
+        "",
+      ) === "1";
+
+    const kind =
+      inv.status === "PAID"
+        ? "receipt"
+        : fromStudentHistory
+          ? "unconfirmed"
+          : "invoice";
 
     if (wantsJson(req)) {
       return res.json({
@@ -1227,6 +1239,14 @@ export async function reprintDownload(req, res, next) {
         downloadUrl: `/payment/print/${encodeURIComponent(inv.order_id)}?type=${kind}&dl=1`,
       });
     }
+    if (kind === "unconfirmed") {
+      return renderUnconfirmedPaymentSlip(
+        res,
+        inv,
+        false,
+      );
+    }
+
     return renderInvoicePDF(res, inv, false, kind);
   } catch (e) {
     if (wantsJson(req))
@@ -1236,12 +1256,409 @@ export async function reprintDownload(req, res, next) {
   }
 }
 
+
+function renderUnconfirmedPaymentSlip(
+  res,
+  inv,
+  inline = true,
+) {
+  const doc = new PDFDocument({
+    size: "A4",
+    margin: 42,
+    info: {
+      Title: "Unconfirmed Payment Slip",
+      Subject: "Payment requiring Bursary validation",
+    },
+  });
+
+  const safeReference = String(
+    inv.rrr ||
+    inv.order_id ||
+    "payment",
+  ).replace(/[^a-zA-Z0-9_-]/g, "-");
+
+  const filename =
+    `unconfirmed-payment-slip-${safeReference}.pdf`;
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `${inline ? "inline" : "attachment"}; filename="${filename}"`,
+  );
+
+  doc.pipe(res);
+
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+
+  const logoPath = path.resolve(
+    "app/web/public/img/logo.png",
+  );
+
+  /*
+   * Strong scattered logo watermarks.
+   * These are deliberately visible because the document
+   * must never be mistaken for an official receipt.
+   */
+  if (fs.existsSync(logoPath)) {
+    const logoPositions = [
+      [55, 135],
+      [255, 135],
+      [455, 135],
+      [55, 390],
+      [255, 390],
+      [455, 390],
+      [55, 645],
+      [255, 645],
+      [455, 645],
+    ];
+
+    doc.opacity(0.13);
+
+    for (const [x, y] of logoPositions) {
+      doc.image(logoPath, x, y, {
+        fit: [82, 82],
+        align: "center",
+      });
+    }
+  }
+
+  /*
+   * Strong repeated text watermarks.
+   */
+  const watermarkRows = [
+    {
+      y: 170,
+      text: "UNCONFIRMED PAYMENT SLIP",
+    },
+    {
+      y: 290,
+      text: "THIS IS NOT A RECEIPT",
+    },
+    {
+      y: 410,
+      text: "UNCONFIRMED PAYMENT SLIP",
+    },
+    {
+      y: 530,
+      text: "THIS IS NOT A RECEIPT",
+    },
+    {
+      y: 650,
+      text: "UNCONFIRMED PAYMENT SLIP",
+    },
+    {
+      y: 760,
+      text: "THIS IS NOT A RECEIPT",
+    },
+  ];
+
+  for (const watermark of watermarkRows) {
+    doc.save();
+
+    doc
+      .opacity(0.18)
+      .fillColor("#b91c1c")
+      .font("Helvetica-Bold")
+      .fontSize(24)
+      .rotate(-24, {
+        origin: [pageWidth / 2, watermark.y],
+      })
+      .text(
+        watermark.text,
+        25,
+        watermark.y,
+        {
+          width: pageWidth - 50,
+          align: "center",
+        },
+      );
+
+    doc.restore();
+  }
+
+  doc.opacity(1).fillColor("#111827");
+
+  if (fs.existsSync(logoPath)) {
+    doc.image(
+      logoPath,
+      pageWidth / 2 - 34,
+      38,
+      {
+        fit: [68, 68],
+      },
+    );
+  }
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(15)
+    .text(
+      "EKITI STATE COLLEGE OF TECHNOLOGY, IJERO-EKITI",
+      42,
+      112,
+      {
+        width: pageWidth - 84,
+        align: "center",
+      },
+    );
+
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .text(
+      "P.M.B. 200, Ijero-Ekiti, Ekiti State, Nigeria",
+      {
+        width: pageWidth - 84,
+        align: "center",
+      },
+    );
+
+  doc
+    .moveDown(0.8)
+    .font("Helvetica-Bold")
+    .fontSize(17)
+    .fillColor("#b91c1c")
+    .text(
+      "UNCONFIRMED PAYMENT SLIP",
+      {
+        align: "center",
+      },
+    );
+
+  doc
+    .fontSize(12)
+    .text(
+      "THIS IS NOT A RECEIPT",
+      {
+        align: "center",
+        underline: true,
+      },
+    );
+
+  doc
+    .moveDown(0.8)
+    .strokeColor("#991b1b")
+    .lineWidth(1.2)
+    .moveTo(42, doc.y)
+    .lineTo(pageWidth - 42, doc.y)
+    .stroke();
+
+  doc.moveDown(1);
+
+  const leftX = 52;
+  const labelWidth = 145;
+  const valueX = leftX + labelWidth;
+  const valueWidth = pageWidth - valueX - 52;
+
+  function paymentField(label, value) {
+    const y = doc.y;
+
+    doc
+      .fillColor("#111827")
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .text(label, leftX, y, {
+        width: labelWidth,
+      });
+
+    doc
+      .font("Helvetica")
+      .text(
+        String(value || "N/A"),
+        valueX,
+        y,
+        {
+          width: valueWidth,
+        },
+      );
+
+    doc.moveDown(0.7);
+  }
+
+  paymentField(
+    "Student / Payer Name:",
+    inv.payee_fullname,
+  );
+
+  paymentField(
+    "Matric / Payee ID:",
+    inv.payee_id,
+  );
+
+  paymentField(
+    "Payment Purpose:",
+    inv.payment_type_name ||
+      inv.payment_type_purpose ||
+      inv.purpose,
+  );
+
+  paymentField(
+    "RRR:",
+    inv.rrr,
+  );
+
+  paymentField(
+    "Order ID:",
+    inv.order_id,
+  );
+
+  paymentField(
+    "Amount:",
+    `NGN ${Number(
+      inv.amount || 0,
+    ).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+  );
+
+  paymentField(
+    "Portal Charge:",
+    `NGN ${Number(
+      inv.portal_charge || 0,
+    ).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+  );
+
+  paymentField(
+    "Portal Status:",
+    String(inv.status || "PENDING").toUpperCase(),
+  );
+
+  paymentField(
+    "Slip Generated:",
+    new Date().toLocaleString("en-GB"),
+  );
+
+  doc.moveDown(0.7);
+
+  const noticeTop = doc.y;
+
+  doc
+    .roundedRect(
+      48,
+      noticeTop,
+      pageWidth - 96,
+      166,
+      7,
+    )
+    .fillAndStroke("#fff7ed", "#c2410c");
+
+  doc
+    .fillColor("#7c2d12")
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .text(
+      "IMPORTANT VALIDATION NOTICE",
+      62,
+      noticeTop + 12,
+      {
+        width: pageWidth - 124,
+        align: "center",
+      },
+    );
+
+  doc
+    .fillColor("#111827")
+    .font("Helvetica")
+    .fontSize(9.3)
+    .text(
+      "Unfortunately, this payment could not be confirmed from Remita at this time. This may mean that the payment was made through the former portal without returning to validate the RRR, or that the transaction was not completed successfully.\n\n" +
+      "If you believe the payment was successful, please take this Unconfirmed Payment Slip to the Bursary at the Administrative Block for direct validation on Remita.\n\n" +
+      "THIS SLIP MUST BE SIGNED AND STAMPED BY THE COLLEGE BURSAR.\n\n" +
+      "After validation, return the signed and stamped slip to the ICT Unit for the payment to be reviewed and updated on the portal.",
+      62,
+      noticeTop + 32,
+      {
+        width: pageWidth - 124,
+        align: "justify",
+        lineGap: 2,
+      },
+    );
+
+  doc.y = noticeTop + 182;
+
+  doc
+    .fillColor("#111827")
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .text(
+      "BURSARY VALIDATION",
+      {
+        align: "center",
+      },
+    );
+
+  doc.moveDown(1.6);
+
+  const signatureY = doc.y + 18;
+
+  doc
+    .strokeColor("#111827")
+    .lineWidth(0.8)
+    .moveTo(55, signatureY)
+    .lineTo(235, signatureY)
+    .stroke();
+
+  doc
+    .moveTo(pageWidth - 235, signatureY)
+    .lineTo(pageWidth - 55, signatureY)
+    .stroke();
+
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .text(
+      "Bursar's Signature / Date",
+      55,
+      signatureY + 5,
+      {
+        width: 180,
+        align: "center",
+      },
+    );
+
+  doc.text(
+    "Official Bursary Stamp",
+    pageWidth - 235,
+    signatureY + 5,
+    {
+      width: 180,
+      align: "center",
+    },
+  );
+
+  doc
+    .fillColor("#b91c1c")
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .text(
+      "THIS DOCUMENT IS NOT PROOF OF PAYMENT AND MUST NOT BE ACCEPTED AS A RECEIPT.",
+      48,
+      pageHeight - 58,
+      {
+        width: pageWidth - 96,
+        align: "center",
+      },
+    );
+
+  doc.end();
+}
+
 export async function print(req, res, next) {
   const orderId = String(req.params.orderId || "").trim();
-  const kind =
-    String(req.query.type || "invoice").toLowerCase() === "receipt"
-      ? "receipt"
-      : "invoice";
+  const requestedType = String(
+    req.query.type || "invoice",
+  ).toLowerCase();
+
+  let kind = ["receipt", "invoice", "unconfirmed"].includes(
+    requestedType,
+  )
+    ? requestedType
+    : "invoice";
   const inline = !(
     String(req.query.dl || "") === "1" || String(req.query.dl || "") === "true"
   );
@@ -1267,7 +1684,34 @@ export async function print(req, res, next) {
         .set("Content-Type", "text/plain")
         .send("Not found");
 
-    renderInvoicePDF(res, inv, inline, kind);
+    if (
+      kind === "unconfirmed" &&
+      String(inv.status || "").toUpperCase() === "PAID"
+    ) {
+      kind = "receipt";
+    }
+
+    if (
+      kind === "receipt" &&
+      String(inv.status || "").toUpperCase() !== "PAID"
+    ) {
+      kind = "invoice";
+    }
+
+    if (kind === "unconfirmed") {
+      return renderUnconfirmedPaymentSlip(
+        res,
+        inv,
+        inline,
+      );
+    }
+
+    return renderInvoicePDF(
+      res,
+      inv,
+      inline,
+      kind,
+    );
   } catch (err) {
     console.error("[print] error:", err);
     res
