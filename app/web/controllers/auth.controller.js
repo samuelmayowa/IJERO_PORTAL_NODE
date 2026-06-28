@@ -899,29 +899,42 @@ export async function studentPaymentHistory(req, res) {
     const stu = profileRows?.[0] || null;
     photo_path = stu?.photo_path || null;
 
-    const payeeA = stu?.matric_number || publicUser?.matric_number || "";
-    const payeeB = stu?.username || publicUser?.username || "";
-    const payeeC = stu?.phone || publicUser?.phone || "";
-    const payeeD = String(studentId || "");
+    const studentIdentifiers = [
+      stu?.matric_number,
+      publicUser?.matric_number,
+      studentId,
+    ]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index);
 
-    const [rows] = await pool.query(
-      `
-      SELECT
-        order_id,
-        rrr,
-        purpose,
-        amount,
-        portal_charge,
-        status,
-        DATE(COALESCE(paid_at, created_at)) AS date
-      FROM payment_invoices
-      WHERE payee_id IN (?, ?, ?, ?)
-      ORDER BY id DESC
-    `,
-      [payeeA, payeeB, payeeC, payeeD],
-    );
+    if (studentIdentifiers.length) {
+      const placeholders = studentIdentifiers.map(() => "?").join(", ");
 
-    payments = rows || [];
+      const [rows] = await pool.query(
+        `
+          SELECT
+            order_id,
+            rrr,
+            purpose,
+            amount,
+            portal_charge,
+            status,
+            paid_at,
+            created_at,
+            DATE(COALESCE(paid_at, created_at)) AS date
+          FROM payment_invoices
+          WHERE TRIM(COALESCE(payee_id, '')) <> ''
+            AND TRIM(payee_id) IN (${placeholders})
+          ORDER BY id DESC
+        `,
+        studentIdentifiers,
+      );
+
+      payments = rows || [];
+    } else {
+      payments = [];
+    }
   } catch (err) {
     console.error("Error loading student payment history:", err);
   }
