@@ -31,15 +31,28 @@ async function findMissingLegacyPayments({
   limit = 500,
 } = {}) {
   const where = [
-    `oldp.Status = 'Successful'`,
-    `oldp.AcademicSession = ?`,
-    `pi.id IS NULL`,
+    `oldp.status = 'Successful'`,
+    `oldp.academic_session = ?`,
+    `LOWER(TRIM(oldp.pay_type)) = 'school fees'`,
+    `NOT EXISTS (
+      SELECT 1
+      FROM payment_invoices pi
+      WHERE pi.order_id = CASE
+        WHEN oldp.order_id IS NULL OR TRIM(oldp.order_id) = ''
+          THEN CONCAT('LEGACY-', oldp.pay_id)
+        ELSE oldp.order_id
+      END
+      OR (
+        NULLIF(TRIM(oldp.ref_number), '') IS NOT NULL
+        AND TRIM(pi.rrr) = TRIM(oldp.ref_number)
+      )
+    )`,
   ];
 
   const params = [LEGACY_SESSION];
 
   if (matric) {
-    where.push(`oldp.matricID = ?`);
+    where.push(`oldp.matric_id = ?`);
     params.push(matric);
   }
 
@@ -53,34 +66,29 @@ async function findMissingLegacyPayments({
   const [rows] = await pool.query(
     `
     SELECT
-      oldp.PayID AS pay_id,
-      oldp.StudentID AS student_id,
-      oldp.matricID AS matric_id,
-      oldp.PayType AS pay_type,
-      CAST(NULLIF(oldp.AmountPaid, '') AS DECIMAL(12,2)) AS amount_paid,
-      oldp.RefNumber AS ref_number,
-      oldp.orderId AS order_id,
-      CAST(NULLIF(oldp.Amountpayable, '') AS DECIMAL(12,2)) AS amount_payable,
-      oldp.DatePaid AS date_paid,
-      oldp.Status AS legacy_status,
-      oldp.StdLevel AS std_level,
-      oldp.AcademicSession AS academic_session,
+      oldp.pay_id,
+      oldp.student_id,
+      oldp.matric_id,
+      oldp.pay_type,
+      oldp.amount_paid,
+      oldp.ref_number,
+      oldp.order_id,
+      oldp.amount_payable,
+      oldp.date_paid,
+      oldp.status AS legacy_status,
+      oldp.std_level,
+      oldp.academic_session,
       pu.id AS public_user_id,
       pu.matric_number,
       pu.username AS email,
       pu.phone,
       CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name
-    FROM studentPayments_export_2025_2026 oldp
+    FROM legacy_student_payments oldp
     JOIN public_users pu
-      ON pu.matric_number = oldp.matricID
+      ON pu.matric_number = oldp.matric_id
      AND pu.role = 'student'
-    LEFT JOIN payment_invoices pi
-      ON pi.order_id = CASE
-        WHEN oldp.orderId IS NULL OR oldp.orderId = '' THEN CONCAT('LEGACY-', oldp.PayID)
-        ELSE oldp.orderId
-      END
     WHERE ${where.join(" AND ")}
-    ORDER BY oldp.DatePaid ASC, oldp.PayID ASC
+    ORDER BY oldp.date_paid ASC, oldp.pay_id ASC
     LIMIT ?
     `,
     params,
@@ -182,9 +190,20 @@ export async function importPayments(req, res) {
       const orderId = legacyOrderId(row);
       const amount = Number(row.amount_paid || 0);
 
+      const rrr = normalize(row.ref_number);
+
       const [existing] = await conn.query(
-        `SELECT id FROM payment_invoices WHERE order_id = ? LIMIT 1`,
-        [orderId],
+        `
+        SELECT id
+        FROM payment_invoices
+        WHERE order_id = ?
+           OR (
+             ? <> ''
+             AND TRIM(rrr) = ?
+           )
+        LIMIT 1
+        `,
+        [orderId, rrr, rrr],
       );
 
       if (existing.length) {
