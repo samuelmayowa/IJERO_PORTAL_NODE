@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Home | University Portal</title>
+  <title>Home | Ekiti State College of Technology Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Icons / Fonts -->
@@ -58,16 +58,20 @@
     /* ──────────────────────────────────────────────
        MOBILE-ONLY tweaks
        ────────────────────────────────────────────── */
-    .brand-name{ display:none; } /* default hidden (tablet/desktop) */
+    .brand{ display:flex; align-items:center; gap:.75rem; }
+    .brand-name{
+      display:inline-block;
+      color:#16744a;
+      font-weight:800;
+      font-size:1rem;
+      line-height:1.2;
+      max-width:430px;
+    }
+    .footer .brand-name{ color:#fff; }
 
     @media (max-width: 600px){
-      /* Show name beside the logo on mobile to fill space */
-      .brand{ display:flex; align-items:center; gap:.5rem; }
       .brand-name{
-        display:inline-block;
-        font-weight:700;
         font-size:.78rem;
-        line-height:1.2;
         max-width: calc(100% - 80px); /* keep from wrapping under logo */
       }
 
@@ -421,7 +425,7 @@
       <div class="container flex between middle">
         <a class="brand" href="/">
           <img src="/public/img/logo.png" alt="logo" style="height:70px!important;width:auto!important;object-fit:contain;vertical-align:middle;">
-          <span class="brand-name">Ekiti State College of Health Sciences &amp; Technology, Ijero.</span>
+          <span class="brand-name">Ekiti State College of Technology</span>
         </a>
 
         <div class="hide-sm flex gap-lg">
@@ -675,7 +679,10 @@ Late payment attracts a ₦5,000 penalty, which will be added automatically to y
     <footer class="footer">
       <div class="container grid-4 gap-lg">
         <div>
-          <a class="brand" href="/"><img src="/public/img/logo.png" alt="logo" style="height:70px!important;width:auto!important;object-fit:contain;vertical-align:middle;"></a>
+          <a class="brand" href="/">
+            <img src="/public/img/logo.png" alt="Ekiti State College of Technology logo" style="height:70px!important;width:auto!important;object-fit:contain;vertical-align:middle;">
+            <span class="brand-name">Ekiti State College of Technology</span>
+          </a>
           <p>Address: P.M.B 316, Epe Ara Road, Ijero Ekiti, Ekiti State​, Nigeria</p>
           <ul class="contact-mini">
             <li><i class="fa-solid fa-phone"></i> +234-(80) 435685427</li>

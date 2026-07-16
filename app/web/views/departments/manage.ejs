@@ -62,7 +62,7 @@
             <label>Department</label>
             <select name="department_id" id="prog-dept" class="form-control" required>
               <option value="">-- select department --</option>
-              <% (departments||[]).forEach(d => { %>
+              <% (departmentOptions||[]).forEach(d => { %>
                 <option value="<%= d.id %>" data-school="<%= d.school_id %>"><%= d.name %></option>
               <% }) %>
             </select>
@@ -149,15 +149,13 @@
             <tr><td colspan="5" class="text-center text-muted p-4">No programmes yet.</td></tr>
           <% } else { %>
             <% programmes.forEach(p => { 
-                 const dept = (departments||[]).find(d => d.id === p.department_id);
-                 const sch  = (schools||[]).find(s => s.id === p.school_id);
                  n++;
             %>
               <tr>
                 <td><%= n %></td>
                 <td><%= p.name %></td>
-                <td><%= dept ? dept.name : '' %></td>
-                <td><%= sch ? sch.name : '' %></td>
+                <td><%= p.department_name || '' %></td>
+                <td><%= p.school_name || '' %></td>
                 <td class="text-right pr-3">
                   <form method="post" action="/staff/departments/programmes/<%= p.id %>/delete" onsubmit="return confirm('Delete this programme?');" class="d-inline">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">

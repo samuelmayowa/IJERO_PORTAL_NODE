@@ -47,12 +47,33 @@ export async function managePage(req, res) {
     console.error('dept managePage:', e);
   }
 
-  // Pull all programmes so we can list/filter client-side
+  let departmentOptions = [];
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, name, school_id
+       FROM departments
+       ORDER BY name`,
+    );
+    departmentOptions = rows;
+  } catch (e) {
+    console.error('department options:', e);
+  }
+
+  // Join through the department so the displayed school always reflects
+  // the programme's actual hierarchy.
   let programmes = [];
   try {
     const [rows] = await pool.query(
-      `SELECT p.id, p.name, p.department_id, p.school_id
-         FROM programmes p
+      `SELECT
+         p.id,
+         p.name,
+         p.department_id,
+         d.name AS department_name,
+         d.school_id,
+         s.name AS school_name
+       FROM programmes p
+       INNER JOIN departments d ON d.id = p.department_id
+       INNER JOIN schools s ON s.id = d.school_id
         ORDER BY p.name`
     );
     programmes = rows;
@@ -65,7 +86,7 @@ export async function managePage(req, res) {
     pageTitle: 'Add/Edit Department',
     csrfToken: res.locals.csrfToken,
     q, page, pageSize, total,
-    schools, departments, programmes,
+    schools, departments, departmentOptions, programmes,
     success: req.flash('success')[0] || '',
     error: req.flash('error')[0] || ''
   });
@@ -137,10 +158,38 @@ export async function createProgramme(req, res) {
   }
 
   try {
+    const [departmentRows] = await pool.query(
+      `SELECT id
+       FROM departments
+       WHERE id = ? AND school_id = ?
+       LIMIT 1`,
+      [department_id, school_id],
+    );
+
+    if (!departmentRows.length) {
+      req.flash(
+        'error',
+        'The selected department does not belong to the selected school.',
+      );
+      return res.redirect('/staff/departments');
+    }
+
+    const [existingRows] = await pool.query(
+      `SELECT id
+       FROM programmes
+       WHERE department_id = ? AND LOWER(name) = LOWER(?)
+       LIMIT 1`,
+      [department_id, name],
+    );
+
+    if (existingRows.length) {
+      req.flash('error', 'That programme already exists in the selected department.');
+      return res.redirect('/staff/departments');
+    }
+
     await pool.query(
       `INSERT INTO programmes (school_id, department_id, name)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE name=VALUES(name)`,
+       VALUES (?, ?, ?)`,
       [school_id, department_id, name]
     );
     req.flash('success', 'Programme saved.');

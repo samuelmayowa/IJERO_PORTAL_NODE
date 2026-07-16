@@ -138,5 +138,17 @@ router.get("/departments", departmentCtrl.managePage);
 router.post("/departments/create", departmentCtrl.create);
 router.post("/departments/:id/update", departmentCtrl.update);
 router.post("/departments/:id/delete", departmentCtrl.remove);
+router.post(
+  "/departments/programmes/create",
+  departmentCtrl.createProgramme,
+);
+router.post(
+  "/departments/programmes/:id/delete",
+  departmentCtrl.deleteProgramme,
+);
+router.get(
+  "/departments/programmes",
+  departmentCtrl.listProgrammesByDepartment,
+);
 
 export default router;
