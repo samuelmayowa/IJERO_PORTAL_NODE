@@ -1,6 +1,8 @@
 // app/web/controllers/generalPaymentController.js
 import * as svc from '../../services/paymentService.js';
 import db from '../../core/db.js';
+import XLSX from 'xlsx';
+import PDFDocument from 'pdfkit';
 
 function cleanText(v) {
   return String(v || '').trim();
@@ -57,8 +59,14 @@ async function fetchPublicUsersForPayments(rows = []) {
         username,
         phone,
         matric_number
-      FROM public_users
-      WHERE role = 'student'
+      FROM public_users pu
+      WHERE (
+          pu.role = 'student'
+          OR EXISTS (
+            SELECT 1 FROM portal_user_roles pur
+            WHERE pur.public_user_id = pu.id AND pur.role = 'student'
+          )
+        )
         AND (
           matric_number IN (?)
           OR username IN (?)
@@ -263,7 +271,11 @@ export async function exportCsv(req, res, next){
         r.payee_email || '',
         r.payee_phone || '',
         (r.created_at ? new Date(r.created_at).toISOString() : '')
-      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))
+      ].map(v => {
+        const text = String(v);
+        const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+        return `"${safe.replace(/"/g,'""')}"`;
+      }).join(','))
     ].join('\n');
 
     res.setHeader('Content-Type','text/csv');
@@ -273,3 +285,14 @@ export async function exportCsv(req, res, next){
     next(e);
   }
 }
+
+async function filteredExportRows(req) {
+  const data=await svc.listInvoices({page:1,pageSize:100000,exportAll:true,q:String(req.query.q||'').trim(),from:req.query.from||'',to:req.query.to||'',status:String(req.query.status||'ALL').toUpperCase(),method:String(req.query.method||'ALL').toUpperCase(),typeId:req.query.typeId||''});
+  return enrichPaymentExportRows(data.rows||[]);
+}
+
+function paymentObjects(rows){const safe=v=>{const text=String(v??'');return /^[=+\-@\t\r]/.test(text)?`'${text}`:text;};return rows.map(r=>({"Order ID":safe(r.order_id),"RRR":safe(r.rrr),"Payment Type":safe(r.payment_type_name),"Amount":Number(r.amount||0),"Portal Charge":Number(r.portal_charge||0),"Method":r.method,"Status":r.status,"Full Name":safe(r.export_payee_fullname||r.payee_fullname),"First Name":safe(r.export_first_name),"Middle Name":safe(r.export_middle_name),"Last Name":safe(r.export_last_name),"Payee ID / Matric":safe(r.payee_id),"Department":safe(r.export_department),"Email":safe(r.payee_email),"Phone":safe(r.payee_phone),"Created At":r.created_at?new Date(r.created_at).toISOString():''}));}
+
+export async function exportXlsx(req,res,next){try{const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(paymentObjects(await filteredExportRows(req))),'Payments');const buffer=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition','attachment; filename="payments.xlsx"');res.send(buffer);}catch(error){next(error);}}
+
+export async function exportPdf(req,res,next){try{const rows=await filteredExportRows(req);const doc=new PDFDocument({size:'A4',layout:'landscape',margin:28});res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','attachment; filename="payments.pdf"');doc.pipe(res);doc.font('Helvetica-Bold').fontSize(15).fillColor('#247D57').text('All Payment History',{align:'center'});doc.font('Helvetica').fontSize(8).fillColor('#555').text(`${rows.length} record(s) · Generated ${new Date().toLocaleString('en-GB')}`,{align:'center'});let y=85;const headers=['#','Order ID','RRR','Type','Payee','ID/Matric','Amount','Charge','Method','Status','Date'],cols=[28,55,135,205,300,410,485,540,595,645,700],widths=[25,78,68,93,108,73,53,53,48,53,80];const head=()=>{doc.rect(28,y,758,18).fill('#247D57');doc.fillColor('#fff').font('Helvetica-Bold').fontSize(7);headers.forEach((h,i)=>doc.text(h,cols[i],y+5,{width:widths[i]}));y+=21};head();rows.forEach((r,i)=>{if(y>545){doc.addPage();y=30;head();}if(i%2===0)doc.rect(28,y-2,758,18).fill('#f4f6f9');doc.fillColor('#222').font('Helvetica').fontSize(6.5);[i+1,r.order_id,r.rrr||'',r.payment_type_name,r.export_payee_fullname||r.payee_fullname,r.payee_id,Number(r.amount||0).toFixed(2),Number(r.portal_charge||0).toFixed(2),r.method,r.status,r.created_at?new Date(r.created_at).toLocaleDateString('en-GB'):''].forEach((v,j)=>doc.text(String(v||''),cols[j],y,{width:widths[j],ellipsis:true}));y+=18});doc.end();}catch(error){next(error);}}

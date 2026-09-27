@@ -1,0 +1,25 @@
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card card-outline card-success">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-barcode mr-2 text-success"></i>Validate RRR or Reprint Receipt</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Enter the Remita Retrieval Reference (RRR) or portal invoice number. The portal will check the existing invoice and refresh its payment status where possible.</p>
+        <form method="POST" action="/payment/reprint" class="mt-4">
+          <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+          <input type="hidden" name="studentHistory" value="1">
+          <div class="form-group">
+            <label for="rrrReference">RRR or Invoice Number</label>
+            <div class="input-group input-group-lg">
+              <input id="rrrReference" class="form-control" type="text" name="rrr" value="<%= prefillRrr %>" placeholder="Enter RRR or invoice number" autocomplete="off" required>
+              <div class="input-group-append"><button class="btn btn-success" type="submit"><i class="fas fa-search mr-1"></i> Validate</button></div>
+            </div>
+          </div>
+        </form>
+        <div class="alert alert-light border mt-4 mb-0"><i class="fas fa-info-circle text-info mr-2"></i>If you have not made payment, use the invoice payment link instead. Validation does not create a new charge.</div>
+      </div>
+      <div class="card-footer"><a href="/student/payments/history" class="text-success font-weight-bold"><i class="fas fa-arrow-left mr-1"></i> View payment history</a></div>
+    </div>
+  </div>
+</div>

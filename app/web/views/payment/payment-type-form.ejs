@@ -148,6 +148,13 @@ const savedProgrammeIds = Array.isArray(form.programme_ids) ? form.programme_ids
                   </div>
                 </div>
               </div>
+              <div class="form-group">
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="is_compulsory" name="is_compulsory" value="1" <%= form.is_compulsory ? 'checked' : '' %>>
+                  <label class="custom-control-label" for="is_compulsory">Compulsory fee obligation</label>
+                </div>
+                <small class="text-muted">Only select this when non-payment should place a student on the Debtors list.</small>
+              </div>
 
               <div class="form-group">
                 <div class="custom-control custom-switch">

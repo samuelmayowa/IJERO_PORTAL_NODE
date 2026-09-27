@@ -43,6 +43,7 @@ const recentPays =
   Array.isArray(recentPayments)
     ? recentPayments
     : [];
+const boardAnnouncements = typeof announcements !== 'undefined' && Array.isArray(announcements) ? announcements : [];
 
 function money(value) {
   return Number(value || 0).toLocaleString(
@@ -110,6 +111,8 @@ function statusClass(status) {
   return 'badge-secondary';
 }
 %>
+<% if (typeof admissionPopup !== 'undefined' && admissionPopup) { %><%- include('../partials/portal-popup',{popupId:'admissionUpdateModal',tone:'success',icon:'fa-bell',title:admissionPopup.title,body:admissionPopup.message,actionUrl:admissionPopup.action_url||'/applicant/notifications',actionLabel:'View details'}) %><% } %>
+<% const popupAnnouncement=(typeof dashboardAnnouncement!=='undefined'&&dashboardAnnouncement)?dashboardAnnouncement:null; if(popupAnnouncement){ const popupTone=popupAnnouncement.priority==='URGENT'?'danger':popupAnnouncement.priority==='IMPORTANT'?'warning':'success'; %><%- include('../partials/portal-popup',{popupId:'announcementModal',tone:popupTone,icon:popupAnnouncement.priority==='URGENT'?'fa-exclamation-triangle':'fa-bullhorn',title:popupAnnouncement.title,body:popupAnnouncement.body,actionUrl:'/applicant/announcements',actionLabel:'View announcement'}) %><% } %>
 
 <div class="row">
   <div class="col-12 col-sm-6 col-md-3">
@@ -291,9 +294,8 @@ function statusClass(status) {
       </div>
 
       <div class="card-body">
-        <p class="text-muted mb-0">
-          Application and admission updates will appear here.
-        </p>
+        <% if (!boardAnnouncements.length) { %><p class="text-muted mb-0">Application and admission updates will appear here.</p><% } %>
+        <% boardAnnouncements.forEach(item => { %><div class="callout callout-<%= item.priority==='URGENT'?'danger':item.priority==='IMPORTANT'?'warning':'success' %> py-2"><strong><%= item.title %></strong><p class="mb-0 small"><%= item.body %></p></div><% }) %>
       </div>
     </div>
   </div>

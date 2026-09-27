@@ -6,6 +6,7 @@ import multer from "multer";
 import * as pt from "../../controllers/paymentTypeController.js";
 import * as gp from "../../controllers/generalPaymentController.js";
 import * as applicationPaymentReportCtrl from "../../controllers/applicationPaymentReports.controller.js";
+import * as balancesCtrl from "../../controllers/debtorsCreditors.controller.js";
 import db from "../../../core/db.js";
 import {
   listLatePaymentCharges,
@@ -28,8 +29,17 @@ import {
   downloadPrerequisiteTemplate,
   uploadPrerequisites,
 } from "../../controllers/applicationPrerequisiteController.js";
+import { requireRole } from "../../../core/session.js";
 
 const r = Router();
+const adminOnly = requireRole("admin", "superadmin", "administrator");
+const financeRoles = requireRole(
+  "admin", "superadmin", "administrator", "registry", "bursary",
+);
+const balanceReportRoles = requireRole("admin", "superadmin", "administrator", "bursary", "bursar");
+const admissionRoles = requireRole(
+  "admin", "superadmin", "administrator", "registry", "admission officer",
+);
 const prerequisiteUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -59,34 +69,46 @@ r.use((req, res, next) => {
 });
 
 // Payment Types
-r.get("/payment-types", pt.index);
-r.get("/payment-types/add", pt.addForm);
-r.post("/payment-types/add", pt.create);
-r.get("/payment-types/:id/edit", pt.editForm);
-r.post("/payment-types/:id/edit", pt.update);
+r.get("/payment-types", financeRoles, pt.index);
+r.get("/payment-types/add", adminOnly, pt.addForm);
+r.post("/payment-types/add", adminOnly, pt.create);
+r.get("/payment-types/:id/edit", adminOnly, pt.editForm);
+r.post("/payment-types/:id/edit", adminOnly, pt.update);
 
 // Admin – All / General Payment
-r.get("/payments", gp.index);
-r.get("/payments/export.csv", gp.exportCsv);
+r.get("/payments", financeRoles, gp.index);
+r.get("/payments/export.csv", financeRoles, gp.exportCsv);
+r.get("/payments/export.xlsx", financeRoles, gp.exportXlsx);
+r.get("/payments/export.pdf", financeRoles, gp.exportPdf);
+r.get("/debtors-creditors", balanceReportRoles, balancesCtrl.page);
+r.get("/debtors-creditors/export/:format", balanceReportRoles, balancesCtrl.exportReport);
 
 // Application and acceptance fee reports
 r.get(
   "/application-fees/export.csv",
+  financeRoles,
   applicationPaymentReportCtrl.exportApplicationFeesCsv,
 );
+r.get("/application-fees/export.xlsx", financeRoles, applicationPaymentReportCtrl.exportApplicationFeesXlsx);
+r.get("/application-fees/export.pdf", financeRoles, applicationPaymentReportCtrl.exportApplicationFeesPdf);
 
 r.get(
   "/application-fees",
+  financeRoles,
   applicationPaymentReportCtrl.applicationFeesReport,
 );
 
 r.get(
   "/acceptance-fees/export.csv",
+  financeRoles,
   applicationPaymentReportCtrl.exportAcceptanceFeesCsv,
 );
+r.get("/acceptance-fees/export.xlsx", financeRoles, applicationPaymentReportCtrl.exportAcceptanceFeesXlsx);
+r.get("/acceptance-fees/export.pdf", financeRoles, applicationPaymentReportCtrl.exportAcceptanceFeesPdf);
 
 r.get(
   "/acceptance-fees",
+  financeRoles,
   applicationPaymentReportCtrl.acceptanceFeesReport,
 );
 
@@ -136,27 +158,29 @@ r.get("/api/schools/:id/programmes", async (req, res, next) => {
 
 r.get(
   "/application-forms/prerequisite-template.csv",
+  admissionRoles,
   downloadPrerequisiteTemplate,
 );
 
 r.post(
   "/application-forms/:id/prerequisites/upload",
+  admissionRoles,
   prerequisiteUpload.single("prerequisite_file"),
   uploadPrerequisites,
 );
 
 // Generic application portal form management - admin only
-r.get("/application-forms", listApplicationForms);
-r.post("/application-forms", createApplicationForm);
-r.get("/application-forms/:id/edit", editApplicationForm);
-r.post("/application-forms/:id/update", updateApplicationForm);
-r.post("/application-forms/:id/status", setApplicationFormStatus);
+r.get("/application-forms", admissionRoles, listApplicationForms);
+r.post("/application-forms", admissionRoles, createApplicationForm);
+r.get("/application-forms/:id/edit", admissionRoles, editApplicationForm);
+r.post("/application-forms/:id/update", admissionRoles, updateApplicationForm);
+r.post("/application-forms/:id/status", admissionRoles, setApplicationFormStatus);
 
 // Late payment charge rules - admin only, no student payable impact yet
-r.get("/late-payment-charges", listLatePaymentCharges);
-r.post("/late-payment-charges", createLatePaymentCharge);
-r.get("/late-payment-charges/:id/edit", editLatePaymentCharge);
-r.post("/late-payment-charges/:id/update", updateLatePaymentCharge);
-r.post("/late-payment-charges/:id/toggle", toggleLatePaymentCharge);
+r.get("/late-payment-charges", financeRoles, listLatePaymentCharges);
+r.post("/late-payment-charges", adminOnly, createLatePaymentCharge);
+r.get("/late-payment-charges/:id/edit", adminOnly, editLatePaymentCharge);
+r.post("/late-payment-charges/:id/update", adminOnly, updateLatePaymentCharge);
+r.post("/late-payment-charges/:id/toggle", adminOnly, toggleLatePaymentCharge);
 
 export default r;

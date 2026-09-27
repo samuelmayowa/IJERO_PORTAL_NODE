@@ -1,0 +1,209 @@
+import crypto from "crypto";
+import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
+import path from 'path';
+import { pool } from "../../core/db.js";
+
+const secret = () => process.env.DOCUMENT_QR_SECRET || process.env.SESSION_SECRET || "change-this-document-secret";
+const tokenFor = documentNumber => crypto.createHmac("sha256", secret()).update(documentNumber).digest("hex");
+const tokenHash = token => crypto.createHash("sha256").update(token).digest("hex");
+
+async function ownedAdmission(applicationId, userId) {
+  const [rows] = await pool.query(
+    `SELECT aa.*,af.title application_title,af.session_id,s.name session_name,
+      pu.first_name,pu.middle_name,pu.last_name,pu.username email,
+      ad.id decision_id,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
+      sc.name school_name,d.name department_name,p.name programme_name,
+      COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
+      ast.registrar_name,ast.registrar_position,ast.registrar_signature_path
+      FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id
+      JOIN sessions s ON s.id=af.session_id JOIN public_users pu ON pu.id=aa.applicant_user_id
+      LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
+      LEFT JOIN schools sc ON sc.id=ad.offered_school_id LEFT JOIN departments d ON d.id=ad.offered_department_id
+      LEFT JOIN programmes p ON p.id=ad.offered_programme_id
+      LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND (ast.application_form_id=af.id OR ast.application_form_id IS NULL)
+      WHERE aa.id=? AND aa.applicant_user_id=? ORDER BY ast.application_form_id DESC LIMIT 1`,
+    [applicationId,userId],
+  );
+  return rows[0] || null;
+}
+
+export async function statusPage(req,res,next) {
+  try {
+    const userId=Number(req.session?.publicUser?.id||0);
+    const [applications]=await pool.query(
+      `SELECT aa.id,aa.application_number,aa.status,aa.acceptance_payment_status,aa.submitted_at,
+       af.title application_title,s.name session_name,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
+       COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
+       EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_LETTER' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_letter_template
+       FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id
+       LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
+       LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND (ast.application_form_id=af.id OR ast.application_form_id IS NULL)
+       WHERE aa.applicant_user_id=? ORDER BY aa.id DESC,ast.application_form_id DESC`,[userId]);
+    res.render("applications/applicant-admission-status",{layout:"layouts/adminlte",title:"Admission Status",pageTitle:"Admission Status",applications});
+  }catch(error){next(error);}
+}
+
+export async function notificationsPage(req,res,next){
+  try{
+    const userId=Number(req.session?.publicUser?.id||0);
+    const [notifications]=await pool.query(`SELECT * FROM portal_notifications WHERE public_user_id=? ORDER BY created_at DESC LIMIT 100`,[userId]);
+    await pool.query(`UPDATE portal_notifications SET read_at=COALESCE(read_at,NOW()) WHERE public_user_id=?`,[userId]);
+    res.render("applications/applicant-notifications",{layout:"layouts/adminlte",title:"Notifications",pageTitle:"Notifications",notifications});
+  }catch(error){next(error);}
+}
+
+export async function announcementsPage(req,res,next){
+  try{const userId=Number(req.session?.publicUser?.id||0);const [announcements]=await pool.query(`SELECT pa.*,ar.read_at FROM portal_announcements pa LEFT JOIN announcement_reads ar ON ar.announcement_id=pa.id AND ar.public_user_id=? WHERE pa.status='PUBLISHED' AND pa.audience_role IN ('applicant','both') AND pa.publish_at<=NOW() AND (pa.expires_at IS NULL OR pa.expires_at>NOW()) AND EXISTS(SELECT 1 FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id WHERE aa.applicant_user_id=? AND aa.submitted_at IS NOT NULL AND (pa.session_id IS NULL OR pa.session_id=af.session_id) AND (pa.application_form_id IS NULL OR pa.application_form_id=aa.application_form_id) AND (pa.admission_status IS NULL OR pa.admission_status=aa.status) AND (pa.school_id IS NULL OR pa.school_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_id')) AS UNSIGNED)) AND (pa.department_id IS NULL OR pa.department_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_id')) AS UNSIGNED)) AND (pa.programme_id IS NULL OR pa.programme_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.programme_id')) AS UNSIGNED))) ORDER BY FIELD(pa.priority,'URGENT','IMPORTANT','NORMAL'),pa.publish_at DESC`,[userId,userId]);if(announcements.length)await pool.query(`INSERT IGNORE INTO announcement_reads (announcement_id,public_user_id) VALUES ?`,[announcements.map(x=>[x.id,userId])]);res.render('applications/applicant-announcements',{layout:'layouts/adminlte',title:'Announcements',pageTitle:'Announcements',announcements});}catch(error){next(error)}
+}
+
+async function issuedDocument(application,templateId=null){
+  const [[existing]]=await pool.query(`SELECT * FROM issued_admission_documents WHERE applicant_application_id=? AND document_type='ADMISSION_LETTER' AND status='VALID' ORDER BY id DESC LIMIT 1`,[application.id]);
+  if(existing)return existing;
+  const number=`ADM-${application.session_id}-${String(application.id).padStart(7,"0")}`;
+  const token=tokenFor(number);
+  const [result]=await pool.query(
+    `INSERT INTO issued_admission_documents (applicant_application_id,admission_decision_id,template_id,document_type,document_number,verification_token_hash)
+     VALUES (?,?,?,'ADMISSION_LETTER',?,?)`,[application.id,application.decision_id,templateId,number,tokenHash(token)]);
+  return {id:result.insertId,document_number:number,template_id:templateId,status:"VALID",issued_at:new Date()};
+}
+
+async function publishedTemplate(type,application){
+  const [rows]=await pool.query(`SELECT * FROM admission_document_templates WHERE document_type=? AND status='PUBLISHED' AND (session_id IS NULL OR session_id=?) AND (application_form_id IS NULL OR application_form_id=?) ORDER BY (application_form_id IS NOT NULL) DESC,(session_id IS NOT NULL) DESC,version_no DESC LIMIT 1`,[type,application.session_id,application.application_form_id]);
+  return rows[0]||null;
+}
+function templateText(value,replacements){
+  let text=String(value||"");for(const [key,replacement] of Object.entries(replacements))text=text.replaceAll(`{{${key}}}`,String(replacement||""));
+  return text.replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>/gi,"\n\n").replace(/<[^>]+>/g,"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").trim();
+}
+function drawTiledWatermark(doc,imagePath,opacity=.1){const xs=[65,250,435],ys=[180,390,600];for(const y of ys)for(const x of xs){try{doc.save().opacity(opacity).image(imagePath,x,y,{fit:[95,105],align:'center',valign:'center'}).restore().opacity(1)}catch{}}}
+function drawPersonalWatermark(doc,text){for(const y of [230,390,550,710])doc.save().opacity(.11).fillColor('#d71920').font('Helvetica-Bold').fontSize(18).rotate(-24,{origin:[300,y]}).text(text,45,y,{width:520,align:'center'}).restore().opacity(1)}
+function drawContinuationPage(doc,{template,personalText,qr,margin=55}){
+  if(template?.watermark_text)doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1);
+  if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
+  drawPersonalWatermark(doc,personalText);doc.image(qr,485,38,{width:58});doc.font('Helvetica').fontSize(6.5).fillColor('#555').text('Verification Code',470,98,{width:88,align:'center'});doc.x=margin;doc.y=120;
+}
+
+export async function admissionLetter(req,res,next){
+  try{
+    const application=await ownedAdmission(Number(req.params.applicationId),Number(req.session?.publicUser?.id||0));
+    if(!application||application.decision_status!=="ADMITTED")return res.status(404).send("An active admission offer was not found.");
+    if(Number(application.acceptance_required_for_letter)===1&&application.acceptance_payment_status!=="PAID")return res.status(403).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Unavailable",pageTitle:"Admission Letter Unavailable",reason:"Payment of the acceptance fee is required before your admission letter can be printed.",homeHref:"/applicant/admission/status"});
+    const resolvedTemplate=await publishedTemplate("ADMISSION_LETTER",application);
+    if(!resolvedTemplate)return res.status(409).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Not Yet Available",pageTitle:"Admission Letter Not Yet Available",reason:"Your admission letter has not yet been published. Please contact the Registry for assistance.",homeHref:"/applicant/admission/status"});
+    const issued=await issuedDocument(application,resolvedTemplate.id);
+    const token=tokenFor(issued.document_number);
+    const base=String(process.env.PORTAL_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
+    const verifyUrl=`${base}/verify/admission-document/${token}`;
+    const qr=await QRCode.toBuffer(verifyUrl,{width:180,margin:1,errorCorrectionLevel:"M"});
+    const fullName=[application.first_name,application.middle_name,application.last_name].filter(Boolean).join(" ").toUpperCase();
+    const programme=application.programme_name||application.offered_programme_name||application.programme_choice||"the approved programme";
+    const [[issuedTemplate]]=issued.template_id?await pool.query(`SELECT * FROM admission_document_templates WHERE id=?`,[issued.template_id]):[[]];
+    const template=issuedTemplate||resolvedTemplate;
+    const replacements={applicant_name:fullName,application_number:application.application_number,programme_name:programme,department_name:application.department_name||"",school_name:application.school_name||"",session_name:application.session_name,admission_date:new Date(application.admitted_at).toLocaleDateString("en-GB")};
+    const letterTitle=templateText(template.title,replacements);
+    const letterBody=templateText(template.body_html,replacements);
+    const doc=new PDFDocument({size:"A4",margin:55,info:{Title:"Admission Letter",Author:"EKSCOTECH"}});
+    res.setHeader("Content-Type","application/pdf");
+    res.setHeader("Content-Disposition",`inline; filename="admission-letter-${application.application_number}.pdf"`);
+    doc.pipe(res);
+    const personalText=`${fullName} • ${programme} • ${application.session_name} • ADMISSION LETTER`;
+    doc.on('pageAdded',()=>drawContinuationPage(doc,{template,personalText,qr}));
+    if(template?.watermark_text){doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1)}
+    if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
+    drawPersonalWatermark(doc,personalText);
+    try{doc.image("app/web/public/img/logo.png",60,40,{width:70});}catch{}
+    doc.font("Helvetica-Bold").fontSize(15).fillColor("#247D57").text("EKITI STATE COLLEGE OF TECHNOLOGY",125,48,{align:"center",width:345});
+    doc.fontSize(10).fillColor("#333").text("IJERO-EKITI, EKITI STATE",125,70,{align:"center",width:345});
+    doc.fontSize(8).text("P.M.B. 316, Epe Ara Road, Ijero-Ekiti, Ekiti State",125,86,{align:"center",width:345});
+    doc.image(qr,485,38,{width:58});doc.fontSize(6.5).fillColor('#555').text("Verification Code",470,98,{width:88,align:"center"});
+    doc.moveTo(55,120).lineTo(540,120).strokeColor("#82103C").lineWidth(2).stroke();
+    doc.font("Helvetica-Bold").fontSize(16).fillColor("#82103C").text(letterTitle,55,140,{align:"center"});
+    doc.font("Helvetica").fontSize(10).fillColor("#333").text(`Document No: ${issued.document_number}`,55,174).text(`Session: ${application.session_name}`,350,174,{align:"right"});
+    doc.moveDown(3).font("Helvetica-Bold").fontSize(11).text(fullName).font("Helvetica").text(`Application Number: ${application.application_number}`);
+    doc.moveDown(1.5).text(`Dear ${application.first_name},`);
+    doc.moveDown().fontSize(11).text(letterBody,{align:"justify",lineGap:4});
+    const signatoryName=template.registrar_name||application.registrar_name||'Registrar';const signatoryPosition=template.registrar_position||application.registrar_position||'Registrar';const signaturePath=template.registrar_signature_path||application.registrar_signature_path;
+    if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,625,{fit:[145,58],align:'left'})}catch{}}
+    doc.font("Helvetica-Bold").fontSize(10).fillColor('#222').text(signatoryName,65,690,{width:210}).font("Helvetica").fontSize(9).text(signatoryPosition,65,706,{width:210}).text("For: Ekiti State College of Technology",65,720,{width:250});
+    doc.fontSize(7).text(`Verify: ${verifyUrl}`,55,780,{width:480,align:"center"});
+    doc.end();
+  }catch(error){next(error);}
+}
+
+export async function verifyDocument(req,res,next){
+  try{
+    const hash=tokenHash(String(req.params.token||""));
+    const [rows]=await pool.query(
+      `SELECT iad.document_number,iad.document_type,iad.status,iad.issued_at,
+       aa.application_number,af.title application_type,s.name session_name,ad.offered_programme_name,
+       pu.first_name,pu.middle_name,pu.last_name,sc.name school_name,d.name department_name,p.name programme_name
+       FROM issued_admission_documents iad JOIN applicant_applications aa ON aa.id=iad.applicant_application_id
+       JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id
+       JOIN public_users pu ON pu.id=aa.applicant_user_id LEFT JOIN admission_decisions ad ON ad.id=iad.admission_decision_id
+       LEFT JOIN schools sc ON sc.id=COALESCE(ad.offered_school_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_id')) AS UNSIGNED))
+       LEFT JOIN departments d ON d.id=COALESCE(ad.offered_department_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_id')) AS UNSIGNED))
+       LEFT JOIN programmes p ON p.id=COALESCE(ad.offered_programme_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.programme_id')) AS UNSIGNED))
+       WHERE iad.verification_token_hash=? LIMIT 1`,[hash]);
+    res.render("pages/document-verification",{layout:false,title:"Document Verification",document:rows[0]||null,isSample:false});
+  }catch(error){next(error);}
+}
+
+export function sampleDocumentVerification(_req,res){return res.render('pages/document-verification',{layout:false,title:'Sample Verification',isSample:true,document:{status:'SAMPLE',document_number:'SAMPLE-DOCUMENT',document_type:'ADMISSION_LETTER',first_name:'ADEBAYO',middle_name:'GRACE',last_name:'OLUWATOBI',application_number:'APP-2026-SAMPLE-001',application_type:'Sample application',session_name:'2026/2027',school_name:'School of Allied Health Sciences',department_name:'Community Health Sciences',programme_name:'Community Health',issued_at:new Date()}})}
+
+function applicationScope(formData){
+  let data={}; try{data=typeof formData==='object'?formData:JSON.parse(formData||"{}");}catch{}
+  const choice=data?.application_details?.programme_choice||{};
+  return {schoolId:Number(choice.school_id||data.school_id||0)||null,departmentId:Number(choice.department_id||data.department_id||0)||null,programmeId:Number(choice.programme_id||data.programme_id||0)||null};
+}
+
+async function resolveScreening(application){
+  const scope=applicationScope(application.form_data);
+  const [rows]=await pool.query(
+    `SELECT * FROM screening_schedules WHERE session_id=? AND status='PUBLISHED'
+      AND (application_form_id IS NULL OR application_form_id=?)
+      AND (school_id IS NULL OR school_id=?) AND (department_id IS NULL OR department_id=?)
+      AND (programme_id IS NULL OR programme_id=?) AND (applicant_application_id IS NULL OR applicant_application_id=?)
+      ORDER BY (applicant_application_id IS NOT NULL) DESC,(programme_id IS NOT NULL) DESC,
+      (department_id IS NOT NULL) DESC,(school_id IS NOT NULL) DESC,(application_form_id IS NOT NULL) DESC,id DESC LIMIT 1`,
+    [application.session_id,application.application_form_id,scope.schoolId,scope.departmentId,scope.programmeId,application.id]);
+  return rows[0]||null;
+}
+
+export async function screeningPage(req,res,next){
+  try{
+    const userId=Number(req.session?.publicUser?.id||0);
+    const [applications]=await pool.query(`SELECT aa.*,af.title application_title,af.session_id,s.name session_name FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id WHERE aa.applicant_user_id=? AND aa.submitted_at IS NOT NULL ORDER BY aa.id DESC`,[userId]);
+    for(const application of applications){application.screening=await resolveScreening(application);application.has_published_slip_template=Boolean(await publishedTemplate('SCREENING_SLIP',application));}
+    res.render("applications/applicant-screening",{layout:"layouts/adminlte",title:"Screening Schedule",pageTitle:"Screening Schedule",applications});
+  }catch(error){next(error);}
+}
+
+export async function screeningSlip(req,res,next){
+  try{
+    const application=await ownedAdmission(Number(req.params.applicationId),Number(req.session?.publicUser?.id||0)) || (await pool.query(`SELECT aa.*,af.title application_title,af.session_id,s.name session_name,pu.first_name,pu.middle_name,pu.last_name FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id JOIN public_users pu ON pu.id=aa.applicant_user_id WHERE aa.id=? AND aa.applicant_user_id=?`,[Number(req.params.applicationId),Number(req.session?.publicUser?.id||0)]))[0][0];
+    if(!application)return res.status(404).send("Application not found.");
+    const schedule=await resolveScreening(application); if(!schedule)return res.status(404).send("A published screening schedule was not found.");
+    const template=await publishedTemplate('SCREENING_SLIP',application);
+    if(!template)return res.status(409).render("pages/denied",{layout:"layouts/adminlte",title:"Screening Slip Not Yet Available",pageTitle:"Screening Slip Not Yet Available",reason:"Your screening slip template has not yet been published. Please contact the Registry for assistance.",homeHref:"/applicant/screening"});
+    const [[existing]]=await pool.query(`SELECT * FROM issued_admission_documents WHERE applicant_application_id=? AND screening_assignment_id=? AND document_type='SCREENING_SLIP' AND status='VALID' LIMIT 1`,[application.id,schedule.id]);
+    let issued=existing;
+    if(!issued){const number=`SCR-${application.session_id}-${schedule.id}-${String(application.id).padStart(7,"0")}`;const token=tokenFor(number);const [r]=await pool.query(`INSERT INTO issued_admission_documents (applicant_application_id,screening_assignment_id,document_type,document_number,verification_token_hash) VALUES (?,?,'SCREENING_SLIP',?,?)`,[application.id,schedule.id,number,tokenHash(token)]);issued={id:r.insertId,document_number:number};}
+    const token=tokenFor(issued.document_number),base=String(process.env.PORTAL_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,""),verifyUrl=`${base}/verify/admission-document/${token}`;
+    const qr=await QRCode.toBuffer(verifyUrl,{width:180,margin:1}); const doc=new PDFDocument({size:"A4",margin:50});
+    res.setHeader("Content-Type","application/pdf");res.setHeader("Content-Disposition",`inline; filename="screening-slip-${application.application_number}.pdf"`);doc.pipe(res);
+    if(template?.watermark_text){doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1)}
+    if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
+    const screeningName=[application.first_name,application.middle_name,application.last_name].filter(Boolean).join(' ').toUpperCase();const screeningProgramme=application.programme_name||application.offered_programme_name||application.programme_choice||application.application_title;
+    const personalText=`${screeningName} • ${screeningProgramme} • ${application.session_name} • SCREENING SLIP`;
+    doc.on('pageAdded',()=>drawContinuationPage(doc,{template,personalText,qr,margin:50}));drawPersonalWatermark(doc,personalText);
+    try{doc.image("app/web/public/img/logo.png",55,35,{width:70});}catch{}
+    doc.font("Helvetica-Bold").fontSize(15).fillColor("#247D57").text("EKITI STATE COLLEGE OF TECHNOLOGY",125,40,{width:345,align:"center"}).fontSize(10).fillColor("#333").text("IJERO-EKITI, EKITI STATE",125,62,{width:345,align:"center"}).fontSize(8).text("P.M.B. 316, Epe Ara Road, Ijero-Ekiti, Ekiti State",125,78,{width:345,align:"center"}).fontSize(13).fillColor("#82103C").text("APPLICANT SCREENING SLIP",125,96,{width:345,align:"center"});
+    doc.image(qr,485,35,{width:58});doc.fontSize(6.5).fillColor('#555').text("Verification Code",470,95,{width:88,align:"center"});
+    doc.moveTo(50,120).lineTo(545,120).strokeColor("#82103C").stroke(); const name=[application.first_name,application.middle_name,application.last_name].filter(Boolean).join(" ");
+    let y=150; const row=(label,value)=>{doc.font("Helvetica-Bold").fillColor("#222").fontSize(10).text(label,65,y,{width:150});doc.font("Helvetica").text(String(value||"—"),220,y,{width:300});y+=30;};
+    row("Applicant",name);row("Application Number",application.application_number);row("Application Type",application.application_title);row("Academic Session",application.session_name);row("Screening Type",schedule.screening_type);row("Screening Date",new Date(schedule.screening_date).toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}));row("Reporting Time",schedule.reporting_time||"As communicated");row("Start Time",schedule.start_time||"As communicated");row("Venue",schedule.venue);row("Batch",schedule.batch_name||"—");
+    if(schedule.instructions){doc.moveDown().font("Helvetica-Bold").text("Instructions").font("Helvetica").text(schedule.instructions,{lineGap:3});}
+    doc.fontSize(8).text(`Document No: ${issued.document_number}`,50,770);doc.end();
+  }catch(error){next(error);}
+}

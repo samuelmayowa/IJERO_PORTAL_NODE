@@ -1,0 +1,20 @@
+<div class="row">
+  <div class="col-lg-5"><div class="card card-outline card-success">
+    <div class="card-header"><h3 class="card-title">Admission and matriculation rules</h3></div>
+    <form method="post" action="/staff/admissions/settings" enctype="multipart/form-data"><input type="hidden" name="_csrf" value="<%= csrfToken||'' %>"><div class="card-body">
+      <div class="form-group"><label>Session</label><select name="session_id" class="form-control"><% sessions.forEach(s=>{ %><option value="<%= s.id %>" <%= Number(s.id)===Number(sessionId)?'selected':'' %>><%= s.name %></option><% }) %></select></div>
+      <div class="form-group"><label>Application type</label><select name="application_form_id" class="form-control"><option value="">Session default</option><% forms.filter(f=>Number(f.session_id)===Number(sessionId)).forEach(f=>{ %><option value="<%= f.id %>"><%= f.title %></option><% }) %></select></div>
+      <div class="custom-control custom-switch mb-3"><input class="custom-control-input" type="checkbox" id="acceptanceRequired" name="acceptance_required_for_letter" value="1" checked><label class="custom-control-label" for="acceptanceRequired">Require paid acceptance fee before admission-letter printing</label></div>
+      <div class="custom-control custom-switch mb-4"><input class="custom-control-input" type="checkbox" id="matricEnabled" name="matriculation_enabled" value="1"><label class="custom-control-label" for="matricEnabled">Automatically generate matriculation numbers after both required fees</label></div>
+      <hr><h6><i class="fas fa-signature mr-1 text-success"></i>Admission-letter signatory</h6>
+      <div class="form-group"><label>Registrar's name</label><input name="registrar_name" class="form-control" maxlength="180" placeholder="Full name of the Registrar"></div>
+      <div class="form-group"><label>Position / designation</label><input name="registrar_position" class="form-control" maxlength="180" value="Registrar"></div>
+      <div class="form-group"><label>Registrar's signature</label><input type="file" name="registrar_signature" class="form-control-file" accept="image/png,image/jpeg"><small class="text-muted">Use a cropped transparent PNG where possible. Maximum 2 MB.</small></div>
+      <div class="alert alert-info mt-4 mb-0">One institution-wide sequence is used per session. Department and programme changes never reset it.</div>
+    </div><div class="card-footer"><button class="btn btn-success">Save setting</button></div></form>
+  </div></div>
+  <div class="col-lg-7"><div class="card modern-panel"><div class="card-header"><h3 class="card-title">Current settings</h3></div><div class="table-responsive"><table class="table"><thead><tr><th>Scope</th><th>Acceptance required</th><th>Automatic matriculation</th><th>Signatory</th></tr></thead><tbody>
+    <% if(!rows.length){ %><tr><td colspan="4" class="text-center text-muted py-4">The secure default applies: acceptance payment is required and automatic matriculation is disabled.</td></tr><% } %>
+    <% rows.forEach(row=>{ %><tr><td><%= row.application_title||'Session default' %></td><td><span class="badge badge-<%= row.acceptance_required_for_letter?'success':'warning' %>"><%= row.acceptance_required_for_letter?'Yes':'No' %></span></td><td><span class="badge badge-<%= row.matriculation_enabled?'success':'secondary' %>"><%= row.matriculation_enabled?'Enabled':'Disabled' %></span></td><td><strong><%= row.registrar_name||'Not configured' %></strong><br><small><%= row.registrar_position||'Registrar' %><%= row.registrar_signature_path?' · Signature uploaded':'' %></small></td></tr><% }) %>
+  </tbody></table></div></div></div>
+</div>

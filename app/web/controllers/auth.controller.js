@@ -143,6 +143,7 @@ export async function doLogin(req, res) {
         if (pub.length) {
           const ok = await bcrypt.compare(password, pub[0].password_hash);
           if (ok) {
+            delete req.session.portalAnnouncementPopups;
             req.session.publicUser = {
               id: pub[0].id,
               username: pub[0].username,
@@ -218,13 +219,30 @@ export function doLogout(req, res) {
 }
 
 // ---- public guards ----
-export function requireStudent(req, res, next) {
-  if (req.session?.publicUser?.role === "student") return next();
+async function publicUserHasRole(req, role) {
+  const user=req.session?.publicUser;if(!user?.id)return false;
+  if(user.role===role||user.base_role===role||user.roles?.includes(role))return true;
+  try{const [[row]]=await pool.query(`SELECT 1 allowed FROM portal_user_roles WHERE public_user_id=? AND role=? LIMIT 1`,[user.id,role]);return Boolean(row);}catch{return user.role===role;}
+}
+export async function requireStudent(req, res, next) {
+  if (await publicUserHasRole(req,"student")) return next();
   return res.redirect("/login");
 }
-export function requireApplicant(req, res, next) {
-  if (req.session?.publicUser?.role === "applicant") return next();
+export async function requireApplicant(req, res, next) {
+  if (await publicUserHasRole(req,"applicant")) return next();
   return res.redirect("/login");
+}
+
+export async function portalChooser(req,res){
+  const user=req.session?.publicUser;if(!user)return res.redirect("/login");
+  const [rows]=await pool.query(`SELECT role FROM portal_user_roles WHERE public_user_id=? ORDER BY FIELD(role,'applicant','student')`,[user.id]);
+  return res.render("pages/portal-chooser",{layout:"layouts/site",title:"Choose Portal",roles:rows.map(row=>row.role),user});
+}
+
+export async function switchPortal(req,res){
+  const user=req.session?.publicUser,role=String(req.params.role||"").toLowerCase();if(!user||!["applicant","student"].includes(role))return res.status(400).send("Invalid portal selection.");
+  if(!(await publicUserHasRole(req,role)))return res.status(403).send("This portal has not been enabled for your account.");
+  user.base_role=user.base_role||user.role;user.role=role;req.session.publicUser=user;return res.redirect(role==="student"?"/student/dashboard":"/applicant/dashboard");
 }
 
 // ---------- Register ----------
@@ -849,6 +867,39 @@ export async function studentDashboard(req, res) {
     console.error("Error building payment dashboard data:", err);
   }
 
+  let dashboardAnnouncements = [];
+  try {
+    const [[profile]] = await pool.query(
+      `SELECT school_id, department_id, programme_id FROM student_profiles WHERE user_id=? LIMIT 1`,
+      [studentId],
+    );
+    [dashboardAnnouncements] = await pool.query(
+      `SELECT pa.id,pa.title,pa.body,pa.priority,pa.publish_at,
+              (ar.public_user_id IS NULL) AS is_unread
+         FROM portal_announcements pa
+         LEFT JOIN announcement_reads ar
+           ON ar.announcement_id=pa.id AND ar.public_user_id=?
+        WHERE pa.status='PUBLISHED'
+          AND pa.audience_role IN ('student','both')
+          AND pa.publish_at<=NOW()
+          AND (pa.expires_at IS NULL OR pa.expires_at>NOW())
+          AND (pa.session_id IS NULL OR pa.session_id=?)
+          AND (pa.school_id IS NULL OR pa.school_id=?)
+          AND (pa.department_id IS NULL OR pa.department_id=?)
+          AND (pa.programme_id IS NULL OR pa.programme_id=?)
+        ORDER BY FIELD(pa.priority,'URGENT','IMPORTANT','NORMAL'),pa.publish_at DESC
+        LIMIT 10`,
+      [studentId,currentSession?.id||0,profile?.school_id||0,profile?.department_id||0,profile?.programme_id||0],
+    );
+  } catch (err) {
+    console.error("Error loading student dashboard announcements:", err);
+  }
+  let dashboardAnnouncement=null;
+  if(dashboardAnnouncements.length && !req.session.portalAnnouncementPopups?.student){
+    dashboardAnnouncement=dashboardAnnouncements[0];
+    req.session.portalAnnouncementPopups={...(req.session.portalAnnouncementPopups||{}),student:true};
+  }
+
   return res.render("pages/student-dashboard", {
     layout: "layouts/adminlte",
     _role: "student",
@@ -872,6 +923,8 @@ export async function studentDashboard(req, res) {
     totalRegisteredCourses,
     recentCourseRegistrations,
     recentAttendance,
+    announcements: dashboardAnnouncements,
+    dashboardAnnouncement,
   });
 }
 export async function studentPaymentHistory(req, res) {
@@ -965,7 +1018,7 @@ export async function applicantDashboard(req, res, next) {
 
     const [sessRows] = await pool.query(
       `
-        SELECT name
+        SELECT id, name
         FROM sessions
         WHERE is_current = 1
         LIMIT 1
@@ -1123,6 +1176,36 @@ export async function applicantDashboard(req, res, next) {
 
     const counts = applicationCountRows?.[0] || {};
     const paymentSummary = paymentSummaryRows?.[0] || {};
+    const [announcementRows] = await pool.query(
+      `SELECT pa.id,pa.title,pa.body,pa.priority,pa.publish_at,
+              (ar.public_user_id IS NULL) is_unread
+         FROM portal_announcements pa
+         LEFT JOIN announcement_reads ar ON ar.announcement_id=pa.id AND ar.public_user_id=?
+        WHERE status='PUBLISHED'
+          AND audience_role IN ('applicant','both')
+          AND publish_at<=NOW()
+          AND (expires_at IS NULL OR expires_at>NOW())
+          AND EXISTS (
+            SELECT 1 FROM applicant_applications aa
+            JOIN application_forms af ON af.id=aa.application_form_id
+            WHERE aa.applicant_user_id=? AND aa.submitted_at IS NOT NULL
+              AND (pa.session_id IS NULL OR pa.session_id=af.session_id)
+              AND (pa.application_form_id IS NULL OR pa.application_form_id=aa.application_form_id)
+              AND (pa.admission_status IS NULL OR pa.admission_status=aa.status)
+              AND (pa.school_id IS NULL OR pa.school_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_id')) AS UNSIGNED))
+              AND (pa.department_id IS NULL OR pa.department_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_id')) AS UNSIGNED))
+              AND (pa.programme_id IS NULL OR pa.programme_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.programme_id')) AS UNSIGNED))
+          )
+        ORDER BY FIELD(priority,'URGENT','IMPORTANT','NORMAL'),publish_at DESC
+        LIMIT 10`,
+      [applicantUserId,applicantUserId],
+    );
+    const [unreadAdmissionRows] = await pool.query(`SELECT id,title,message,action_url FROM portal_notifications WHERE public_user_id=? AND read_at IS NULL AND (notification_type IN ('ADMISSION_OFFER','ADMISSION_REVOKED','STUDENT_ACCESS_GRANTED','MATRIC_NUMBER_ASSIGNED') OR notification_type LIKE 'SCREENING\\_%') ORDER BY id DESC LIMIT 1`,[applicantUserId]);
+    let dashboardAnnouncement=null;
+    if(!unreadAdmissionRows?.[0] && announcementRows.length && !req.session.portalAnnouncementPopups?.applicant){
+      dashboardAnnouncement=announcementRows[0];
+      req.session.portalAnnouncementPopups={...(req.session.portalAnnouncementPopups||{}),applicant:true};
+    }
 
     return res.render("pages/applicant-dashboard", {
       layout: "layouts/adminlte",
@@ -1157,6 +1240,9 @@ export async function applicantDashboard(req, res, next) {
 
       recentApplications: applicationRows || [],
       recentPayments: paymentRows || [],
+      announcements: announcementRows || [],
+      dashboardAnnouncement,
+      admissionPopup: unreadAdmissionRows?.[0] || null,
     });
   } catch (error) {
     next(error);

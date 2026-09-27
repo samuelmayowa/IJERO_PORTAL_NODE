@@ -29,7 +29,7 @@ export async function managePage(req, res) {
     ${whereSql}
   `;
   const listSql = `
-    SELECT d.id, d.name, d.school_id, s.name AS school_name
+    SELECT d.id, d.name, d.code, d.school_id, s.name AS school_name
     FROM departments d
     LEFT JOIN schools s ON s.id = d.school_id
     ${whereSql}
@@ -95,8 +95,9 @@ export async function managePage(req, res) {
 /* ---------- POST: Create or upsert a Department ---------- */
 export async function create(req, res) {
   const name = (req.body.name || '').trim();
+  const code = String(req.body.code||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   const school_id = req.body.school_id ? parseInt(req.body.school_id, 10) : null;
-  if (!name || !school_id) return res.redirect('/staff/departments');
+  if (!name || !school_id || !code) { req.flash('error','Department name, unique code and school are required.'); return res.redirect('/staff/departments'); }
 
   try {
     const [exist] = await pool.query(
@@ -104,15 +105,15 @@ export async function create(req, res) {
       [name, school_id]
     );
     if (exist.length) {
-      await pool.query('UPDATE departments SET name=?, school_id=? WHERE id=?', [name, school_id, exist[0].id]);
+      await pool.query('UPDATE departments SET name=?, code=?, school_id=? WHERE id=?', [name, code, school_id, exist[0].id]);
       req.flash('success', 'Department updated.');
     } else {
-      await pool.query('INSERT INTO departments (name, school_id) VALUES (?,?)', [name, school_id]);
+      await pool.query('INSERT INTO departments (name, code, school_id) VALUES (?,?,?)', [name, code, school_id]);
       req.flash('success', 'Department added.');
     }
   } catch (e) {
     console.error('dept create:', e);
-    req.flash('error', 'Save failed.');
+    req.flash('error', e.code==='ER_DUP_ENTRY'?'Department code must be unique.':'Save failed.');
   }
   res.redirect('/staff/departments');
 }
@@ -121,14 +122,19 @@ export async function create(req, res) {
 export async function update(req, res) {
   const id = parseInt(req.params.id || '0', 10);
   const name = (req.body.name || '').trim();
+  const code = String(req.body.code||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   const school_id = req.body.school_id ? parseInt(req.body.school_id, 10) : null;
 
   try {
-    await pool.query('UPDATE departments SET name=?, school_id=? WHERE id=?', [name, school_id, id]);
+    if(!code)throw new Error('Department code is required.');
+    const [[issued]]=await pool.query(`SELECT COUNT(*) total FROM matric_number_assignments WHERE department_id=?`,[id]);
+    const [[before]]=await pool.query(`SELECT code FROM departments WHERE id=?`,[id]);
+    if(Number(issued?.total)>0&&before?.code&&before.code!==code)throw new Error('The code cannot be changed after matriculation numbers have been issued.');
+    await pool.query('UPDATE departments SET name=?, code=?, school_id=? WHERE id=?', [name, code, school_id, id]);
     req.flash('success', 'Department updated.');
   } catch (e) {
     console.error('dept update:', e);
-    req.flash('error', 'Update failed.');
+    req.flash('error', e.code==='ER_DUP_ENTRY'?'Department code must be unique.':e.message||'Update failed.');
   }
   res.redirect('/staff/departments');
 }

@@ -1,0 +1,53 @@
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card card-outline card-success">
+      <div class="card-header"><h3 class="card-title">Add admission criterion</h3></div>
+      <form method="post" action="<%= editRow ? `/staff/admissions/criteria/${editRow.id}/update` : '/staff/admissions/criteria' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+        <div class="card-body">
+          <div class="form-group"><label>Academic session</label><select name="session_id" class="form-control" required <%= editRow?'disabled':'' %>><% sessions.forEach(s => { %><option value="<%= s.id %>" <%= Number(s.id)===Number(editRow?.session_id||sessionId)?'selected':'' %>><%= s.name %></option><% }) %></select></div>
+          <div class="form-group"><label>Application type</label><select name="application_form_id" class="form-control"><option value="">All application types</option><% forms.forEach(f => { %><option value="<%= f.id %>" <%= Number(f.id)===Number(editRow?.application_form_id)?'selected':'' %>><%= f.title %></option><% }) %></select></div>
+          <div class="form-row">
+            <div class="form-group col-md-4"><label>School</label><select name="school_id" id="criterionSchool" class="form-control"><option value="">All</option><% schools.forEach(x => { %><option value="<%= x.id %>" <%= Number(x.id)===Number(editRow?.school_id)?'selected':'' %>><%= x.name %></option><% }) %></select></div>
+            <div class="form-group col-md-4"><label>Department</label><select name="department_id" id="criterionDepartment" class="form-control"><option value="">All</option><% departments.forEach(x => { %><option value="<%= x.id %>" data-school="<%= x.school_id %>" <%= Number(x.id)===Number(editRow?.department_id)?'selected':'' %>><%= x.name %></option><% }) %></select></div>
+            <div class="form-group col-md-4"><label>Programme</label><select name="programme_id" id="criterionProgramme" class="form-control"><option value="">All</option><% programmes.forEach(x => { %><option value="<%= x.id %>" data-school="<%= x.school_id %>" data-department="<%= x.department_id %>" <%= Number(x.id)===Number(editRow?.programme_id)?'selected':'' %>><%= x.name %></option><% }) %></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-4"><label>Cut-off score</label><input type="number" min="0" step="0.01" name="minimum_score" class="form-control" value="<%= editRow?.minimum_score??'' %>"></div>
+            <div class="form-group col-md-4"><label>Score type</label><select name="score_mode" class="form-control"><option value="RAW" <%= editRow?.score_mode==='RAW'?'selected':'' %>>Raw score</option><option value="PERCENT" <%= editRow?.score_mode==='PERCENT'?'selected':'' %>>Percentage</option></select></div>
+            <div class="form-group col-md-4"><label>Maximum score</label><input type="number" min="1" step="0.01" name="maximum_score" class="form-control" placeholder="e.g. 400" value="<%= editRow?.maximum_score??'' %>"></div>
+          </div>
+          <div class="form-group"><label>Minimum O'level credits</label><input type="number" min="1" max="9" name="minimum_olevel_credits" class="form-control"></div>
+          <div class="form-group">
+            <div class="d-flex align-items-center mb-2"><label class="mb-0">Required subjects</label><% if(['admin','registry'].includes(String(user?.role||'').toLowerCase())){ %><button type="button" class="btn btn-sm btn-outline-success ml-auto" data-toggle="modal" data-target="#newSubjectModal"><i class="fas fa-plus mr-1"></i>Add New Subject</button><% } %></div>
+            <% (editRow ? [...editSubjects.map(x=>x.subject_name),'',''] : ['English Language','Mathematics','','']).forEach((subject, index) => { %>
+              <div class="input-group mb-2"><select name="subject_name" class="form-control"><option value="">Select subject</option><% subjects.filter(x=>x.is_active||x.name===subject).forEach(x=>{ %><option value="<%= x.name %>" <%= x.name===subject?'selected':'' %>><%= x.name %></option><% }) %></select><select name="minimum_grade" class="form-control"><% ['A1','B2','B3','C4','C5','C6'].forEach(g => { %><option <%= g===(editSubjects[index]?.minimum_grade||'C6')?'selected':'' %>><%= g %></option><% }) %></select></div>
+            <% }) %>
+          </div>
+          <div class="custom-control custom-checkbox mb-2"><input type="checkbox" class="custom-control-input" id="scoreRequired" name="score_required" value="1" <%= !editRow||editRow.score_required?'checked':'' %>><label class="custom-control-label" for="scoreRequired">Uploaded entrance score is required</label></div>
+          <div class="custom-control custom-checkbox mb-3"><input type="checkbox" class="custom-control-input" id="criterionActive" name="is_active" value="1" <%= !editRow||editRow.is_active?'checked':'' %>><label class="custom-control-label" for="criterionActive">Criterion is active</label></div>
+          <div class="form-group"><label>Internal notes</label><textarea name="notes" class="form-control" rows="2"><%= editRow?.notes||'' %></textarea></div>
+          <% if(editRow){ %><div class="form-group"><label>Reason for change</label><textarea name="reason" class="form-control" required></textarea></div><% } %>
+        </div>
+        <div class="card-footer"><button class="btn btn-success"><i class="fas fa-save mr-1"></i><%= editRow?'Update':'Save' %> criterion</button><% if(editRow){ %><a href="/staff/admissions/criteria?session_id=<%= editRow.session_id %>" class="btn btn-secondary">Cancel</a><% } %></div>
+      </form>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex align-items-center"><h3 class="card-title">Configured criteria</h3><form class="ml-auto" method="get"><select name="session_id" class="form-control form-control-sm" onchange="this.form.submit()"><% sessions.forEach(s => { %><option value="<%= s.id %>" <%= Number(s.id)===Number(sessionId)?'selected':'' %>><%= s.name %></option><% }) %></select></form></div>
+      <div class="card-body table-responsive p-0"><table class="table table-hover"><thead><tr><th>Scope</th><th>Score</th><th>Required subjects</th><th>Status</th><th></th></tr></thead><tbody>
+        <% if (!rows.length) { %><tr><td colspan="5" class="text-center text-muted py-4">No admission criteria have been configured for this session.</td></tr><% } %>
+        <% rows.forEach(row => { %><tr><td><strong><%= row.programme_name || row.department_name || row.school_name || row.application_title || 'Session default' %></strong><br><small class="text-muted"><%= row.application_title || 'All application types' %></small></td><td><%= row.score_required ? (row.minimum_score ?? 'Required') : 'Not required' %><%= row.score_mode==='PERCENT'?'%':'' %><% if(row.score_mode==='PERCENT'&&row.maximum_score){ %><br><small>of <%= row.maximum_score %></small><% } %></td><td><%= row.required_subjects || 'None specified' %></td><td><span class="badge badge-<%= row.is_active ? 'success':'secondary' %>"><%= row.is_active ? 'Active':'Inactive' %></span></td><td><a class="btn btn-sm btn-outline-primary" href="/staff/admissions/criteria?session_id=<%= row.session_id %>&edit=<%= row.id %>">Edit</a><form class="d-inline" method="post" action="/staff/admissions/criteria/<%= row.id %>/toggle"><input type="hidden" name="_csrf" value="<%= csrfToken || '' %>"><button class="btn btn-sm btn-outline-secondary"><%= row.is_active ? 'Disable':'Enable' %></button></form></td></tr><% }) %>
+      </tbody></table></div>
+    </div>
+  </div>
+</div>
+<% if(['admin','registry'].includes(String(user?.role||'').toLowerCase())){ %><div class="modal fade" id="newSubjectModal"><div class="modal-dialog modal-dialog-centered"><form method="post" action="/staff/admissions/subjects" class="modal-content"><input type="hidden" name="_csrf" value="<%= csrfToken||'' %>"><div class="modal-header"><h5 class="modal-title">Add O'Level subject</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div><div class="modal-body"><label>Subject name</label><input name="name" class="form-control" maxlength="120" required><small class="text-muted">Duplicate names are blocked.</small></div><div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button class="btn btn-success">Add subject</button></div></form></div></div><% } %>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var school=document.getElementById('criterionSchool'), department=document.getElementById('criterionDepartment'), programme=document.getElementById('criterionProgramme');
+  function filter(){ var s=school.value,d=department.value; Array.from(department.options).forEach(function(o){o.hidden=!!o.value&&!!s&&o.dataset.school!==s}); Array.from(programme.options).forEach(function(o){o.hidden=!!o.value&&((s&&o.dataset.school!==s)||(d&&o.dataset.department!==d))}); }
+  school.addEventListener('change',function(){department.value='';programme.value='';filter()}); department.addEventListener('change',function(){programme.value='';filter()});
+});
+</script>

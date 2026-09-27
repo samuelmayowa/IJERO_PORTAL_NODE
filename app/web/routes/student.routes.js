@@ -5,6 +5,9 @@ import {
   uniformForm,
   saveUniform,
   uniformPrint,
+  announcements,
+  paymentValidationPage,
+  academicRecordPage,
 } from '../controllers/student.controller.js';
 import { requireStudent, studentPaymentHistory } from '../controllers/auth.controller.js';
 import {
@@ -21,6 +24,7 @@ router.get('/', dashboard);
 
 // ✅ Alias for /student/dashboard (so both URLs work)
 router.get('/dashboard', dashboard);
+router.get('/announcements', requireStudent, announcements);
 
 // Uniform measurement
 router.get('/uniform', uniformForm);
@@ -29,6 +33,8 @@ router.get('/uniform/print', uniformPrint);
 
 // Student payment history
 router.get('/payments/history', requireStudent, studentPaymentHistory);
+router.get('/payments/validate', requireStudent, paymentValidationPage);
+router.get('/records/:type', requireStudent, academicRecordPage);
 
 // Exam clearance
 router.get('/exams/clearance', requireStudent, examClearancePage);

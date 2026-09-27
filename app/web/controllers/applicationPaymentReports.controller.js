@@ -1,4 +1,6 @@
 import { pool } from "../../core/db.js";
+import XLSX from "xlsx";
+import PDFDocument from "pdfkit";
 
 const PAGE_SIZES = new Set([25, 50, 100]);
 
@@ -660,7 +662,11 @@ function buildExportQuery(filters) {
 }
 
 function csvEscape(value) {
-  return `"${String(value ?? "").replace(
+  const text = String(value ?? "");
+  const safe = /^[=+\-@\t\r]/.test(text)
+    ? `'${text}`
+    : text;
+  return `"${safe.replace(
     /"/g,
     '""',
   )}"`;
@@ -887,6 +893,78 @@ async function exportCsv(
   }
 }
 
+function exportRows(rows) {
+  const spreadsheetSafe = (value) => {
+    const text = String(value ?? "");
+    return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  };
+  return rows.map(row => ({
+    "Application Number": spreadsheetSafe(row.application_number),
+    "Applicant Name": spreadsheetSafe(row.applicant_name),
+    "Email": spreadsheetSafe(row.username),
+    "Phone": row.phone || "",
+    "Academic Session": row.session_name || "",
+    "Application Form": row.application_title || "",
+    "Programme": row.programme_name || "",
+    "Application Status": row.application_status || "",
+    "Payment Status": row.payment_status || "",
+    "RRR": row.rrr || "",
+    "Order ID": row.order_id || "",
+    "Amount": Number(row.amount || 0),
+    "Portal Charge": Number(row.portal_charge || 0),
+    "Total": Number(row.amount || 0) + Number(row.portal_charge || 0),
+    "Payment Method": row.method || "",
+    "Payment Date": csvDate(row.paid_at),
+    "Invoice Created": csvDate(row.invoice_created_at),
+  }));
+}
+
+async function loadExport(req, stage) {
+  const config = reportConfig(stage);
+  const sessions = await loadSessions();
+  const defaultSessionId = await loadDefaultSessionId(sessions);
+  const filters = readFilters(req, sessions, defaultSessionId);
+  return { config, filters, rows: await loadRows(filters, config, { paginate: false }) };
+}
+
+async function exportXlsx(req, res, next, stage) {
+  try {
+    const { config, rows } = await loadExport(req, stage);
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(exportRows(rows));
+    XLSX.utils.book_append_sheet(workbook, worksheet, config.stage === "ACCEPTANCE" ? "Acceptance Fees" : "Application Fees");
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${config.stage.toLowerCase()}_fee_report.xlsx"`);
+    res.send(buffer);
+  } catch (error) { next(error); }
+}
+
+async function exportPdf(req, res, next, stage) {
+  try {
+    const { config, rows } = await loadExport(req, stage);
+    const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 28 });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${config.stage.toLowerCase()}_fee_report.pdf"`);
+    doc.pipe(res);
+    doc.font("Helvetica-Bold").fontSize(15).fillColor("#247D57").text(config.title, { align: "center" });
+    doc.font("Helvetica").fontSize(8).fillColor("#555").text(`Generated ${new Date().toLocaleString("en-GB")} · ${rows.length} record(s)`, { align: "center" });
+    doc.moveDown();
+    const cols = [28,65,160,275,345,405,465,525,595,655,720];
+    const widths = [35,92,112,68,58,58,58,68,58,62,70];
+    const headers = ["#","Application","Applicant","Session","Programme","Status","Pay status","RRR","Amount","Charge","Paid date"];
+    const drawHeader = y => { doc.rect(28,y,758,18).fill("#247D57"); doc.fillColor("#fff").font("Helvetica-Bold").fontSize(7); headers.forEach((h,i)=>doc.text(h,cols[i],y+5,{width:widths[i],ellipsis:true})); };
+    let y=95; drawHeader(y); y+=20;
+    rows.forEach((row,index)=>{
+      if(y>545){doc.addPage();y=35;drawHeader(y);y+=20;}
+      if(index%2===0)doc.rect(28,y-2,758,18).fill("#f4f6f9");
+      doc.fillColor("#222").font("Helvetica").fontSize(6.5);
+      [index+1,row.application_number,row.applicant_name,row.session_name,row.programme_name,row.application_status,row.payment_status,row.rrr,Number(row.amount||0).toFixed(2),Number(row.portal_charge||0).toFixed(2),csvDate(row.paid_at)].forEach((v,i)=>doc.text(String(v??""),cols[i],y,{width:widths[i],ellipsis:true})); y+=18;
+    });
+    doc.end();
+  } catch (error) { next(error); }
+}
+
 export function applicationFeesReport(
   req,
   res,
@@ -938,3 +1016,8 @@ export function exportAcceptanceFeesCsv(
     "ACCEPTANCE",
   );
 }
+
+export const exportApplicationFeesXlsx = (req,res,next) => exportXlsx(req,res,next,"APPLICATION");
+export const exportAcceptanceFeesXlsx = (req,res,next) => exportXlsx(req,res,next,"ACCEPTANCE");
+export const exportApplicationFeesPdf = (req,res,next) => exportPdf(req,res,next,"APPLICATION");
+export const exportAcceptanceFeesPdf = (req,res,next) => exportPdf(req,res,next,"ACCEPTANCE");

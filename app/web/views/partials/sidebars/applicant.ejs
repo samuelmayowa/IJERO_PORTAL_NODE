@@ -65,6 +65,10 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
     <li class="nav-item"><a href="/applicant/application/return" class="nav-link <%= path.startsWith('/applicant/application/return') ? 'active' : '' %>"><i class="nav-icon fas fa-undo"></i><p>My Application(s)</p></a></li>
     <li class="nav-item"><a href="/applicant/payments/history" class="nav-link <%= path.startsWith('/applicant/payments/history') ? 'active' : '' %>"><i class="nav-icon fas fa-receipt"></i><p>Payment History</p></a></li>
     <li class="nav-item"><a href="/applicant/result/check" class="nav-link <%= path.startsWith('/applicant/result') ? 'active' : '' %>"><i class="nav-icon fas fa-file-alt"></i><p>Check Result</p></a></li>
+    <li class="nav-item"><a href="/applicant/admission/status" class="nav-link <%= path.startsWith('/applicant/admission') ? 'active' : '' %>"><i class="nav-icon fas fa-user-check"></i><p>Check Admission Status</p></a></li>
+    <li class="nav-item"><a href="/applicant/notifications" class="nav-link <%= path.startsWith('/applicant/notifications') ? 'active' : '' %>"><i class="nav-icon fas fa-bell"></i><p>Notifications <% if (Number(typeof unreadNotificationCount !== 'undefined' ? unreadNotificationCount : 0)>0) { %><span class="right badge badge-danger"><%= unreadNotificationCount %></span><% } %></p></a></li>
+    <li class="nav-item"><a href="/applicant/announcements" class="nav-link <%= path.startsWith('/applicant/announcements') ? 'active' : '' %>"><i class="nav-icon fas fa-bullhorn"></i><p>Announcements</p></a></li>
+    <li class="nav-item"><a href="/applicant/screening" class="nav-link <%= path.startsWith('/applicant/screening') ? 'active' : '' %>"><i class="nav-icon fas fa-calendar-check"></i><p>Screening Schedule</p></a></li>
 
     <li class="nav-item has-treeview <%= path.startsWith('/applicant/exam-date') ? 'menu-open' : '' %>">
       <a href="#" class="nav-link <%= path.startsWith('/applicant/exam-date') ? 'active' : '' %>">

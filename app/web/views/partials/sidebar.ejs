@@ -18,6 +18,7 @@ const staffRoles = new Set([
 ]);
 
 const isStaffLike = staffRoles.has(role);
+const canManageAdmissions = ['admin','administrator','superadmin','registry','registrary','registrar','admission officer','admissions officer','admission'].includes(role);
 
 // allowedModules is provided by enforceStatusGlobally (Set or null)
 function can(moduleKey) {
@@ -31,21 +32,6 @@ const inAttendance = cur.startsWith('/staff/attendance');
 %>
 
 <style>
-  .main-sidebar,
-  .main-sidebar .brand-link,
-  .main-sidebar .sidebar { background-color: #247D57 !important; }
-  .main-sidebar .brand-text,
-  .main-sidebar .user-panel .info a,
-  .main-sidebar .nav-link,
-  .main-sidebar .nav-header { color:#fff !important; font-weight:600; }
-  .main-sidebar .nav-link .nav-icon,
-  .main-sidebar .nav-treeview .nav-link { color:#fff !important; font-weight:600; }
-  .main-sidebar .nav-sidebar>.nav-item>.nav-link.active,
-  .main-sidebar .nav-sidebar>.nav-item.menu-open>.nav-link { background-color:#82103C !important; color:#fff !important; }
-  .main-sidebar .nav-treeview>.nav-item>.nav-link.active { background-color:#82103C !important; color:#fff !important; }
-  .main-sidebar .nav-link:hover { background-color: rgba(0,0,0,.08) !important; }
-  .main-sidebar .nav-header { opacity:.9; }
-
   /* Disabled links (policy-restricted, e.g., GRADUATED student) */
   .nav-link.disabled { pointer-events:none; opacity:.5; }
 </style>
@@ -200,7 +186,8 @@ const inAttendance = cur.startsWith('/staff/attendance');
         </ul>
       </li>
 
-      <!-- Admissions -->
+      <% if (canManageAdmissions) { %>
+      <!-- Admissions: only verified working routes are shown. -->
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/admissions') || cur.startsWith('/staff/fees/application-forms') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/admissions') || cur.startsWith('/staff/fees/application-forms') ? 'active' : '' %>">
           <i class="nav-icon fas fa-user-graduate"></i>
@@ -214,19 +201,17 @@ const inAttendance = cur.startsWith('/staff/attendance');
             </a>
           </li>
           <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admissions</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/upload"           class="nav-link <%= cur.startsWith('/staff/admissions/upload') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload Admission List</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/status"           class="nav-link <%= cur.startsWith('/staff/admissions/status') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Status</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/update-list"      class="nav-link <%= cur.startsWith('/staff/admissions/update-list') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Update Admission List</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/notify"           class="nav-link <%= cur.startsWith('/staff/admissions/notify') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Notification</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/letters"          class="nav-link <%= cur.startsWith('/staff/admissions/letters') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admission Letter</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/scratch-cards"    class="nav-link <%= cur.startsWith('/staff/admissions/scratch-cards') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Scratch Card</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/exam-date"        class="nav-link <%= cur.startsWith('/staff/admissions/exam-date') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Set Exam Date</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/verify-applicant" class="nav-link <%= cur.startsWith('/staff/admissions/verify-applicant') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Verify Applicant</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/export"           class="nav-link <%= cur.startsWith('/staff/admissions/export') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Export Applicant</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/upload-utme"      class="nav-link <%= cur.startsWith('/staff/admissions/upload-utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Upload UTME Admission</p></a></li>
-          <li class="nav-item"><a href="/staff/admissions/add-course"       class="nav-link <%= cur.startsWith('/staff/admissions/add-course') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Course to Application</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/criteria" class="nav-link <%= cur.startsWith('/staff/admissions/criteria') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Criteria</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/screening" class="nav-link <%= cur.startsWith('/staff/admissions/screening') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Screening Schedules</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/documents" class="nav-link <%= cur.startsWith('/staff/admissions/documents') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Documents</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/announcements" class="nav-link <%= cur.startsWith('/staff/admissions/announcements') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Announcement Board</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/notifications" class="nav-link <%= cur.startsWith('/staff/admissions/notifications') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Email Deliveries</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/matriculation" class="nav-link <%= cur.startsWith('/staff/admissions/matriculation') ? 'active' : '' %>"><i class="fas fa-id-card nav-icon"></i><p>Matriculation Numbers</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/applications" class="nav-link <%= cur.startsWith('/staff/admissions/applications') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Applications Report</p></a></li>
+          <% if (['admin','administrator','superadmin'].includes(role)) { %><li class="nav-item"><a href="/staff/admissions/settings" class="nav-link <%= cur.startsWith('/staff/admissions/settings') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Settings</p></a></li><% } %>
         </ul>
       </li>
+      <% } %>
 
       <!-- Manage Student -->
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/students') ? 'menu-open' : '' %>">
@@ -296,32 +281,6 @@ const inAttendance = cur.startsWith('/staff/attendance');
         </a>
       </li>
 
-      <!-- Manage Applicant -->
-      <li class="nav-item has-treeview">
-        <a href="#" class="nav-link">
-          <i class="nav-icon fas fa-user-edit"></i>
-          <p>Manage Applicant <i class="right fas fa-angle-left"></i></p>
-        </a>
-        <ul class="nav nav-treeview">
-
-          <li class="nav-item">
-            <a
-              href="/staff/admissions/applications"
-              class="nav-link <%= cur.startsWith('/staff/admissions/applications') ? 'active' : '' %>"
-            >
-              <i class="far fa-circle nav-icon"></i>
-              <p><strong>Applications Report</strong></p>
-            </a>
-          </li>
-<li class="nav-item"><a href="/staff/students/upload"         class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Upload Student Data</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/edit"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Edit Applicant</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Reset Password</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Payment / Requery</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Check Screening Result</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Check Admission Status</strong></p></a></li>
-          <li class="nav-item"><a href="/staff/students/utme"           class="nav-link"><i class="far fa-circle nav-icon"></i><p><strong>Mark Applicant As Inactive</strong></p></a></li>
-        </ul>
-      </li>
             <!-- Vacancy Applications -->
       <li class="nav-item">
         <a href="/staff/vacancies/report"
@@ -341,6 +300,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/fees/payments"class="nav-link <%= cur.startsWith('/staff/fees/payments') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>All / General Payment</p></a></li>
           <li class="nav-item"><a href="/staff/fees/payment-types" class="nav-link <%= cur.startsWith('/staff/fees/payment-types') && !cur.endsWith('/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Payment Types</p></a></li>
           <li class="nav-item"><a href="/staff/fees/payment-types/add" class="nav-link <%= cur.startsWith('/staff/fees/payment-types/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Payment Type</p></a></li>
+          <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/debtors-creditors" class="nav-link <%= cur.startsWith('/staff/fees/debtors-creditors') ? 'active' : '' %>"><i class="fas fa-balance-scale nav-icon"></i><p>Debtors &amp; Creditors</p></a></li><% } %>
           <li class="nav-item"><a href="/staff/fees/update" class="nav-link <%= cur.startsWith('/staff/fees/update') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add / Update Fees</p></a></li>
           <li class="nav-item"><a href="/staff/fees/late-payment-charges" class="nav-link <%= cur.startsWith('/staff/fees/late-payment-charges') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Late Payment Charges</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/utme" class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>

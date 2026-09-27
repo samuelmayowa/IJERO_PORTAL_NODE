@@ -216,6 +216,7 @@ export async function create(payload, createdBy) {
       portal_charge = 0,
       scope = "GENERAL",
       is_active = 1,
+      is_compulsory = 0,
 
       remita_service_type_id = "",
       uses_indigene_regime = 0,
@@ -264,9 +265,10 @@ export async function create(payload, createdBy) {
           remita_service_type_id_non_indigene,
           scope,
           is_active,
+          is_compulsory,
           created_by
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `,
       [
         String(name).trim(),
@@ -291,6 +293,7 @@ export async function create(payload, createdBy) {
         String(remita_service_type_id_non_indigene || "").trim() || null,
         normalizedScope,
         is_active ? 1 : 0,
+        is_compulsory ? 1 : 0,
         createdBy || null,
       ],
     );
@@ -374,6 +377,7 @@ export async function update(id, payload) {
       portal_charge,
       scope,
       is_active,
+      is_compulsory,
 
       remita_service_type_id,
       uses_indigene_regime,
@@ -420,6 +424,7 @@ export async function update(id, payload) {
           remita_service_type_id_non_indigene = ?,
           scope = COALESCE(?, scope),
           is_active = COALESCE(?, is_active),
+          is_compulsory = COALESCE(?, is_compulsory),
           updated_at = NOW()
         WHERE id = ?
       `,
@@ -456,6 +461,7 @@ export async function update(id, payload) {
           : String(remita_service_type_id_non_indigene || "").trim() || null,
         normalizedScope,
         typeof is_active === "undefined" ? null : is_active ? 1 : 0,
+        typeof is_compulsory === "undefined" ? null : is_compulsory ? 1 : 0,
         id,
       ],
     );

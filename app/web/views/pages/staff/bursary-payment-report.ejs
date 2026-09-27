@@ -88,6 +88,8 @@
           <i class="fas fa-file-csv mr-1"></i>
           Export CSV
         </a>
+        <a href="<%= config.exportPath.replace('.csv','.xlsx') %>?<%= exportQuery %>" class="btn btn-outline-success"><i class="fas fa-file-excel mr-1"></i>Export Excel</a>
+        <a href="<%= config.exportPath.replace('.csv','.pdf') %>?<%= exportQuery %>" class="btn btn-outline-danger"><i class="fas fa-file-pdf mr-1"></i>Export PDF</a>
       </div>
     </div>
   </div>

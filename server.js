@@ -12,6 +12,7 @@ import session from "express-session";
 import helmet from "helmet";
 import morgan from "morgan";
 import csrf from "csurf";
+import multer from "multer";
 import flash from "connect-flash";
 import { fileURLToPath } from "url";
 import expressLayouts from "express-ejs-layouts";
@@ -24,6 +25,7 @@ import { ensureAdminUser } from "./app/services/user.service.js";
 import {
   listOpenApplicationForms,
 } from "./app/services/applicationPortalService.js";
+import db from "./app/core/db.js";
 
 
 import * as authRoutesMod from "./app/web/routes/auth.routes.js";
@@ -149,8 +151,48 @@ app.get("/favicon.ico", (_req, res) =>
 // });
 const csrfProtection = csrf({ cookie: false });
 
-// Global CSRF, but skip some paths where we handle CSRF at route level
-const csrfSkipPaths = ["/login", "/student/profile", "/vacancies/apply"];
+const admissionTemplateMultipart = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = ["image/png", "image/jpeg"].includes(file.mimetype);
+    callback(allowed ? null : new Error("Watermark image must be a PNG or JPEG file."), allowed);
+  },
+}).fields([
+  { name: "watermark_image", maxCount: 1 },
+  { name: "registrar_signature", maxCount: 1 },
+]);
+const admissionTemplateMultipartPaths = new Set([
+  "/staff/admissions/documents",
+  "/staff/admissions/documents/preview-draft",
+  "/staff/admissions/documents/sample-draft.pdf",
+]);
+const admissionSettingsMultipart = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = ["image/png", "image/jpeg"].includes(file.mimetype);
+    callback(allowed ? null : new Error("Registrar signature must be a PNG or JPEG file."), allowed);
+  },
+}).single("registrar_signature");
+
+// Parse only these multipart forms before global CSRF so req.body._csrf is available.
+app.use((req, res, next) => {
+  const templateUpdatePath=/^\/staff\/admissions\/documents\/\d+\/update$/.test(req.path);
+  if (req.method !== "POST" || (!admissionTemplateMultipartPaths.has(req.path) && !templateUpdatePath)) return next();
+  return admissionTemplateMultipart(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.method !== "POST" || req.path !== "/staff/admissions/settings") return next();
+  return admissionSettingsMultipart(req, res, next);
+});
+
+// Global CSRF. Student profile uses its own parser-aware route protection.
+const csrfSkipPaths = [
+  "/login",
+  "/student/profile",
+  "/vacancies/apply",
+];
 
 app.use((req, res, next) => {
   if (csrfSkipPaths.includes(req.path)) return next();
@@ -227,6 +269,22 @@ app.use(async (req, res, next) => {
     res.locals.availableApplicationForms = [];
   }
 
+  next();
+});
+
+app.use(async (req, res, next) => {
+  const publicUser = req.session?.publicUser;
+  res.locals.unreadNotificationCount = 0;
+  if (!publicUser?.id) return next();
+  try {
+    const [[row]] = await db.query(
+      `SELECT COUNT(*) AS total FROM portal_notifications WHERE public_user_id=? AND read_at IS NULL`,
+      [publicUser.id],
+    );
+    res.locals.unreadNotificationCount = Number(row?.total || 0);
+  } catch (error) {
+    if (error?.code !== "ER_NO_SUCH_TABLE") console.error("Unable to load notification count:", error.message);
+  }
   next();
 });
 
@@ -577,7 +635,19 @@ app.use(
   requireRole("admin", "registry", "superadmin", "administrator"),
   staffVacancyReportRoutes,
 );
-app.use("/staff/fees", feesRoutes);
+app.use(
+  "/staff/fees",
+  ensureUserForViews,
+  requireRole(
+    "admin",
+    "superadmin",
+    "administrator",
+    "registry",
+    "admission officer",
+    "bursary",
+  ),
+  feesRoutes,
+);
 
 app.use("/", paymentRoutes);
 
@@ -661,7 +731,14 @@ app.use(
 app.use(
   "/staff",
   ensureUserForViews,
-  requireRole("staff", "admin", "registry", "hod", "lecturer", "staff"),
+  requireRole(
+    "staff",
+    "admin",
+    "registry",
+    "admission officer",
+    "hod",
+    "lecturer",
+  ),
   requireMenuPermission({
     base: "/staff",
     allowIfNoConfig: true,
@@ -683,7 +760,14 @@ app.use(
     } catch {}
     next();
   },
-  requireRole("staff", "admin", "hod", "registry", "lecturer", "staff"),
+  requireRole(
+    "staff",
+    "admin",
+    "hod",
+    "registry",
+    "admission officer",
+    "lecturer",
+  ),
   requireMenuPermission({
     base: "/staff",
     allowIfNoConfig: true,

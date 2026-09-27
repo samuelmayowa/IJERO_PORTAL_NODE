@@ -37,6 +37,8 @@
               <option value="ALL" <%= status==='ALL'?'selected':'' %>>All</option>
               <option value="PAID" <%= status==='PAID'?'selected':'' %>>PAID</option>
               <option value="PENDING" <%= status==='PENDING'?'selected':'' %>>PENDING</option>
+              <option value="FAILED" <%= status==='FAILED'?'selected':'' %>>FAILED</option>
+              <option value="CANCELLED" <%= status==='CANCELLED'?'selected':'' %>>CANCELLED</option>
             </select>
           </div>
           <div class="form-group col-md-2">
@@ -53,7 +55,7 @@
           <div class="form-group col-md-6 mt-2 d-flex">
             <button class="btn btn-primary mr-2">Apply</button>
             <a class="btn btn-default mr-2" href="?">Reset</a>
-            <a class="btn btn-outline-success" href="/staff/fees/payments/export.csv?<%= [
+            <a class="btn btn-outline-success mr-2" href="/staff/fees/payments/export.csv?<%= [
                 from?('from='+encodeURIComponent(from)):'',
                 to?('to='+encodeURIComponent(to)):'',
                 status?('status='+encodeURIComponent(status)):'',
@@ -61,6 +63,8 @@
                 typeId?('typeId='+encodeURIComponent(typeId)):'',
                 q?('q='+encodeURIComponent(q)):''
               ].filter(Boolean).join('&') %>">Export CSV</a>
+            <a class="btn btn-outline-success mr-2" href="/staff/fees/payments/export.xlsx?<%= [from?('from='+encodeURIComponent(from)):'',to?('to='+encodeURIComponent(to)):'',status?('status='+encodeURIComponent(status)):'',method?('method='+encodeURIComponent(method)):'',typeId?('typeId='+encodeURIComponent(typeId)):'',q?('q='+encodeURIComponent(q)):'' ].filter(Boolean).join('&') %>">Export Excel</a>
+            <a class="btn btn-outline-danger" href="/staff/fees/payments/export.pdf?<%= [from?('from='+encodeURIComponent(from)):'',to?('to='+encodeURIComponent(to)):'',status?('status='+encodeURIComponent(status)):'',method?('method='+encodeURIComponent(method)):'',typeId?('typeId='+encodeURIComponent(typeId)):'',q?('q='+encodeURIComponent(q)):'' ].filter(Boolean).join('&') %>">Export PDF</a>
           </div>
         </form>
       </div>

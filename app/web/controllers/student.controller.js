@@ -434,6 +434,8 @@ export async function dashboard(req, res) {
   });
 }
 
+export async function announcements(req,res,next){try{const userId=Number(req.session?.publicUser?.id||0);const [[profile]]=await pool.query(`SELECT * FROM student_profiles WHERE user_id=? LIMIT 1`,[userId]);const [[current]]=await pool.query(`SELECT id FROM sessions WHERE is_current=1 ORDER BY id DESC LIMIT 1`);const [rows]=await pool.query(`SELECT pa.*,ar.read_at FROM portal_announcements pa LEFT JOIN announcement_reads ar ON ar.announcement_id=pa.id AND ar.public_user_id=? WHERE pa.status='PUBLISHED' AND pa.audience_role IN ('student','both') AND pa.publish_at<=NOW() AND (pa.expires_at IS NULL OR pa.expires_at>NOW()) AND (pa.session_id IS NULL OR pa.session_id=?) AND (pa.school_id IS NULL OR pa.school_id=?) AND (pa.department_id IS NULL OR pa.department_id=?) AND (pa.programme_id IS NULL OR pa.programme_id=?) ORDER BY FIELD(pa.priority,'URGENT','IMPORTANT','NORMAL'),pa.publish_at DESC`,[userId,current?.id||0,profile?.school_id||0,profile?.department_id||0,profile?.programme_id||0]);if(rows.length)await pool.query(`INSERT IGNORE INTO announcement_reads (announcement_id,public_user_id) VALUES ?`,[rows.map(x=>[x.id,userId])]);res.render('applications/applicant-announcements',{layout:'layouts/adminlte',title:'Announcements',pageTitle:'Announcements',announcements:rows});}catch(error){next(error)}}
+
 // GET /student/uniform
 export async function uniformForm(req, res) {
   const personRole = "STUDENT";
@@ -641,5 +643,62 @@ export async function uniformPrint(req, res) {
     personId,
     personName,
     sessionId,
+  });
+}
+
+export async function paymentValidationPage(req, res) {
+  return res.render("student/payment-validation", {
+    title: "Validate RRR",
+    pageTitle: "Validate RRR",
+    prefillRrr: String(req.query.rrr || "").trim(),
+  });
+}
+
+export async function academicRecordPage(req, res) {
+  const recordType = String(req.params.type || "").toLowerCase();
+  const supported = new Set(["approved", "graduating-list", "transcript-draft"]);
+  if (!supported.has(recordType)) return res.status(404).render("pages/error", {
+    title: "Record not found",
+    message: "The requested academic record page is not available.",
+  });
+
+  const [sessions] = await pool.query(
+    "SELECT id, name, is_current FROM sessions ORDER BY is_current DESC, id DESC",
+  );
+  const [semesters] = await pool.query(
+    "SELECT id, name, is_current FROM semesters ORDER BY is_current DESC, id ASC",
+  );
+  const selectedSessionId = String(req.query.session_id || sessions[0]?.id || "");
+  const selectedSemesterId = String(req.query.semester_id || semesters[0]?.id || "");
+  const meta = {
+    approved: {
+      title: "Approved Results",
+      icon: "fa-check-circle",
+      description: "Only results formally approved for the selected session and semester will appear here.",
+      empty: "No approved result has been published for you for the selected session and semester.",
+    },
+    "graduating-list": {
+      title: "Graduating List",
+      icon: "fa-user-graduate",
+      description: "Your graduation eligibility will appear here after the required academic review and approval.",
+      empty: "No graduating-list decision has been published for your account yet.",
+    },
+    "transcript-draft": {
+      title: "Draft Transcript",
+      icon: "fa-file-alt",
+      description: "This page will show your unofficial transcript after approved results have been compiled.",
+      empty: "A draft transcript is not available yet because no compiled record has been published for your account.",
+    },
+  }[recordType];
+
+  return res.render("student/academic-record-empty", {
+    title: meta.title,
+    pageTitle: meta.title,
+    recordType,
+    meta,
+    sessions,
+    semesters,
+    selectedSessionId,
+    selectedSemesterId,
   });
 }

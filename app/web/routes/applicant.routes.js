@@ -5,6 +5,7 @@ import { requireApplicant } from '../controllers/auth.controller.js';
 import {
   uploadApplicationDocumentFile,
 } from "../middleware/applicationDocumentUpload.js";
+import * as applicantAdmission from "../controllers/applicantAdmission.controller.js";
 
 const router = Router();
 
@@ -13,6 +14,12 @@ router.use(requireApplicant);
 
 // Dashboard
 router.get('/dashboard', applicant.dashboard);
+router.get('/admission/status', applicantAdmission.statusPage);
+router.get('/admission/:applicationId/letter', applicantAdmission.admissionLetter);
+router.get('/notifications', applicantAdmission.notificationsPage);
+router.get('/announcements', applicantAdmission.announcementsPage);
+router.get('/screening', applicantAdmission.screeningPage);
+router.get('/screening/:applicationId/slip', applicantAdmission.screeningSlip);
 
 // Dynamic application details
 router.get('/applications/:slug', applicant.applicationDetails);

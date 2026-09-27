@@ -4,6 +4,7 @@ import crypto from "crypto";
 import {
   syncApplicationPaymentByOrderId,
 } from "./applicationPaymentSyncService.js";
+import { tryGrantStudentAccessForOrder } from "./applicantTransitionService.js";
 
 
 function toRows(x) {
@@ -45,6 +46,7 @@ export async function createInvoice(payload) {
     amount: rawAmount,
     portal_charge_override: rawPortalChargeOverride,
     method,
+    session_id: requestedSessionId,
   } = payload;
 
   const pt = await getPaymentType(payment_type_id);
@@ -65,14 +67,16 @@ export async function createInvoice(payload) {
       ? requestedPortalCharge
       : Number(pt.portal_charge || 0);
 
+  let sessionId=Number(requestedSessionId)||0;if(!sessionId){const [[current]]=await db.query(`SELECT id FROM sessions WHERE is_current=1 ORDER BY id DESC LIMIT 1`);sessionId=Number(current?.id)||null;}
   const [ins] = await db.query(
     `INSERT INTO payment_invoices
-      (order_id, payment_type_id, payee_id, payee_fullname, payee_email, payee_phone,
+      (order_id, payment_type_id, session_id, payee_id, payee_fullname, payee_email, payee_phone,
        purpose, amount, portal_charge, method, status)
-     VALUES (?,?,?,?,?,?,?,?,?, ?, 'PENDING')`,
+     VALUES (?,?,?,?,?,?,?,?,?,?, ?, 'PENDING')`,
     [
       order_id,
       payment_type_id,
+      sessionId,
       payee_id,
       payee_fullname,
       payee_email,
@@ -116,6 +120,11 @@ export async function markPaid(order_id, extra = {}) {
   );
 
   await syncApplicationPaymentByOrderId(order_id);
+  try {
+    await tryGrantStudentAccessForOrder(order_id);
+  } catch (error) {
+    console.error("Applicant-to-student transition check failed:", error.message);
+  }
 }
 
 export async function refreshInvoice(order_id) {

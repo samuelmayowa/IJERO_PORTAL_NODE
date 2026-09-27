@@ -1,0 +1,50 @@
+<div class="modal fade portal-popup" id="<%= popupId %>" tabindex="-1" role="dialog" aria-labelledby="<%= popupId %>Title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-<%= tone %> text-white">
+        <h5 class="modal-title" id="<%= popupId %>Title"><i class="fas <%= icon %> mr-2"></i><%= title %></h5>
+        <button type="button" class="close text-white portal-popup-close" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body"><p class="mb-0"><%= body %></p></div>
+      <div class="modal-footer">
+        <a class="btn btn-<%= tone %> portal-popup-view" href="<%= actionUrl %>"><%= actionLabel %></a>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var popup = document.getElementById(<%- JSON.stringify(popupId) %>);
+  if (!popup) return;
+  /* Escape content-wrapper's stacking context so Bootstrap's backdrop cannot cover the dialog. */
+  document.body.appendChild(popup);
+  function closePopup() {
+    if (window.jQuery && jQuery.fn && jQuery.fn.modal) {
+      jQuery(popup).modal('hide');
+    } else {
+      popup.classList.remove('show');
+      popup.style.display = 'none';
+      popup.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      document.querySelectorAll('.modal-backdrop').forEach(function (node) { node.remove(); });
+    }
+  }
+  popup.querySelectorAll('.portal-popup-close').forEach(function (button) {
+    button.addEventListener('click', function (event) { event.preventDefault(); closePopup(); });
+  });
+  popup.querySelectorAll('.portal-popup-view').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      window.location.assign(link.href);
+    });
+  });
+  if (window.jQuery && jQuery.fn && jQuery.fn.modal) {
+    jQuery(popup).modal('show');
+  } else {
+    popup.style.display = 'block';
+    popup.classList.add('show');
+    popup.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+  }
+});
+</script>

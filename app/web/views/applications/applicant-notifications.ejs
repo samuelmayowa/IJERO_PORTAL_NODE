@@ -1,0 +1,4 @@
+<div class="card card-outline card-success"><div class="card-header"><h3 class="card-title"><i class="fas fa-bell mr-2"></i>Portal notifications</h3></div><div class="card-body p-0">
+  <% if(!notifications.length){ %><div class="p-4 text-muted">You have no notifications.</div><% } %>
+  <div class="list-group list-group-flush"><% notifications.forEach(item=>{ %><a href="<%= item.action_url || '#' %>" class="list-group-item list-group-item-action"><div class="d-flex justify-content-between"><strong><%= item.title %></strong><small><%= new Date(item.created_at).toLocaleString('en-GB') %></small></div><p class="mb-0 mt-2"><%= item.message %></p></a><% }) %></div>
+</div></div>

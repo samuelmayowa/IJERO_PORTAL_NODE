@@ -1,0 +1,17 @@
+<div class="card card-outline card-success">
+  <div class="card-header"><h3 class="card-title"><i class="fas fa-user-check mr-2"></i>Your admission status</h3></div>
+  <div class="card-body">
+    <% if (!applications.length) { %><div class="alert alert-info mb-0">You do not yet have a submitted application to check.</div><% } %>
+    <% applications.forEach(item => { const admitted=item.decision_status==='ADMITTED'; const revoked=item.decision_status==='REVOKED'||item.status==='WITHDRAWN'; const paymentAllowsLetter=!Number(item.acceptance_required_for_letter)||item.acceptance_payment_status==='PAID'; const letterAllowed=admitted&&paymentAllowsLetter&&Number(item.has_published_letter_template); %>
+      <div class="card mb-3 <%= admitted?'border-success':revoked?'border-danger':'' %>"><div class="card-body">
+        <div class="d-flex justify-content-between flex-wrap"><div><h5><%= item.application_title %></h5><p class="text-muted mb-2"><%= item.application_number %> · <%= item.session_name %></p></div><div><span class="badge badge-<%= admitted?'success':revoked?'danger':'warning' %> p-2"><%= admitted?'OFFERED ADMISSION':revoked?'ADMISSION REVOKED':'UNDER CONSIDERATION' %></span></div></div>
+        <% if (admitted) { %><div class="alert alert-success"><h5>Congratulations!</h5><p>You have been offered provisional admission<%= item.offered_programme_name ? ` to study ${item.offered_programme_name}`:'' %>.</p></div>
+          <p><strong>Acceptance fee:</strong> <%= item.acceptance_payment_status %></p>
+          <a href="/applicant/payments/acceptance" class="btn btn-success"><i class="fas fa-credit-card mr-1"></i>Proceed to acceptance fee</a>
+          <% if (letterAllowed) { %><a target="_blank" href="/applicant/admission/<%= item.id %>/letter" class="btn btn-outline-success"><i class="fas fa-file-pdf mr-1"></i>Print admission letter</a><% } else if(!paymentAllowsLetter){ %><div class="alert alert-warning mt-3 mb-0">Your admission letter becomes available after the acceptance fee is confirmed.</div><% } else if(admitted&&!Number(item.has_published_letter_template)){ %><div class="alert alert-info mt-3 mb-0">Your admission letter has not yet been published. Please contact the Registry for assistance.</div><% } %>
+        <% } else if (revoked) { %><div class="alert alert-danger mb-0">This admission offer has been revoked. Please contact the Registry. Revocation does not automatically create a refund; any applicable refund is handled manually by the Bursary.</div>
+        <% } else { %><p class="mb-0">Your application is still being considered. Updates will appear here and in your notifications.</p><% } %>
+      </div></div>
+    <% }) %>
+  </div>
+</div>

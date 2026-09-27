@@ -1,4 +1,6 @@
 import { pool } from "../../core/db.js";
+import XLSX from "xlsx";
+import PDFDocument from "pdfkit";
 
 const LEGACY_SESSION = "2025/2026";
 
@@ -23,6 +25,73 @@ function legacyMeta(row) {
     legacy_pay_type: row.pay_type,
     imported_by: "legacy_payment_recovery",
   });
+}
+
+async function legacyHistory(req) {
+  const status = normalize(req.query.status);
+  const from = normalize(req.query.from);
+  const to = normalize(req.query.to);
+  const q = normalize(req.query.q);
+  const where = ["1=1"];
+  const params = [];
+  if (status && status !== "ALL") { where.push("LOWER(TRIM(oldp.status))=LOWER(?)"); params.push(status); }
+  if (from) { where.push("DATE(oldp.date_paid)>=?"); params.push(from); }
+  if (to) { where.push("DATE(oldp.date_paid)<=?"); params.push(to); }
+  if (q) {
+    where.push("(oldp.matric_id LIKE ? OR oldp.ref_number LIKE ? OR oldp.order_id LIKE ? OR oldp.pay_type LIKE ?)");
+    const term = `%${q}%`; params.push(term, term, term, term);
+  }
+  const [rows] = await pool.query(
+    `SELECT oldp.pay_id,oldp.matric_id,oldp.pay_type,oldp.amount_paid,oldp.ref_number,
+            oldp.order_id,oldp.date_paid,oldp.status,oldp.std_level,oldp.academic_session
+       FROM legacy_student_payments oldp WHERE ${where.join(" AND ")}
+       ORDER BY oldp.date_paid DESC,oldp.pay_id DESC LIMIT 100000`, params,
+  );
+  return rows || [];
+}
+
+function safeCell(value) {
+  const text = String(value ?? "");
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+function legacyObjects(rows) {
+  return rows.map(row => ({
+    "Pay ID": safeCell(row.pay_id), Matric: safeCell(row.matric_id), "Payment Type": safeCell(row.pay_type),
+    Amount: Number(row.amount_paid || 0), RRR: safeCell(row.ref_number), "Order ID": safeCell(row.order_id),
+    Status: safeCell(row.status), Level: safeCell(row.std_level), Session: safeCell(row.academic_session),
+    "Date Paid": row.date_paid ? new Date(row.date_paid).toISOString() : "",
+  }));
+}
+
+export async function exportHistory(req, res, next) {
+  try {
+    const format = normalize(req.params.format).toLowerCase();
+    if (!['csv', 'xlsx', 'pdf'].includes(format)) return res.status(404).send('Export format not found.');
+    const data = legacyObjects(await legacyHistory(req));
+    if (format === "xlsx") {
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), "Legacy Payments");
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", 'attachment; filename="legacy-payment-history.xlsx"');
+      return res.send(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+    }
+    if (format === "pdf") {
+      const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 28 });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", 'attachment; filename="legacy-payment-history.pdf"');
+      doc.pipe(res); doc.fontSize(15).text("Old Portal Payment History", { align: "center" });
+      doc.fontSize(8).text(`${data.length} record(s) · successful and unsuccessful`, { align: "center" });
+      data.forEach((row, index) => { if (doc.y > 545) doc.addPage(); doc.fontSize(7).text(`${index + 1}. ${row.Matric} | ${row.RRR} | ${row["Payment Type"]} | NGN ${row.Amount.toFixed(2)} | ${row.Status} | ${row["Date Paid"]}`); });
+      doc.end(); return;
+    }
+    const headers = Object.keys(data[0] || { "Pay ID":"",Matric:"","Payment Type":"",Amount:"",RRR:"","Order ID":"",Status:"",Level:"",Session:"","Date Paid":"" });
+    const quote = value => `"${safeCell(value).replace(/"/g, '""')}"`;
+    const csv = [headers.map(quote).join(","), ...data.map(row => headers.map(key => quote(row[key])).join(","))].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="legacy-payment-history.csv"');
+    res.send(`\uFEFF${csv}`);
+  } catch (error) { next(error); }
 }
 
 async function findMissingLegacyPayments({

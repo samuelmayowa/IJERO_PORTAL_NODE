@@ -21,6 +21,12 @@ router.get(
   ctrl.preview,
 );
 
+router.get(
+  "/payments/legacy-history/export/:format",
+  requireRole("admin", "bursary", "staff"),
+  ctrl.exportHistory,
+);
+
 router.post(
   "/api/payments/legacy-recovery/import",
   requireRole("admin", "bursary", "staff"),

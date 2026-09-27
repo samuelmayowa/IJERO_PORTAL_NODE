@@ -1,0 +1,16 @@
+<div class="card card-outline card-success">
+  <div class="card-header"><h3 class="card-title"><i class="fas fa-calendar-check mr-2"></i>Your screening schedule</h3></div>
+  <div class="card-body">
+    <% if(!applications.length){ %><div class="alert alert-info mb-0">No submitted application was found.</div><% } %>
+    <% applications.forEach(app=>{ %>
+      <div class="card mb-3"><div class="card-body">
+        <h5><%= app.application_title %></h5><p class="text-muted"><%= app.application_number %> · <%= app.session_name %></p>
+        <% if(app.screening){ %>
+          <dl class="row"><dt class="col-sm-3">Date</dt><dd class="col-sm-9"><%= new Date(app.screening.screening_date).toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}) %></dd><dt class="col-sm-3">Reporting time</dt><dd class="col-sm-9"><%= app.screening.reporting_time||'As communicated' %></dd><dt class="col-sm-3">Venue</dt><dd class="col-sm-9"><%= app.screening.venue %></dd><dt class="col-sm-3">Batch</dt><dd class="col-sm-9"><%= app.screening.batch_name||'—' %></dd></dl>
+          <% if(app.screening.instructions){ %><div class="alert alert-light"><%= app.screening.instructions %></div><% } %>
+          <% if(app.has_published_slip_template){ %><a target="_blank" href="/applicant/screening/<%= app.id %>/slip" class="btn btn-success"><i class="fas fa-file-pdf mr-1"></i>Print screening slip</a><% }else{ %><div class="alert alert-info mb-0">Your screening slip has not yet been published. Please contact the Registry for assistance.</div><% } %>
+        <% }else{ %><div class="alert alert-warning mb-0">Your screening date has not yet been published.</div><% } %>
+      </div></div>
+    <% }) %>
+  </div>
+</div>

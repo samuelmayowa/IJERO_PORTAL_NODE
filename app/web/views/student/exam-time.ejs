@@ -1,4 +1,9 @@
 <!-- app/web/views/student/exam-time.ejs -->
+<style>
+  .timetable-stat{--stat:#64748b;position:relative;min-height:112px;background:#fff!important;border:1px solid #e4e9ee!important;border-radius:14px;box-shadow:-5px 5px 0 var(--stat),5px 5px 0 var(--stat),0 11px 22px rgba(28,45,58,.1)!important;color:#1f2937!important;overflow:hidden}
+  .timetable-stat .card-body{padding-right:70px}.timetable-stat i{position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:2.15rem;color:var(--stat)}
+  .timetable-stat-primary{--stat:#2478c7}.timetable-stat-success{--stat:#27815b}.timetable-stat-danger{--stat:#d55763}
+</style>
 
 <section class="content">
   <div class="container-fluid">
@@ -12,26 +17,29 @@
     <!-- Summary cards -->
     <div class="row mb-3">
       <div class="col-md-4">
-        <div class="card text-white bg-primary">
+        <div class="card timetable-stat timetable-stat-primary">
           <div class="card-body">
             <h4 class="card-title"><%= summary.total_assigned || 0 %></h4>
             <p class="card-text mb-0">Total Courses (selected filters)</p>
+            <i class="fas fa-book-open" aria-hidden="true"></i>
           </div>
         </div>
       </div>
       <div class="col-md-4">
-        <div class="card text-white bg-success">
+        <div class="card timetable-stat timetable-stat-success">
           <div class="card-body">
             <h4 class="card-title"><%= summary.exam_set || 0 %></h4>
             <p class="card-text mb-0">Courses With Exam Date</p>
+            <i class="fas fa-calendar-check" aria-hidden="true"></i>
           </div>
         </div>
       </div>
       <div class="col-md-4">
-        <div class="card text-white bg-danger">
+        <div class="card timetable-stat timetable-stat-danger">
           <div class="card-body">
             <h4 class="card-title"><%= summary.remaining || 0 %></h4>
             <p class="card-text mb-0">Courses Without Exam Date</p>
+            <i class="fas fa-calendar-times" aria-hidden="true"></i>
           </div>
         </div>
       </div>

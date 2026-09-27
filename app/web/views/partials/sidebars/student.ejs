@@ -55,6 +55,7 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-receipt"></i><p>Payment History</p>
       </a>
     </li>
+    <li class="nav-item"><a href="/student/announcements" class="nav-link <%= path.startsWith('/student/announcements') ? 'active' : '' %>"><i class="nav-icon fas fa-bullhorn"></i><p>Announcements</p></a></li>
 
     <li class="nav-item">
       <a href="/student/payments/validate" class="nav-link <%= path.startsWith('/student/payments/validate') ? 'active' : '' %>">
@@ -79,9 +80,9 @@ const path = (typeof currentPath !== 'undefined' && currentPath) ? currentPath :
         <i class="nav-icon fas fa-folder-open"></i><p>My Academic Records<i class="right fas fa-angle-left"></i></p>
       </a>
       <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="/student/records/approved" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Approved Result</p></a></li>
-        <li class="nav-item"><a href="/student/records/graduating-list" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Graduating List</p></a></li>
-        <li class="nav-item"><a href="/student/records/transcript-draft" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transcript (Draft)</p></a></li>
+        <li class="nav-item"><a href="/student/records/approved" class="nav-link <%= path === '/student/records/approved' ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Approved Result</p></a></li>
+        <li class="nav-item"><a href="/student/records/graduating-list" class="nav-link <%= path === '/student/records/graduating-list' ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Graduating List</p></a></li>
+        <li class="nav-item"><a href="/student/records/transcript-draft" class="nav-link <%= path === '/student/records/transcript-draft' ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>My Transcript (Draft)</p></a></li>
       </ul>
     </li>
 

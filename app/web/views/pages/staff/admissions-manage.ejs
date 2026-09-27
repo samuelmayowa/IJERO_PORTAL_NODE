@@ -1,0 +1,35 @@
+<div class="row">
+  <% [['Submitted',summary.total_submitted,'info','file-signature'],['Scores uploaded',summary.scores_uploaded,'primary','chart-bar'],['Admitted',summary.total_admitted,'success','user-graduate'],['Acceptance paid',summary.acceptance_paid,'warning','receipt']].forEach(card => { %>
+    <div class="col-md-3"><div class="small-box bg-<%= card[2] %>"><div class="inner"><h3><%= Number(card[1]||0).toLocaleString() %></h3><p><%= card[0] %></p></div><div class="icon"><i class="fas fa-<%= card[3] %>"></i></div></div></div>
+  <% }) %>
+</div>
+<div class="card card-outline card-success">
+  <div class="card-header"><h3 class="card-title">Admission candidates</h3><a href="/staff/admissions/criteria" class="btn btn-sm btn-outline-success float-right"><i class="fas fa-sliders-h mr-1"></i>Admission criteria</a></div>
+  <div class="card-body">
+    <form method="get" class="form-row align-items-end mb-3">
+      <div class="form-group col-md-2"><label>Session</label><select name="session_id" class="form-control"><% sessions.forEach(s => { %><option value="<%= s.id %>" <%= Number(s.id)===Number(filters.sessionId)?'selected':'' %>><%= s.name %></option><% }) %></select></div>
+      <div class="form-group col-md-3"><label>Application type</label><select name="application_form_id" class="form-control"><option value="">All</option><% forms.filter(f=>Number(f.session_id)===Number(filters.sessionId)).forEach(f => { %><option value="<%= f.id %>" <%= Number(f.id)===Number(filters.formId)?'selected':'' %>><%= f.title %></option><% }) %></select></div>
+      <div class="form-group col-md-2"><label>Status</label><select name="status" class="form-control"><option value="">All</option><% ['SUBMITTED','UNDER_REVIEW','ADMITTED','WITHDRAWN'].forEach(x=>{ %><option <%= filters.status===x?'selected':'' %>><%= x %></option><% }) %></select></div>
+      <div class="form-group col-md-3"><label>Search</label><input name="q" value="<%= filters.q %>" class="form-control" placeholder="Name, email or application no."></div>
+      <div class="form-group col-md-2"><button class="btn btn-success btn-block">Apply filters</button></div>
+      <div class="form-group col-md-4"><label>School</label><select name="school_id" class="form-control"><option value="">All schools</option><% schools.forEach(x=>{ %><option value="<%= x.id %>" <%= Number(filters.schoolId)===Number(x.id)?'selected':'' %>><%= x.name %></option><% }) %></select></div><div class="form-group col-md-4"><label>Department</label><select name="department_id" class="form-control"><option value="">All departments</option><% departments.forEach(x=>{ %><option value="<%= x.id %>" <%= Number(filters.departmentId)===Number(x.id)?'selected':'' %>><%= x.name %></option><% }) %></select></div><div class="form-group col-md-4"><label>Programme</label><select name="programme_id" class="form-control"><option value="">All programmes</option><% programmes.forEach(x=>{ %><option value="<%= x.id %>" <%= Number(filters.programmeId)===Number(x.id)?'selected':'' %>><%= x.name %></option><% }) %></select></div>
+    </form>
+    <form method="post" action="/staff/admissions/bulk-admit" id="bulkAdmissionForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+      <div class="mb-3"><button class="btn btn-success" onclick="return confirm('Review the selected applicants and issue admission to eligible records? Ineligible applicants will be skipped.')"><i class="fas fa-check-double mr-1"></i>Admit selected</button></div>
+      <div class="table-responsive"><table class="table table-hover table-sm"><thead><tr><th><input type="checkbox" id="selectAll"></th><th>Applicant</th><th>Application</th><th>Programme</th><th>Score</th><th>Eligibility</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        <% if (!rows.length) { %><tr><td colspan="8" class="text-center text-muted py-4">No submitted applications match these filters.</td></tr><% } %>
+        <% rows.forEach(row => { const admitted=row.status==='ADMITTED' && row.decision_status!=='REVOKED'; %><tr>
+          <td><% if (!admitted) { %><input type="checkbox" name="application_ids" value="<%= row.id %>"><% } %></td>
+          <td><strong><%= [row.first_name,row.middle_name,row.last_name].filter(Boolean).join(' ') %></strong><br><small><%= row.email %></small></td>
+          <td><%= row.application_number %><br><small><%= row.application_title %></small></td><td><%= row.programme_choice || '—' %></td><td><%= row.entrance_score ?? '—' %></td>
+          <td><span class="badge badge-<%= row.eligible?'success':'warning' %>"><%= row.eligible?'Eligible':'Review' %></span><% if(!row.eligible){ %><small class="d-block text-muted"><%= row.eligibility_reasons.join(' ') %></small><% } %></td>
+          <td><span class="badge badge-<%= admitted?'success':'secondary' %>"><%= row.decision_status || row.status %></span><br><small>Acceptance: <%= row.acceptance_payment_status %></small></td>
+          <td><a href="/staff/admissions/applicants/<%= row.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a> <% if (!admitted) { %><button type="submit" formaction="/staff/admissions/<%= row.id %>/admit" class="btn btn-sm btn-success">Admit</button><% } else { %><button type="button" class="btn btn-sm btn-outline-danger" data-toggle="modal" data-target="#revoke<%= row.id %>" <%= row.acceptance_payment_status==='PAID'?'disabled title="Acceptance fee has been paid"':'' %>>Revoke</button><% } %></td>
+        </tr><% }) %>
+      </tbody></table></div>
+    </form>
+  </div>
+</div>
+<% rows.filter(row=>row.status==='ADMITTED').forEach(row => { %><div class="modal fade" id="revoke<%= row.id %>" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/staff/admissions/<%= row.id %>/revoke"><input type="hidden" name="_csrf" value="<%= csrfToken || '' %>"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Revoke admission</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div><div class="modal-body"><div class="alert alert-warning"><strong>No automatic refund:</strong> any applicable refund is reviewed and processed manually by the Bursary.</div><label>Reason</label><textarea name="reason" class="form-control" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button><button class="btn btn-danger">Confirm revocation</button></div></form></div></div><% }) %>
+<script>document.getElementById('selectAll')?.addEventListener('change',function(){document.querySelectorAll('input[name="application_ids"]').forEach(x=>x.checked=this.checked)});</script>
