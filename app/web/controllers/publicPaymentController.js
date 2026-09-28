@@ -439,6 +439,7 @@ async function getApplicationInvoiceContext(orderId) {
         aa.application_payment_status,
         aa.status AS application_status,
         CASE
+          WHEN aa.compulsory_invoice_id = inv.id THEN 'COMPULSORY'
           WHEN aa.acceptance_invoice_id = inv.id
             THEN 'ACCEPTANCE'
           ELSE 'APPLICATION'
@@ -453,6 +454,7 @@ async function getApplicationInvoiceContext(orderId) {
         ON (
           aa.application_invoice_id = inv.id
           OR aa.acceptance_invoice_id = inv.id
+          OR aa.compulsory_invoice_id = inv.id
         )
       JOIN application_forms af
         ON af.id = aa.application_form_id
@@ -1794,15 +1796,16 @@ export async function remitaCallback(req, res) {
           String(
             applicationInvoice.payment_stage || "",
           ).toUpperCase() === "ACCEPTANCE";
+        const isCompulsoryPayment=String(applicationInvoice.payment_stage||'').toUpperCase()==='COMPULSORY';
 
-        const continueUrl = isAcceptancePayment
+        const continueUrl = isCompulsoryPayment?'/applicant/payments/compulsory':isAcceptancePayment
           ? "/applicant/payments/acceptance"
           : `/applicant/applications/${encodeURIComponent(
               applicationInvoice.application_slug,
             )}/form`;
 
         return res.render("payment/result", {
-          title: isAcceptancePayment
+          title: isCompulsoryPayment?'Compulsory Fee Payment Successful':isAcceptancePayment
             ? "Acceptance Fee Payment Successful"
             : "Application Payment Successful",
 
@@ -1810,14 +1813,14 @@ export async function remitaCallback(req, res) {
           allowedModules: new Set(),
           currentPath: req.path || "",
 
-          modeTitle: isAcceptancePayment
+          modeTitle: isCompulsoryPayment?'COMPULSORY FEE PAYMENT SUCCESSFUL':isAcceptancePayment
             ? "ACCEPTANCE FEE PAYMENT SUCCESSFUL"
             : "APPLICATION PAYMENT SUCCESSFUL",
           viewUrl: applicationReceiptUrl,
           downloadUrl:
             applicationReceiptDownloadUrl,
           backUrl: continueUrl,
-          backLabel: isAcceptancePayment
+          backLabel: isCompulsoryPayment?'Back to Compulsory Fee':isAcceptancePayment
             ? "Back to Acceptance Fee"
             : "Continue Application",
         });

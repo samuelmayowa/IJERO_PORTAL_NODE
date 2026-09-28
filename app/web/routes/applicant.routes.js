@@ -99,6 +99,8 @@ router.post(
   '/payments/acceptance/:applicationId/start',
   applicant.startAcceptanceFee
 );
+router.get('/payments/compulsory',applicant.compulsoryFee);
+router.post('/payments/compulsory/:applicationId/start',applicant.startCompulsoryFee);
 
 
 router.get(

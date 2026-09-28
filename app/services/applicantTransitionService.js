@@ -13,8 +13,8 @@ export async function tryGrantStudentAccessForOrder(orderId) {
       `SELECT aa.*,ad.id decision_id,ad.offered_school_id,ad.offered_department_id,ad.offered_programme_id,af.session_id
        FROM applicant_applications aa JOIN admission_decisions ad ON ad.applicant_application_id=aa.id AND ad.status='ADMITTED'
        JOIN application_forms af ON af.id=aa.application_form_id JOIN public_users pu ON pu.id=aa.applicant_user_id
-       WHERE aa.acceptance_payment_status='PAID' AND (CAST(aa.applicant_user_id AS CHAR)=TRIM(?) OR pu.username=TRIM(?) OR pu.matric_number=TRIM(?))
-       ORDER BY aa.id DESC LIMIT 1 FOR UPDATE`,[invoice.payee_id,invoice.payee_email,invoice.payee_id]);
+       WHERE aa.acceptance_payment_status='PAID' AND aa.compulsory_invoice_id=?
+       ORDER BY aa.id DESC LIMIT 1 FOR UPDATE`,[invoice.id]);
     const application=applications[0];if(!application){await connection.commit();return {transitioned:false,reason:"No admitted applicant with confirmed acceptance payment matched this invoice."};}
     const [[existing]]=await connection.query(`SELECT * FROM applicant_student_transitions WHERE applicant_application_id=? LIMIT 1`,[application.id]);
     if(existing){await connection.commit();return {transitioned:false,existing:true,transition:existing};}

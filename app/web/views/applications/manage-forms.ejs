@@ -77,7 +77,7 @@
               >
             </div>
 
-            <div class="form-group col-md-6">
+            <div class="form-group col-md-4">
               <label>Application Name</label>
               <input
                 type="text"
@@ -235,7 +235,7 @@
               </small>
             </div>
 
-            <div class="form-group col-md-6">
+            <div class="form-group col-md-4">
               <label>Application Remita Payment Type</label>
               <select
                 name="application_payment_type_id"
@@ -291,12 +291,21 @@
               </select>
             </div>
 
+            <div class="form-group col-md-4">
+              <label>Compulsory Fee Remita Payment Type</label>
+              <select name="compulsory_payment_type_id" class="form-control">
+                <option value="">-- Not required when compulsory charges total ₦0 --</option>
+                <% (paymentTypes||[]).filter(pt=>Number(pt.is_compulsory)===1).forEach((pt)=>{ %><option value="<%= pt.id %>" <%= editing&&Number(editing.compulsory_payment_type_id)===Number(pt.id)?'selected':'' %>><%= pt.name %> — <%= pt.purpose %><%= pt.remita_service_type_id?' | STID: '+pt.remita_service_type_id:' | No STID' %></option><% }) %>
+              </select>
+              <small class="text-muted">Acceptance fee payment is required before compulsory-fee payment.</small>
+            </div>
+
           </div>
 
           <hr>
 
           <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-4">
               <div class="card card-outline card-success">
                 <div class="card-header">
                   <h3 class="card-title">Application Charges</h3>
@@ -378,7 +387,7 @@
               </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-4">
               <div class="card card-outline card-warning">
                 <div class="card-header">
                   <h3 class="card-title">Acceptance Charges</h3>
@@ -455,6 +464,15 @@
                     </tfoot>
                   </table>
                 </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card card-outline card-primary">
+                <div class="card-header"><h3 class="card-title">Compulsory Fee Charges</h3><div class="card-tools"><button type="button" class="btn btn-sm btn-primary" onclick="addCharge('compulsory')"><i class="fas fa-plus mr-1"></i>Add Charge</button></div></div>
+                <div class="card-body p-0 table-responsive"><table class="table table-bordered mb-0"><thead><tr><th>Charge Name</th><th style="width:150px">Amount (₦)</th><th style="width:60px"></th></tr></thead>
+                  <tbody id="compulsoryChargesBody"><% const compulsoryChargeRows=editing&&editing.compulsory_charges?.length?editing.compulsory_charges:[{charge_name:'Compulsory Fee',amount:0}]; compulsoryChargeRows.forEach((charge)=>{ %><tr><td><input type="text" name="compulsory_charge_name" class="form-control" value="<%= charge.charge_name %>"></td><td><input type="number" name="compulsory_charge_amount" class="form-control charge-amount" min="0" step="0.01" value="<%= Number(charge.amount||0) %>" onchange="refreshTotals()" onkeyup="refreshTotals()"></td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeCharge(this)"><i class="fas fa-times"></i></button></td></tr><% }) %></tbody>
+                  <tfoot><tr><th>Total</th><th id="compulsoryTotal">₦0.00</th><th></th></tr></tfoot></table></div>
+                <div class="card-footer text-muted small">Acceptance fee payment is required before compulsory-fee payment.</div>
               </div>
             </div>
           </div>
@@ -734,6 +752,7 @@
               <th>Window</th>
               <th>Application Charges</th>
               <th>Acceptance Charges</th>
+              <th>Compulsory Fees</th>
               <th>Applications</th>
               <th>Status</th>
               <th style="min-width:260px">Action</th>
@@ -742,7 +761,7 @@
           <tbody>
             <% if (!(forms || []).length) { %>
               <tr>
-                <td colspan="8" class="text-center text-muted p-4">
+                <td colspan="9" class="text-center text-muted p-4">
                   No application form has been configured.
                 </td>
               </tr>
@@ -777,6 +796,7 @@
                       maximumFractionDigits: 2
                     }) %>
                 </td>
+                <td>₦<%= Number(form.compulsory_total||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2}) %></td>
                 <td><%= Number(form.application_count || 0) %></td>
                 <td>
                   <span class="badge
@@ -1063,6 +1083,7 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
+    document.getElementById('compulsoryTotal').textContent='₦'+stageTotal('compulsory').toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
 
   document.addEventListener('DOMContentLoaded', function () {

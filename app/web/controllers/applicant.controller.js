@@ -21,6 +21,7 @@ import {
   listAcceptanceApplications,
   startOrResumeAcceptancePayment,
 } from "../../services/applicationAcceptancePaymentService.js";
+import {listCompulsoryApplications,startOrResumeCompulsoryPayment} from "../../services/applicationCompulsoryPaymentService.js";
 
 
 
@@ -2164,6 +2165,9 @@ export async function startAcceptanceFee(
     );
   }
 }
+
+export async function compulsoryFee(req,res,next){try{const publicUser=await loadApplicantProfile(req.session?.publicUser||{});if(!publicUser?.id)return res.redirect('/login');const applications=await listCompulsoryApplications(publicUser.id);const fullName=[publicUser.first_name,publicUser.middle_name,publicUser.last_name].filter(Boolean).join(' ');return res.render('applications/applicant-compulsory-fee',{layout:'layouts/adminlte',title:'Pay Compulsory Fee',pageTitle:'Compulsory Fee',_role:'applicant',_user:{full_name:fullName||publicUser.username||'Applicant'},user:res.locals.user||publicUser,allowedModules:[],currentPath:req.originalUrl||req.path||'',applications,csrfToken:req.csrfToken?.()||'',messages:req.flash?req.flash():{}})}catch(error){next(error)}}
+export async function startCompulsoryFee(req,res){try{const publicUser=await loadApplicantProfile(req.session?.publicUser||{});if(!publicUser?.id)return res.redirect('/login');const result=await startOrResumeCompulsoryPayment({applicationId:Number(req.params.applicationId),applicant:publicUser});if(result.status==='PAID')return res.redirect(`/payment/print/${encodeURIComponent(result.orderId)}?type=receipt&dl=0`);return res.redirect(`/payment?from=application&order_id=${encodeURIComponent(result.orderId)}`)}catch(error){console.error('[compulsoryFee] Unable to start payment:',error);req.flash?.('error',error?.message||'Unable to start compulsory-fee payment.');return res.redirect('/applicant/payments/compulsory')}}
 
 
 async function loadApplicantPortalApplications(

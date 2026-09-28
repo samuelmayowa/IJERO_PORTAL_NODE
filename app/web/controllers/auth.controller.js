@@ -1101,6 +1101,7 @@ export async function applicantDashboard(req, res, next) {
               THEN 'APPLICATION'
             WHEN aa.acceptance_invoice_id = pi.id
               THEN 'ACCEPTANCE'
+            WHEN aa.compulsory_invoice_id = pi.id THEN 'COMPULSORY'
             ELSE 'OTHER'
           END AS payment_stage
 
@@ -1109,6 +1110,7 @@ export async function applicantDashboard(req, res, next) {
           ON (
             pi.id = aa.application_invoice_id
             OR pi.id = aa.acceptance_invoice_id
+            OR pi.id = aa.compulsory_invoice_id
           )
         WHERE aa.applicant_user_id = ?
         ORDER BY
@@ -1161,13 +1163,15 @@ export async function applicantDashboard(req, res, next) {
               END
             ),
             0
-          ) AS acceptance_paid
+          ) AS acceptance_paid,
+          COALESCE(SUM(CASE WHEN pi.status='PAID' AND aa.compulsory_invoice_id=pi.id THEN COALESCE(pi.amount,0)+COALESCE(pi.portal_charge,0) ELSE 0 END),0) AS compulsory_paid
 
         FROM applicant_applications aa
         JOIN payment_invoices pi
           ON (
             pi.id = aa.application_invoice_id
             OR pi.id = aa.acceptance_invoice_id
+            OR pi.id = aa.compulsory_invoice_id
           )
         WHERE aa.applicant_user_id = ?
       `,
@@ -1230,6 +1234,7 @@ export async function applicantDashboard(req, res, next) {
           Number(paymentSummary.application_paid || 0),
         acceptance:
           Number(paymentSummary.acceptance_paid || 0),
+        compulsory:Number(paymentSummary.compulsory_paid||0),
       },
 
       submittedApplications:

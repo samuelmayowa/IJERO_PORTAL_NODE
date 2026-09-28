@@ -40,6 +40,7 @@ const balanceReportRoles = requireRole("admin", "superadmin", "administrator", "
 const admissionRoles = requireRole(
   "admin", "superadmin", "administrator", "registry", "admission officer",
 );
+const applicationFormRoles=requireRole("admin","superadmin","administrator","bursary","bursar");
 const prerequisiteUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -170,11 +171,11 @@ r.post(
 );
 
 // Generic application portal form management - admin only
-r.get("/application-forms", admissionRoles, listApplicationForms);
-r.post("/application-forms", admissionRoles, createApplicationForm);
-r.get("/application-forms/:id/edit", admissionRoles, editApplicationForm);
-r.post("/application-forms/:id/update", admissionRoles, updateApplicationForm);
-r.post("/application-forms/:id/status", admissionRoles, setApplicationFormStatus);
+r.get("/application-forms", applicationFormRoles, listApplicationForms);
+r.post("/application-forms", applicationFormRoles, createApplicationForm);
+r.get("/application-forms/:id/edit", applicationFormRoles, editApplicationForm);
+r.post("/application-forms/:id/update", applicationFormRoles, updateApplicationForm);
+r.post("/application-forms/:id/status", applicationFormRoles, setApplicationFormStatus);
 
 // Late payment charge rules - admin only, no student payable impact yet
 r.get("/late-payment-charges", financeRoles, listLatePaymentCharges);

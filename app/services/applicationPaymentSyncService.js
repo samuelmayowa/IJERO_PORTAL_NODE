@@ -37,7 +37,9 @@ export async function syncApplicationPaymentByOrderId(
         aa.status,
         aa.application_payment_status,
         aa.acceptance_payment_status,
+        aa.compulsory_payment_status,
         CASE
+          WHEN aa.compulsory_invoice_id = ? THEN 'COMPULSORY'
           WHEN aa.acceptance_invoice_id = ?
             THEN 'ACCEPTANCE'
           ELSE 'APPLICATION'
@@ -45,10 +47,13 @@ export async function syncApplicationPaymentByOrderId(
       FROM applicant_applications aa
       WHERE aa.application_invoice_id = ?
          OR aa.acceptance_invoice_id = ?
+         OR aa.compulsory_invoice_id = ?
       ORDER BY aa.id DESC
       LIMIT 1
     `,
     [
+      invoice.id,
+      invoice.id,
       invoice.id,
       invoice.id,
       invoice.id,
@@ -72,7 +77,11 @@ export async function syncApplicationPaymentByOrderId(
   try {
     await connection.beginTransaction();
 
-    if (stage === "ACCEPTANCE") {
+    if(stage==='COMPULSORY'){
+      const paymentStatus=invoiceStatus==='PAID'?'PAID':['FAILED','CANCELLED'].includes(invoiceStatus)?'FAILED':'PENDING';
+      await connection.query(`UPDATE applicant_applications SET compulsory_payment_status=? WHERE id=?`,[paymentStatus,application.id]);
+      if(paymentStatus!=='PENDING')await connection.query(`UPDATE application_payment_lines SET payment_status=CASE WHEN amount<=0 THEN 'NO_CHARGE' ELSE ? END WHERE applicant_application_id=? AND charge_stage='COMPULSORY'`,[paymentStatus,application.id]);
+    } else if (stage === "ACCEPTANCE") {
       if (invoiceStatus === "PAID") {
         await connection.query(
           `

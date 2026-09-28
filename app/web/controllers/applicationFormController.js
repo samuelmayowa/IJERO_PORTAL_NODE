@@ -122,12 +122,14 @@ function isAdmin(req, res) {
   );
 }
 
+function canManageApplicationForms(req,res){const user=getStaffUser(req,res);const role=clean(user?.role||user?.role_name||user?.type).toLowerCase();return ['admin','administrator','portal administrator','superadmin','bursary','bursar'].includes(role)}
+
 function requireAdmin(req, res) {
-  if (isAdmin(req, res)) return true;
+  if (canManageApplicationForms(req,res)) return true;
 
   req.flash?.(
     "error",
-    "Only admin users can manage application forms.",
+    "Only Admin or Bursary users can manage application forms and charges.",
   );
   res.redirect("/staff/dashboard");
   return false;
@@ -215,6 +217,7 @@ function readPayload(req) {
     body.acceptance_charge_amount,
     "ACCEPTANCE",
   );
+  const compulsoryCharges=parseCharges(body.compulsory_charge_name,body.compulsory_charge_amount,"COMPULSORY");
 
   return {
     code,
@@ -228,6 +231,7 @@ function readPayload(req) {
       Number(body.application_payment_type_id || 0) || null,
     acceptance_payment_type_id:
       Number(body.acceptance_payment_type_id || 0) || null,
+    compulsory_payment_type_id:Number(body.compulsory_payment_type_id||0)||null,
     opens_at: mysqlDateTime(body.opens_at),
     closes_at: mysqlDateTime(body.closes_at),
     status: normalizeStatus(body.status),
@@ -245,6 +249,7 @@ function readPayload(req) {
         : 0,
     applicationCharges,
     acceptanceCharges,
+    compulsoryCharges,
   };
 }
 
@@ -286,6 +291,7 @@ function validatePayload(payload) {
     (sum, row) => sum + money(row.amount),
     0,
   );
+  const compulsoryTotal=payload.compulsoryCharges.reduce((sum,row)=>sum+money(row.amount),0);
 
   if (applicationTotal > 0 && !payload.application_payment_type_id) {
     return "Select the Remita payment type to use for application-stage charges.";
@@ -294,6 +300,7 @@ function validatePayload(payload) {
   if (acceptanceTotal > 0 && !payload.acceptance_payment_type_id) {
     return "Select the Remita payment type to use for acceptance-stage charges.";
   }
+  if(compulsoryTotal>0&&!payload.compulsory_payment_type_id)return "Select the Remita payment type to use for compulsory-fee charges.";
 
   if (
     payload.requires_prerequisite &&
@@ -328,6 +335,7 @@ async function loadLookups() {
       amount,
       portal_charge,
       remita_service_type_id,
+      is_compulsory,
       scope
     FROM payment_types
     WHERE is_active = 1
@@ -347,6 +355,7 @@ async function loadForms() {
       s.name AS session_name,
       COALESCE(c.application_total, 0) AS application_total,
       COALESCE(c.acceptance_total, 0) AS acceptance_total,
+      COALESCE(c.compulsory_total, 0) AS compulsory_total,
       COALESCE(a.application_count, 0) AS application_count
     FROM application_forms f
     LEFT JOIN sessions s
@@ -365,7 +374,8 @@ async function loadForms() {
             WHEN charge_stage = 'ACCEPTANCE' AND is_active = 1
             THEN amount ELSE 0
           END
-        ) AS acceptance_total
+        ) AS acceptance_total,
+        SUM(CASE WHEN charge_stage='COMPULSORY' AND is_active=1 THEN amount ELSE 0 END) AS compulsory_total
       FROM application_form_charges
       GROUP BY application_form_id
     ) c
@@ -410,6 +420,7 @@ async function loadForm(id) {
   form.acceptance_charges = (charges || []).filter(
     (row) => row.charge_stage === "ACCEPTANCE",
   );
+  form.compulsory_charges=(charges||[]).filter(row=>row.charge_stage==="COMPULSORY");
 
   const [batches] = await db.query(`
     SELECT
@@ -550,6 +561,7 @@ export async function createApplicationForm(req, res, next) {
           session_id,
           application_payment_type_id,
           acceptance_payment_type_id,
+          compulsory_payment_type_id,
           opens_at,
           closes_at,
           status,
@@ -558,7 +570,7 @@ export async function createApplicationForm(req, res, next) {
           allow_multiple_applications,
           created_by
         )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       payload.code,
       payload.slug,
@@ -569,6 +581,7 @@ export async function createApplicationForm(req, res, next) {
       payload.session_id,
       payload.application_payment_type_id,
       payload.acceptance_payment_type_id,
+      payload.compulsory_payment_type_id,
       payload.opens_at,
       payload.closes_at,
       payload.status,
@@ -586,6 +599,7 @@ export async function createApplicationForm(req, res, next) {
       [
         ...payload.applicationCharges,
         ...payload.acceptanceCharges,
+        ...payload.compulsoryCharges,
       ],
     );
 
@@ -656,6 +670,7 @@ export async function updateApplicationForm(req, res, next) {
         session_id = ?,
         application_payment_type_id = ?,
         acceptance_payment_type_id = ?,
+        compulsory_payment_type_id = ?,
         opens_at = ?,
         closes_at = ?,
         status = ?,
@@ -673,6 +688,7 @@ export async function updateApplicationForm(req, res, next) {
       payload.session_id,
       payload.application_payment_type_id,
       payload.acceptance_payment_type_id,
+      payload.compulsory_payment_type_id,
       payload.opens_at,
       payload.closes_at,
       payload.status,
@@ -690,6 +706,7 @@ export async function updateApplicationForm(req, res, next) {
       [
         ...payload.applicationCharges,
         ...payload.acceptanceCharges,
+        ...payload.compulsoryCharges,
       ],
     );
 
