@@ -320,6 +320,40 @@ function validatePayload(payload) {
   return "";
 }
 
+async function applyConfiguredCompulsoryAmount(payload) {
+  if (!payload.compulsory_payment_type_id) return;
+
+  const total = payload.compulsoryCharges.reduce(
+    (sum, row) => sum + money(row.amount),
+    0,
+  );
+
+  if (total > 0 || payload.compulsoryCharges.length > 1) return;
+
+  const [rows] = await db.query(`
+    SELECT name, amount
+    FROM payment_types
+    WHERE id = ?
+      AND is_active = 1
+      AND is_compulsory = 1
+    LIMIT 1
+  `, [payload.compulsory_payment_type_id]);
+
+  const paymentType = rows?.[0];
+  const configuredAmount = money(paymentType?.amount);
+  if (!(configuredAmount > 0)) return;
+
+  payload.compulsoryCharges = [{
+    charge_name:
+      clean(payload.compulsoryCharges[0]?.charge_name) ||
+      clean(paymentType.name) ||
+      "Compulsory Fee",
+    charge_stage: "COMPULSORY",
+    amount: configuredAmount,
+    display_order: 1,
+  }];
+}
+
 async function loadLookups() {
   const [sessions] = await db.query(`
     SELECT id, name, is_current
@@ -537,6 +571,7 @@ export async function createApplicationForm(req, res, next) {
     if (!requireAdmin(req, res)) return;
 
     const payload = readPayload(req);
+    await applyConfiguredCompulsoryAmount(payload);
     const error = validatePayload(payload);
 
     if (error) {
@@ -646,6 +681,7 @@ export async function updateApplicationForm(req, res, next) {
     }
 
     const payload = readPayload(req);
+    await applyConfiguredCompulsoryAmount(payload);
     const error = validatePayload(payload);
 
     if (error) {

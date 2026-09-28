@@ -293,11 +293,11 @@
 
             <div class="form-group col-md-4">
               <label>Compulsory Fee Remita Payment Type</label>
-              <select name="compulsory_payment_type_id" class="form-control">
+              <select name="compulsory_payment_type_id" id="compulsoryPaymentType" class="form-control">
                 <option value="">-- Not required when compulsory charges total ₦0 --</option>
-                <% (paymentTypes||[]).filter(pt=>Number(pt.is_compulsory)===1).forEach((pt)=>{ %><option value="<%= pt.id %>" <%= editing&&Number(editing.compulsory_payment_type_id)===Number(pt.id)?'selected':'' %>><%= pt.name %> — <%= pt.purpose %><%= pt.remita_service_type_id?' | STID: '+pt.remita_service_type_id:' | No STID' %></option><% }) %>
+                <% (paymentTypes||[]).filter(pt=>Number(pt.is_compulsory)===1).forEach((pt)=>{ %><option value="<%= pt.id %>" data-amount="<%= Number(pt.amount||0) %>" data-name="<%= pt.name %>" <%= editing&&Number(editing.compulsory_payment_type_id)===Number(pt.id)?'selected':'' %>><%= pt.name %> — ₦<%= Number(pt.amount||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2}) %> — <%= pt.purpose %><%= pt.remita_service_type_id?' | STID: '+pt.remita_service_type_id:' | No STID' %></option><% }) %>
               </select>
-              <small class="text-muted">Acceptance fee payment is required before compulsory-fee payment.</small>
+              <small class="text-muted">Selecting a type fills the configured amount below. You can still split it into multiple charge lines. Acceptance fee payment is required before compulsory-fee payment.</small>
             </div>
 
           </div>
@@ -1086,10 +1086,38 @@
     document.getElementById('compulsoryTotal').textContent='₦'+stageTotal('compulsory').toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
 
+  function applyCompulsoryPaymentTypeAmount() {
+    const select = document.getElementById('compulsoryPaymentType');
+    const body = document.getElementById('compulsoryChargesBody');
+    const option = select && select.options[select.selectedIndex];
+    if (!select || !body || !option || !select.value) return;
+
+    const configuredAmount = Number(option.dataset.amount || 0);
+    const rows = Array.from(body.querySelectorAll('tr'));
+    if (!(configuredAmount > 0) || stageTotal('compulsory') > 0 || rows.length > 1) return;
+
+    const row = rows[0];
+    const nameInput = row && row.querySelector('input[name="compulsory_charge_name"]');
+    const amountInput = row && row.querySelector('input[name="compulsory_charge_amount"]');
+    if (!amountInput) return;
+
+    if (nameInput && (!nameInput.value.trim() || nameInput.value.trim() === 'Compulsory Fee')) {
+      nameInput.value = option.dataset.name || 'Compulsory Fee';
+    }
+    amountInput.value = configuredAmount.toFixed(2);
+    refreshTotals();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     refreshTotals();
     refreshPrerequisiteControls();
     refreshInstructionCounter();
+
+    const compulsoryPaymentType = document.getElementById('compulsoryPaymentType');
+    if (compulsoryPaymentType) {
+      compulsoryPaymentType.addEventListener('change', applyCompulsoryPaymentTypeAmount);
+      applyCompulsoryPaymentTypeAmount();
+    }
 
     const checkbox = document.getElementById('requiresPrerequisite');
 
