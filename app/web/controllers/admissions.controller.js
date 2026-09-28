@@ -210,7 +210,13 @@ export async function revokeOne(req, res) {
 export async function settingsPage(req, res, next) {
   try {
     const opts = await options();
-    const sessionId = id(req.query.session_id) || id(opts.sessions.find(row => row.is_current)?.id) || id(opts.sessions[0]?.id);
+    const requestedSessionId=id(req.query.session_id);
+    const currentSessionId=id(opts.sessions.find(row=>row.is_current)?.id)||id(opts.sessions[0]?.id);
+    const sessionId=requestedSessionId||(
+      opts.forms.some(form=>id(form.session_id)===currentSessionId)
+        ?currentSessionId
+        :id(opts.forms[0]?.session_id)||currentSessionId
+    );
     const [rows] = await pool.query(
       `SELECT ast.*,af.title application_title,s.name session_name FROM admission_settings ast
        JOIN sessions s ON s.id=ast.session_id LEFT JOIN application_forms af ON af.id=ast.application_form_id
