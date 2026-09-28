@@ -94,8 +94,28 @@
   </div>
 </section>
 
-<section class="content">
+<style>
+  .application-report-page .report-actions { margin-bottom: 1rem; }
+  .application-report-page .small-box > .inner { min-height: 94px; padding: 13px 64px 10px 14px !important; }
+  .application-report-page .small-box > .inner h3 { font-size: 1.42rem; line-height: 1.1; white-space: nowrap; }
+  .application-report-page .small-box > .inner p { font-size: .84rem; line-height: 1.25; }
+  .application-report-page .small-box > .icon { right: 14px !important; top: 47px !important; width: 42px !important; height: 42px !important; }
+  .application-report-page .small-box > .icon > i,
+  .application-report-page .small-box:hover > .icon > i { font-size: 31px !important; }
+  @media (max-width: 575.98px) {
+    .application-report-page .small-box > .inner h3 { font-size: 1.2rem; }
+    .application-report-page .small-box > .inner p { font-size: .76rem; }
+  }
+</style>
+
+<section class="content application-report-page">
   <div class="container-fluid">
+
+    <div class="report-actions d-flex justify-content-end">
+      <a href="/staff/admissions/applications/export.csv?<%= exportQuery %>" class="btn btn-success">
+        <i class="fas fa-file-csv mr-1"></i>Export CSV
+      </a>
+    </div>
 
     <div class="row">
       <div class="col-lg-3 col-6">
