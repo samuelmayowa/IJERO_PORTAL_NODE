@@ -5,24 +5,60 @@ import path from "path";
 
 const num = value => Number.parseInt(value,10)||0;
 const clean = value => String(value??"").trim();
+const levelToken=value=>clean(value).replace(/\s+/g,"").replace(/LEVEL/gi,"").toUpperCase();
+const levelAliases=value=>{
+  const token=levelToken(value);const aliases=new Set(token?[token]:[]);
+  const pairs={100:["ND1"],200:["ND2"],300:["ND3","HND1"],400:["HND2"],500:["HND3"],ND1:["100"],ND2:["200"],ND3:["300"],HND1:["300"],HND2:["400"],HND3:["500"]};
+  (pairs[token]||[]).forEach(x=>aliases.add(x));return [...aliases];
+};
 
-async function reportData(req){
+export async function reportData(req){
   const [[current]]=await pool.query(`SELECT id,name FROM sessions WHERE is_current=1 ORDER BY id DESC LIMIT 1`);
-  const filters={sessionId:num(req.query.session_id)||num(current?.id),schoolId:num(req.query.school_id),departmentId:num(req.query.department_id),programmeId:num(req.query.programme_id),q:clean(req.query.q).slice(0,120)};
-  const params=[];const where=[`(pu.role='student' OR EXISTS(SELECT 1 FROM portal_user_roles pur WHERE pur.public_user_id=pu.id AND pur.role='student'))`];
-  if(filters.schoolId){where.push(`sp.school_id=?`);params.push(filters.schoolId)}
-  if(filters.departmentId){where.push(`sp.department_id=?`);params.push(filters.departmentId)}
-  if(filters.programmeId){where.push(`sp.programme_id=?`);params.push(filters.programmeId)}
-  if(filters.q){where.push(`(pu.matric_number LIKE ? OR pu.username LIKE ? OR CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) LIKE ?)`);const t=`%${filters.q}%`;params.push(t,t,t)}
-  const [students]=await pool.query(`SELECT pu.id,pu.matric_number,pu.username email,pu.phone,CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) full_name,sp.level,sp.school_id,sp.department_id,sp.programme_id,sc.name school_name,d.name department_name,p.name programme_name FROM public_users pu LEFT JOIN student_profiles sp ON sp.user_id=pu.id LEFT JOIN schools sc ON sc.id=sp.school_id LEFT JOIN departments d ON d.id=sp.department_id LEFT JOIN programmes p ON p.id=sp.programme_id WHERE ${where.join(' AND ')} ORDER BY full_name`,params);
-  const [types]=await pool.query(`SELECT pt.* FROM payment_types pt WHERE pt.is_active=1 AND pt.is_compulsory=1 AND (NOT EXISTS(SELECT 1 FROM payment_type_sessions pts0 WHERE pts0.payment_type_id=pt.id) OR EXISTS(SELECT 1 FROM payment_type_sessions pts WHERE pts.payment_type_id=pt.id AND pts.session_id=?))`,[filters.sessionId]);
-  const [scopeRows]=await pool.query(`SELECT payment_type_id,'school' kind,school_id target FROM payment_type_schools UNION ALL SELECT payment_type_id,'department',department_id FROM payment_type_departments UNION ALL SELECT payment_type_id,'programme',programme_id FROM payment_type_programmes`);
-  const scopes=new Map();for(const x of scopeRows){if(!scopes.has(x.payment_type_id))scopes.set(x.payment_type_id,[]);scopes.get(x.payment_type_id).push(x)}
-  const [payments]=students.length?await pool.query(`SELECT pi.*,pt.name payment_name FROM payment_invoices pi JOIN payment_types pt ON pt.id=pi.payment_type_id WHERE pi.status='PAID' AND pi.payment_type_id IN (?) AND (pi.session_id=? OR (pi.session_id IS NULL AND (SELECT COUNT(DISTINCT pts.session_id) FROM payment_type_sessions pts WHERE pts.payment_type_id=pi.payment_type_id)<=1)) AND (pi.payee_id IN (?) OR pi.payee_email IN (?))`,[types.map(x=>x.id).length?types.map(x=>x.id):[0],filters.sessionId,students.flatMap(x=>[String(x.id),x.matric_number,x.email]).filter(Boolean),students.map(x=>x.email).filter(Boolean)]):[[]];
-  const applicable=(type,s)=>{const list=scopes.get(type.id)||[];if(!list.length)return true;return list.some(x=>(x.kind==='school'&&Number(x.target)===Number(s.school_id))||(x.kind==='department'&&Number(x.target)===Number(s.department_id))||(x.kind==='programme'&&Number(x.target)===Number(s.programme_id)))};
-  const rows=students.map(s=>{const obligations=types.filter(t=>applicable(t,s));const expected=obligations.reduce((sum,t)=>sum+Number(t.amount||0),0);const paid=payments.filter(p=>[String(s.id),clean(s.matric_number).toLowerCase(),clean(s.email).toLowerCase()].includes(clean(p.payee_id).toLowerCase())||clean(p.payee_email).toLowerCase()===clean(s.email).toLowerCase()).reduce((sum,p)=>sum+Number(p.amount||0),0);return {...s,expected,paid,balance:expected-paid,status:expected-paid>0?'DEBTOR':expected-paid<0?'CREDITOR':'CLEARED'};});
+  const category=['SCHOOL_FEE','ACCEPTANCE','COMPULSORY'].includes(clean(req.query.fee_category).toUpperCase())?clean(req.query.fee_category).toUpperCase():'SCHOOL_FEE';
+  const filters={sessionId:num(req.query.session_id)||num(current?.id),feeCategory:category,schoolId:num(req.query.school_id),departmentId:num(req.query.department_id),programmeId:num(req.query.programme_id),q:clean(req.query.q).slice(0,120)};
+  const [feeTypes]=await pool.query(`SELECT pt.id,pt.name,pt.purpose,pt.amount,pt.scope,pt.uses_indigene_regime,pt.amount_indigene,pt.amount_non_indigene FROM payment_types pt WHERE pt.is_active=1 AND LOWER(CONCAT_WS(' ',pt.name,pt.purpose)) REGEXP 'school fee|school fees|tuition' AND (NOT EXISTS(SELECT 1 FROM payment_type_sessions x WHERE x.payment_type_id=pt.id) OR EXISTS(SELECT 1 FROM payment_type_sessions x WHERE x.payment_type_id=pt.id AND x.session_id=?)) ORDER BY pt.name`,[filters.sessionId]);
+  let people=[];
+  if(category==='SCHOOL_FEE'){
+    const params=[];const where=[`(pu.role='student' OR EXISTS(SELECT 1 FROM portal_user_roles pur WHERE pur.public_user_id=pu.id AND pur.role='student'))`];
+    if(filters.q){where.push(`(pu.matric_number LIKE ? OR pu.username LIKE ? OR CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) LIKE ?)`);const t=`%${filters.q}%`;params.push(t,t,t)}
+    [people]=await pool.query(`SELECT pu.id,pu.matric_number,pu.username email,pu.phone,CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) full_name,COALESCE(sp.level,si.student_level,si.level) level,COALESCE(pu.state_of_origin,si.state_of_origin) state_of_origin,(SELECT sx.id FROM sessions sx WHERE sx.name LIKE CONCAT(si.year_of_entry,'%') ORDER BY sx.id DESC LIMIT 1) admission_session_id,COALESCE(sp.school_id,sci.id) school_id,COALESCE(sp.department_id,di.id) department_id,COALESCE(sp.programme_id,pii.id) programme_id,COALESCE(sc.name,si.school) school_name,COALESCE(d.name,si.department) department_name,COALESCE(p.name,si.programme) programme_name FROM public_users pu LEFT JOIN student_profiles sp ON sp.user_id=pu.id LEFT JOIN student_imports si ON si.id=(SELECT MAX(si2.id) FROM student_imports si2 WHERE (si2.matric_number=pu.matric_number AND pu.matric_number IS NOT NULL) OR LOWER(si2.student_email)=LOWER(pu.username)) LEFT JOIN schools sci ON LOWER(TRIM(sci.name))=LOWER(TRIM(si.school)) LEFT JOIN departments di ON LOWER(TRIM(di.name))=LOWER(TRIM(si.department)) AND (sci.id IS NULL OR di.school_id=sci.id) LEFT JOIN programmes pii ON LOWER(TRIM(pii.name))=LOWER(TRIM(si.programme)) AND (di.id IS NULL OR pii.department_id=di.id) LEFT JOIN schools sc ON sc.id=sp.school_id LEFT JOIN departments d ON d.id=sp.department_id LEFT JOIN programmes p ON p.id=sp.programme_id WHERE ${where.join(' AND ')} ORDER BY full_name`,params);
+    const ids=feeTypes.map(x=>Number(x.id));let scopeRows=[],ruleRows=[],payments=[];
+    if(ids.length){
+      [scopeRows]=await pool.query(`SELECT payment_type_id,'school' kind,school_id target FROM payment_type_schools WHERE payment_type_id IN (?) UNION ALL SELECT payment_type_id,'department',department_id FROM payment_type_departments WHERE payment_type_id IN (?) UNION ALL SELECT payment_type_id,'programme',programme_id FROM payment_type_programmes WHERE payment_type_id IN (?)`,[ids,ids,ids]);
+      [ruleRows]=await pool.query(`SELECT payment_type_id,entry_level,current_level,admission_session_id,amount_override FROM payment_type_rules WHERE payment_type_id IN (?)`,[ids]);
+      [payments]=await pool.query(`SELECT * FROM payment_invoices pi WHERE pi.status='PAID' AND pi.payment_type_id IN (?) AND (pi.session_id=? OR (pi.session_id IS NULL AND (SELECT COUNT(DISTINCT pts.session_id) FROM payment_type_sessions pts WHERE pts.payment_type_id=pi.payment_type_id)<=1))`,[ids,filters.sessionId]);
+    }
+    const scopes=new Map(),rules=new Map();
+    scopeRows.forEach(x=>{if(!scopes.has(Number(x.payment_type_id)))scopes.set(Number(x.payment_type_id),[]);scopes.get(Number(x.payment_type_id)).push(x)});
+    ruleRows.forEach(x=>{if(!rules.has(Number(x.payment_type_id)))rules.set(Number(x.payment_type_id),[]);rules.get(Number(x.payment_type_id)).push(x)});
+    const applicable=(type,person)=>{
+      if(clean(type.scope).toUpperCase()==='GENERAL')return false;
+      const assigned=scopes.get(Number(type.id))||[];
+      if(assigned.some(x=>x.kind==='school')&&!assigned.some(x=>x.kind==='school'&&Number(x.target)===Number(person.school_id)))return false;
+      if(assigned.some(x=>x.kind==='department')&&!assigned.some(x=>x.kind==='department'&&Number(x.target)===Number(person.department_id)))return false;
+      if(assigned.some(x=>x.kind==='programme')&&!assigned.some(x=>x.kind==='programme'&&Number(x.target)===Number(person.programme_id)))return false;
+      const configured=rules.get(Number(type.id))||[];if(!configured.length)return true;
+      const aliases=levelAliases(person.level);return configured.some(rule=>{
+        const entry=levelToken(rule.entry_level),currentLevel=levelToken(rule.current_level);
+        return (!entry||aliases.includes(entry))&&(!currentLevel||aliases.includes(currentLevel))&&(!rule.admission_session_id||Number(rule.admission_session_id)===Number(person.admission_session_id));
+      });
+    };
+    people=people.map(person=>{
+      const obligations=feeTypes.filter(type=>applicable(type,person));
+      const expected=obligations.reduce((sum,type)=>{const matched=(rules.get(Number(type.id))||[]).find(rule=>{const aliases=levelAliases(person.level);return (!levelToken(rule.entry_level)||aliases.includes(levelToken(rule.entry_level)))&&(!levelToken(rule.current_level)||aliases.includes(levelToken(rule.current_level)))&&(!rule.admission_session_id||Number(rule.admission_session_id)===Number(person.admission_session_id));});let amount=Number(type.amount||0);if(Number(type.uses_indigene_regime)){amount=clean(person.state_of_origin).toLowerCase()==='ekiti'?Number(type.amount_indigene||0):Number(type.amount_non_indigene||0)}return sum+Number(matched?.amount_override??amount)},0);
+      const typeIds=new Set(obligations.map(x=>Number(x.id)));const keys=[String(person.id),clean(person.matric_number).toLowerCase(),clean(person.email).toLowerCase()];
+      const paid=payments.filter(x=>typeIds.has(Number(x.payment_type_id))&&(Number(x.created_by)===Number(person.id)||keys.includes(clean(x.payee_id).toLowerCase())||clean(x.payee_email).toLowerCase()===clean(person.email).toLowerCase())).reduce((sum,x)=>sum+Number(x.amount||0),0);
+      return {...person,expected,paid};
+    });
+  }else{
+    const stage=category;const invoiceField=stage==='ACCEPTANCE'?'acceptance_invoice_id':'compulsory_invoice_id';const eligibility=stage==='ACCEPTANCE'?`ad.status='ADMITTED'`:`ad.status='ADMITTED' AND aa.acceptance_payment_status='PAID'`;
+    [people]=await pool.query(`SELECT pu.id,pu.matric_number,pu.username email,pu.phone,CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) full_name,NULL level,COALESCE(ad.offered_school_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_id')) AS UNSIGNED)) school_id,COALESCE(ad.offered_department_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_id')) AS UNSIGNED)) department_id,COALESCE(ad.offered_programme_id,CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.programme_id')) AS UNSIGNED)) programme_id,COALESCE(sc.name,JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_name'))) school_name,COALESCE(d.name,JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_name'))) department_name,COALESCE(p.name,ad.offered_programme_name,aa.programme_choice) programme_name,COALESCE((SELECT SUM(c.amount) FROM application_form_charges c WHERE c.application_form_id=aa.application_form_id AND c.charge_stage=? AND c.is_active=1),0) expected,CASE WHEN inv.status='PAID' THEN inv.amount ELSE 0 END paid FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN public_users pu ON pu.id=aa.applicant_user_id JOIN admission_decisions ad ON ad.applicant_application_id=aa.id LEFT JOIN payment_invoices inv ON inv.id=aa.${invoiceField} LEFT JOIN schools sc ON sc.id=ad.offered_school_id LEFT JOIN departments d ON d.id=ad.offered_department_id LEFT JOIN programmes p ON p.id=ad.offered_programme_id WHERE af.session_id=? AND ${eligibility} ORDER BY full_name`,[stage,filters.sessionId]);
+  }
+  let rows=people;if(filters.q&&category!=='SCHOOL_FEE'){const term=filters.q.toLowerCase();rows=rows.filter(x=>[x.full_name,x.matric_number,x.email].some(v=>clean(v).toLowerCase().includes(term)))}if(filters.schoolId)rows=rows.filter(x=>Number(x.school_id)===filters.schoolId);if(filters.departmentId)rows=rows.filter(x=>Number(x.department_id)===filters.departmentId);if(filters.programmeId)rows=rows.filter(x=>Number(x.programme_id)===filters.programmeId);
+  rows=rows.map(x=>{const balance=Number(x.expected||0)-Number(x.paid||0);return {...x,balance,status:balance>0?'DEBTOR':balance<0?'CREDITOR':'CLEARED'}});
   const [[sessions],[schools],[departments],[programmes]]=await Promise.all([pool.query(`SELECT id,name,is_current FROM sessions ORDER BY id DESC`),pool.query(`SELECT id,name FROM schools ORDER BY name`),pool.query(`SELECT id,school_id,name FROM departments ORDER BY name`),pool.query(`SELECT id,school_id,department_id,name FROM programmes ORDER BY name`)]);
-  return {rows,filters,sessions,schools,departments,programmes,obligationCount:types.length,sessionName:sessions.find(x=>Number(x.id)===Number(filters.sessionId))?.name||"Selected session",summary:{debtors:rows.filter(x=>x.balance>0).length,creditors:rows.filter(x=>x.balance<0).length,totalDebt:rows.reduce((n,x)=>n+Math.max(0,x.balance),0),totalCredit:rows.reduce((n,x)=>n+Math.max(0,-x.balance),0)}};
+  const categoryLabel=category==='SCHOOL_FEE'?'School Fee':category==='ACCEPTANCE'?'Acceptance Fee':'Compulsory Fee';
+  return {rows,filters,sessions,schools,departments,programmes,feeTypes,categoryLabel,obligationCount:rows.filter(x=>Number(x.expected)>0).length,sessionName:sessions.find(x=>Number(x.id)===Number(filters.sessionId))?.name||"Selected session",summary:{debtors:rows.filter(x=>x.balance>0).length,creditors:rows.filter(x=>x.balance<0).length,totalDebt:rows.reduce((n,x)=>n+Math.max(0,x.balance),0),totalCredit:rows.reduce((n,x)=>n+Math.max(0,-x.balance),0)}};
 }
 
 export async function page(req,res,next){try{res.render('payment/debtors-creditors',{layout:'layouts/adminlte',title:'Debtors & Creditors',pageTitle:'Debtors & Creditors',query:req.query,...await reportData(req)});}catch(e){next(e)}}
@@ -31,12 +67,13 @@ export async function exportReport(req,res,next){
   try{
     const data=await reportData(req);
     const type=clean(req.query.type).toUpperCase();
-    const reportLabel=type==='DEBTOR'?'Debtors Report':type==='CREDITOR'?'Creditors Report':'Debtors & Creditors Report';
+    const balanceLabel=type==='DEBTOR'?'Debtors Report':type==='CREDITOR'?'Creditors Report':'Debtors & Creditors Report';
+    const reportLabel=`${data.categoryLabel} ${balanceLabel}`;
     const rows=data.rows.filter(x=>!type||(type==='DEBTOR'?x.balance>0:type==='CREDITOR'?x.balance<0:true)).map(x=>({
       Matric:x.matric_number||'',Name:x.full_name||'',School:x.school_name||'',Department:x.department_name||'',Programme:x.programme_name||'',Expected:Number(x.expected||0),Paid:Number(x.paid||0),Balance:Math.abs(Number(x.balance||0)),Status:x.status,Email:x.email||'',Phone:x.phone||''
     }));
     const headers=['Matric','Name','School','Department','Programme','Expected','Paid','Balance','Status','Email','Phone'];
-    const subtitle=`Session: ${data.sessionName} | Generated: ${new Date().toLocaleString('en-GB')}`;
+    const subtitle=`Fee: ${data.categoryLabel} | Session: ${data.sessionName} | Generated: ${new Date().toLocaleString('en-GB')}`;
     const format=clean(req.params.format).toLowerCase();
 
     if(format==='xlsx'){
