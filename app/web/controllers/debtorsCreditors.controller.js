@@ -82,13 +82,17 @@ export async function exportReport(req,res,next){
   try{
     const data=await reportData(req);
     const type=clean(req.query.type).toUpperCase();
-    const balanceLabel=type==='DEBTOR'?'Debtors Report':type==='CREDITOR'?'Creditors Report':'Debtors & Creditors Report';
+    const metric=clean(req.query.metric).toUpperCase();
+    const metricConfig={DEBTORS:{label:'Debtors Report',match:x=>x.balance>0},OUTSTANDING:{label:'Total Outstanding Report',match:x=>x.balance>0},CREDITORS:{label:'Creditors Report',match:x=>x.balance<0},CREDIT:{label:'Total Credit Report',match:x=>x.balance<0},SUCCESSFUL_PAYMENTS:{label:'Successful Payments Report',match:x=>Number(x.paid)>0},SUCCESSFUL_STUDENTS:{label:'Students With Successful Payments Report',match:x=>Number(x.paid)>0},EXPECTED_PAID:{label:'Total Expected Versus Total Paid Report',match:()=>true},ADJUSTED_DEBT:{label:'Debt After Adjustment Report',match:x=>x.balance!==0}};
+    const selectedMetric=metricConfig[metric];
+    const balanceLabel=selectedMetric?.label||(type==='DEBTOR'?'Debtors Report':type==='CREDITOR'?'Creditors Report':'Debtors & Creditors Report');
     const reportLabel=`${data.categoryLabel} ${balanceLabel}`;
-    const rows=data.rows.filter(x=>!type||(type==='DEBTOR'?x.balance>0:type==='CREDITOR'?x.balance<0:true)).map(x=>({
-      Matric:x.matric_number||'',Name:x.full_name||'',School:x.school_name||'',Department:x.department_name||'',Programme:x.programme_name||'',Expected:Number(x.expected||0),Paid:Number(x.paid||0),Balance:Math.abs(Number(x.balance||0)),Status:x.status,Email:x.email||'',Phone:x.phone||''
+    const rows=data.rows.filter(x=>selectedMetric?selectedMetric.match(x):(!type||(type==='DEBTOR'?x.balance>0:type==='CREDITOR'?x.balance<0:true))).map(x=>({
+      Matric:x.matric_number||'',Name:x.full_name||'',School:x.school_name||'',Department:x.department_name||'',Programme:x.programme_name||'',Expected:Number(x.expected||0),Paid:Number(x.paid||0),'Successful Transactions':Number(x.successful_transactions||0),Balance:Math.abs(Number(x.balance||0)),Status:x.status,Email:x.email||'',Phone:x.phone||''
     }));
-    const headers=['Matric','Name','School','Department','Programme','Expected','Paid','Balance','Status','Email','Phone'];
-    const subtitle=`Fee: ${data.categoryLabel} | Session: ${data.sessionName} | Generated: ${new Date().toLocaleString('en-GB')}`;
+    const headers=['Matric','Name','School','Department','Programme','Expected','Paid','Successful Transactions','Balance','Status','Email','Phone'];
+    const scope=[data.filters.schoolId&&data.schools.find(x=>Number(x.id)===data.filters.schoolId)?.name,data.filters.departmentId&&data.departments.find(x=>Number(x.id)===data.filters.departmentId)?.name,data.filters.programmeId&&data.programmes.find(x=>Number(x.id)===data.filters.programmeId)?.name].filter(Boolean).join(' / ')||'All schools, departments and programmes';
+    const subtitle=`Fee: ${data.categoryLabel} | Session: ${data.sessionName} | Scope: ${scope} | Generated: ${new Date().toLocaleString('en-GB')}`;
     const format=clean(req.params.format).toLowerCase();
 
     if(format==='xlsx'){
@@ -103,12 +107,12 @@ export async function exportReport(req,res,next){
       ];
       const ws=XLSX.utils.aoa_to_sheet(aoa);
       ws['!merges']=[0,1,2,3].map(r=>({s:{r,c:0},e:{r,c:headers.length-1}}));
-      ws['!cols']=[{wch:22},{wch:28},{wch:24},{wch:24},{wch:26},{wch:14},{wch:14},{wch:14},{wch:12},{wch:28},{wch:16}];
-      ws['!autofilter']={ref:`A6:K${Math.max(6,rows.length+6)}`};
+      ws['!cols']=[{wch:22},{wch:28},{wch:24},{wch:24},{wch:26},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12},{wch:28},{wch:16}];
+      ws['!autofilter']={ref:`A6:L${Math.max(6,rows.length+6)}`};
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws,'Balances');
       res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition','attachment; filename="debtors-creditors.xlsx"');
+      res.setHeader('Content-Disposition',`attachment; filename="${clean(balanceLabel).toLowerCase().replace(/[^a-z0-9]+/g,'-')}.xlsx"`);
       return res.send(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}));
     }
 
@@ -128,7 +132,7 @@ export async function exportReport(req,res,next){
         let y=120;doc.rect(30,y,752,20).fill('#247D57');doc.fillColor('#fff').font('Helvetica-Bold').fontSize(7);headings.forEach((h,i)=>doc.text(h,columns[i],y+6,{width:widths[i],ellipsis:true}));doc.y=145;
       };
       res.setHeader('Content-Type','application/pdf');
-      res.setHeader('Content-Disposition','attachment; filename="debtors-creditors.pdf"');
+      res.setHeader('Content-Disposition',`attachment; filename="${clean(balanceLabel).toLowerCase().replace(/[^a-z0-9]+/g,'-')}.pdf"`);
       doc.pipe(res);drawPageHeader();
       rows.forEach((x,i)=>{
         if(doc.y>545){doc.addPage();drawPageHeader();}
@@ -143,13 +147,14 @@ export async function exportReport(req,res,next){
     const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
     const lines=[
       [q('EKITI STATE COLLEGE OF TECHNOLOGY, IJERO-EKITI')].join(','),
+      [q('P.M.B. 316, Epe Ara Road, Ijero-Ekiti, Ekiti State')].join(','),
       [q(reportLabel)].join(','),
       [q(subtitle)].join(','),
       '',headers.map(q).join(','),
       ...rows.map(x=>headers.map(h=>q(x[h])).join(',')),
     ];
     res.setHeader('Content-Type','text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition','attachment; filename="debtors-creditors.csv"');
+    res.setHeader('Content-Disposition',`attachment; filename="${clean(balanceLabel).toLowerCase().replace(/[^a-z0-9]+/g,'-')}.csv"`);
     return res.send('\uFEFF'+lines.join('\n'));
   }catch(e){next(e)}
 }
