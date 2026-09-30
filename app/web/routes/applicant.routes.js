@@ -16,6 +16,7 @@ router.use(requireApplicant);
 router.get('/dashboard', applicant.dashboard);
 router.get('/admission/status', applicantAdmission.statusPage);
 router.get('/admission/:applicationId/letter', applicantAdmission.admissionLetter);
+router.get('/admission/:applicationId/notification', applicantAdmission.admissionNotification);
 router.get('/notifications', applicantAdmission.notificationsPage);
 router.get('/announcements', applicantAdmission.announcementsPage);
 router.get('/screening', applicantAdmission.screeningPage);

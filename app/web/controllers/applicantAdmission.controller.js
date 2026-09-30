@@ -2,6 +2,8 @@ import crypto from "crypto";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import path from 'path';
+import fs from 'fs/promises';
+import { PDFDocument as PDFLibDocument, StandardFonts, rgb } from 'pdf-lib';
 import { pool } from "../../core/db.js";
 
 const secret = () => process.env.DOCUMENT_QR_SECRET || process.env.SESSION_SECRET || "change-this-document-secret";
@@ -15,7 +17,8 @@ async function ownedAdmission(applicationId, userId) {
       ad.id decision_id,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
       sc.name school_name,d.name department_name,p.name programme_name,
       COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
-      ast.registrar_name,ast.registrar_position,ast.registrar_signature_path
+      ast.registrar_name,ast.registrar_position,ast.registrar_signature_path,
+      (SELECT storage_path FROM application_documents ax WHERE ax.applicant_application_id=aa.id AND ax.document_type='PASSPORT' AND ax.is_current=1 AND ax.deleted_at IS NULL ORDER BY ax.id DESC LIMIT 1) passport_path
       FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id
       JOIN sessions s ON s.id=af.session_id JOIN public_users pu ON pu.id=aa.applicant_user_id
       LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
@@ -35,7 +38,8 @@ export async function statusPage(req,res,next) {
       `SELECT aa.id,aa.application_number,aa.status,aa.acceptance_payment_status,aa.submitted_at,
        af.title application_title,s.name session_name,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
        COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
-       EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_LETTER' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_letter_template
+       EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_LETTER' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_letter_template,
+       EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_NOTIFICATION' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_notification_template
        FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id
        LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
        LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND (ast.application_form_id=af.id OR ast.application_form_id IS NULL)
@@ -57,14 +61,14 @@ export async function announcementsPage(req,res,next){
   try{const userId=Number(req.session?.publicUser?.id||0);const [announcements]=await pool.query(`SELECT pa.*,ar.read_at FROM portal_announcements pa LEFT JOIN announcement_reads ar ON ar.announcement_id=pa.id AND ar.public_user_id=? WHERE pa.status='PUBLISHED' AND pa.audience_role IN ('applicant','both') AND pa.publish_at<=NOW() AND (pa.expires_at IS NULL OR pa.expires_at>NOW()) AND EXISTS(SELECT 1 FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id WHERE aa.applicant_user_id=? AND aa.submitted_at IS NOT NULL AND (pa.session_id IS NULL OR pa.session_id=af.session_id) AND (pa.application_form_id IS NULL OR pa.application_form_id=aa.application_form_id) AND (pa.admission_status IS NULL OR pa.admission_status=aa.status) AND (pa.school_id IS NULL OR pa.school_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.school_id')) AS UNSIGNED)) AND (pa.department_id IS NULL OR pa.department_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.department_id')) AS UNSIGNED)) AND (pa.programme_id IS NULL OR pa.programme_id=CAST(JSON_UNQUOTE(JSON_EXTRACT(aa.form_data,'$.application_details.programme_choice.programme_id')) AS UNSIGNED))) ORDER BY FIELD(pa.priority,'URGENT','IMPORTANT','NORMAL'),pa.publish_at DESC`,[userId,userId]);if(announcements.length)await pool.query(`INSERT IGNORE INTO announcement_reads (announcement_id,public_user_id) VALUES ?`,[announcements.map(x=>[x.id,userId])]);res.render('applications/applicant-announcements',{layout:'layouts/adminlte',title:'Announcements',pageTitle:'Announcements',announcements});}catch(error){next(error)}
 }
 
-async function issuedDocument(application,templateId=null){
-  const [[existing]]=await pool.query(`SELECT * FROM issued_admission_documents WHERE applicant_application_id=? AND document_type='ADMISSION_LETTER' AND status='VALID' ORDER BY id DESC LIMIT 1`,[application.id]);
+async function issuedDocument(application,templateId=null,documentType='ADMISSION_LETTER'){
+  const [[existing]]=await pool.query(`SELECT * FROM issued_admission_documents WHERE applicant_application_id=? AND document_type=? AND status='VALID' ORDER BY id DESC LIMIT 1`,[application.id,documentType]);
   if(existing)return existing;
-  const number=`ADM-${application.session_id}-${String(application.id).padStart(7,"0")}`;
+  const prefix=documentType==='ADMISSION_NOTIFICATION'?'ADN':'ADM';const number=`${prefix}-${application.session_id}-${String(application.id).padStart(7,"0")}`;
   const token=tokenFor(number);
   const [result]=await pool.query(
     `INSERT INTO issued_admission_documents (applicant_application_id,admission_decision_id,template_id,document_type,document_number,verification_token_hash)
-     VALUES (?,?,?,'ADMISSION_LETTER',?,?)`,[application.id,application.decision_id,templateId,number,tokenHash(token)]);
+     VALUES (?,?,?,?,?,?)`,[application.id,application.decision_id,templateId,documentType,number,tokenHash(token)]);
   return {id:result.insertId,document_number:number,template_id:templateId,status:"VALID",issued_at:new Date()};
 }
 
@@ -74,24 +78,29 @@ async function publishedTemplate(type,application){
 }
 function templateText(value,replacements){
   let text=String(value||"");for(const [key,replacement] of Object.entries(replacements))text=text.replaceAll(`{{${key}}}`,String(replacement||""));
-  return text.replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>/gi,"\n\n").replace(/<[^>]+>/g,"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").trim();
+  return text.replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>/gi,"\n\n").replace(/<\/(?:div|h[1-6]|li|tr)>/gi,"\n").replace(/<li[^>]*>/gi,"• ").replace(/<[^>]+>/g,"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/\n{3,}/g,"\n\n").trim();
 }
 function drawTiledWatermark(doc,imagePath,opacity=.1){const xs=[65,250,435],ys=[180,390,600];for(const y of ys)for(const x of xs){try{doc.save().opacity(opacity).image(imagePath,x,y,{fit:[95,105],align:'center',valign:'center'}).restore().opacity(1)}catch{}}}
 function drawPersonalWatermark(doc,text){for(const y of [230,390,550,710])doc.save().opacity(.11).fillColor('#d71920').font('Helvetica-Bold').fontSize(18).rotate(-24,{origin:[300,y]}).text(text,45,y,{width:520,align:'center'}).restore().opacity(1)}
+function printedAt(){return new Date().toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}
+function drawPrintDetails(doc,qr){doc.font('Helvetica').fontSize(7).fillColor('#555').text(`Printed: ${printedAt()}`,390,18,{width:150,align:'right',lineBreak:false});doc.image(qr,485,700,{width:52});doc.fontSize(6).text('Verification Code',470,754,{width:82,align:'center',lineBreak:false});}
 function drawContinuationPage(doc,{template,personalText,qr,margin=55}){
   if(template?.watermark_text)doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1);
   if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
-  drawPersonalWatermark(doc,personalText);doc.image(qr,485,38,{width:58});doc.font('Helvetica').fontSize(6.5).fillColor('#555').text('Verification Code',470,98,{width:88,align:'center'});doc.x=margin;doc.y=120;
+  drawPersonalWatermark(doc,personalText);drawPrintDetails(doc,qr);doc.x=margin;doc.y=55;
 }
 
-export async function admissionLetter(req,res,next){
+async function appendTemplateAttachment(mainBuffer,attachmentPath,qrBuffer){if(!attachmentPath)return mainBuffer;try{const resolved=attachmentPath.startsWith('/public/')?path.resolve('app/web'+attachmentPath):path.resolve(attachmentPath);const allowedInternal=path.resolve('app/uploads/admission-template-attachments')+path.sep,allowedPublic=path.resolve('app/web/public/uploads/admission-templates')+path.sep;if(!resolved.startsWith(allowedInternal)&&!resolved.startsWith(allowedPublic))throw new Error('Attachment path is not permitted.');const attachment=await fs.readFile(resolved);const output=await PDFLibDocument.load(mainBuffer);const extra=await PDFLibDocument.load(attachment);const pages=await output.copyPages(extra,extra.getPageIndices());const font=await output.embedFont(StandardFonts.Helvetica),qr=await output.embedPng(qrBuffer),stamp=printedAt();pages.forEach(page=>{const {width,height}=page.getSize();page.drawText(`Printed: ${stamp}`,{x:width-175,y:height-18,size:7,font,color:rgb(.33,.33,.33)});page.drawImage(qr,{x:width-70,y:25,width:45,height:45});page.drawText('Verification Code',{x:width-82,y:15,size:5.5,font,color:rgb(.33,.33,.33)});output.addPage(page)});return Buffer.from(await output.save())}catch(error){console.error('Admission attachment merge failed:',error.message);return mainBuffer}}
+
+async function admissionPdf(req,res,next,documentType){
   try{
     const application=await ownedAdmission(Number(req.params.applicationId),Number(req.session?.publicUser?.id||0));
     if(!application||application.decision_status!=="ADMITTED")return res.status(404).send("An active admission offer was not found.");
-    if(Number(application.acceptance_required_for_letter)===1&&application.acceptance_payment_status!=="PAID")return res.status(403).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Unavailable",pageTitle:"Admission Letter Unavailable",reason:"Payment of the acceptance fee is required before your admission letter can be printed.",homeHref:"/applicant/admission/status"});
-    const resolvedTemplate=await publishedTemplate("ADMISSION_LETTER",application);
-    if(!resolvedTemplate)return res.status(409).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Not Yet Available",pageTitle:"Admission Letter Not Yet Available",reason:"Your admission letter has not yet been published. Please contact the Registry for assistance.",homeHref:"/applicant/admission/status"});
-    const issued=await issuedDocument(application,resolvedTemplate.id);
+    const isLetter=documentType==='ADMISSION_LETTER';const documentLabel=isLetter?'Admission Letter':'Admission Notification';
+    if(isLetter&&Number(application.acceptance_required_for_letter)===1&&application.acceptance_payment_status!=="PAID")return res.status(403).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Unavailable",pageTitle:"Admission Letter Unavailable",reason:"Payment of the acceptance fee is required before your admission letter can be printed.",homeHref:"/applicant/admission/status"});
+    const resolvedTemplate=await publishedTemplate(documentType,application);
+    if(!resolvedTemplate)return res.status(409).render("pages/denied",{layout:"layouts/adminlte",title:`${documentLabel} Not Yet Available`,pageTitle:`${documentLabel} Not Yet Available`,reason:`Your ${documentLabel.toLowerCase()} has not yet been published. Please contact the Registry for assistance.`,homeHref:"/applicant/admission/status"});
+    const issued=await issuedDocument(application,resolvedTemplate.id,documentType);
     const token=tokenFor(issued.document_number);
     const base=String(process.env.PORTAL_BASE_URL||`${req.protocol}://${req.get("host")}`).replace(/\/$/,"");
     const verifyUrl=`${base}/verify/admission-document/${token}`;
@@ -100,36 +109,39 @@ export async function admissionLetter(req,res,next){
     const programme=application.programme_name||application.offered_programme_name||application.programme_choice||"the approved programme";
     const [[issuedTemplate]]=issued.template_id?await pool.query(`SELECT * FROM admission_document_templates WHERE id=?`,[issued.template_id]):[[]];
     const template=issuedTemplate||resolvedTemplate;
-    const replacements={applicant_name:fullName,application_number:application.application_number,programme_name:programme,department_name:application.department_name||"",school_name:application.school_name||"",session_name:application.session_name,admission_date:new Date(application.admitted_at).toLocaleDateString("en-GB")};
+    const replacements={applicant_name:fullName,application_number:application.application_number,programme_name:programme,department_name:application.department_name||"",school_name:application.school_name||"",session_name:application.session_name,current_date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),admission_date:new Date(application.admitted_at).toLocaleDateString("en-GB")};
     const letterTitle=templateText(template.title,replacements);
+    const letterTitle2=templateText(template.title_line_2,replacements);
     const letterBody=templateText(template.body_html,replacements);
-    const doc=new PDFDocument({size:"A4",margin:55,info:{Title:"Admission Letter",Author:"EKSCOTECH"}});
+    const doc=new PDFDocument({size:"A4",margin:55,bufferPages:true,info:{Title:documentLabel,Author:"EKSCOTECH"}});const chunks=[];doc.on('data',chunk=>chunks.push(chunk));const completed=new Promise((resolve,reject)=>{doc.on('end',()=>resolve(Buffer.concat(chunks)));doc.on('error',reject)});
     res.setHeader("Content-Type","application/pdf");
-    res.setHeader("Content-Disposition",`inline; filename="admission-letter-${application.application_number}.pdf"`);
-    doc.pipe(res);
-    const personalText=`${fullName} • ${programme} • ${application.session_name} • ADMISSION LETTER`;
+    res.setHeader("Content-Disposition",`inline; filename="${isLetter?'admission-letter':'admission-notification'}-${application.application_number}.pdf"`);
+    const personalText=`${fullName} • ${programme} • ${application.session_name} • ${documentType.replaceAll('_',' ')}`;
     doc.on('pageAdded',()=>drawContinuationPage(doc,{template,personalText,qr}));
     if(template?.watermark_text){doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1)}
     if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
     drawPersonalWatermark(doc,personalText);
     try{doc.image("app/web/public/img/logo.png",60,40,{width:70});}catch{}
+    if(application.passport_path){try{doc.image(path.resolve(application.passport_path),475,38,{fit:[78,92],align:'center',valign:'center'});}catch{}}
+    drawPrintDetails(doc,qr);
     doc.font("Helvetica-Bold").fontSize(15).fillColor("#247D57").text("EKITI STATE COLLEGE OF TECHNOLOGY",125,48,{align:"center",width:345});
     doc.fontSize(10).fillColor("#333").text("IJERO-EKITI, EKITI STATE",125,70,{align:"center",width:345});
     doc.fontSize(8).text("P.M.B. 316, Epe Ara Road, Ijero-Ekiti, Ekiti State",125,86,{align:"center",width:345});
-    doc.image(qr,485,38,{width:58});doc.fontSize(6.5).fillColor('#555').text("Verification Code",470,98,{width:88,align:"center"});
     doc.moveTo(55,120).lineTo(540,120).strokeColor("#82103C").lineWidth(2).stroke();
     doc.font("Helvetica-Bold").fontSize(16).fillColor("#82103C").text(letterTitle,55,140,{align:"center"});
-    doc.font("Helvetica").fontSize(10).fillColor("#333").text(`Document No: ${issued.document_number}`,55,174).text(`Session: ${application.session_name}`,350,174,{align:"right"});
+    if(letterTitle2)doc.font("Helvetica-Bold").fontSize(15).text(letterTitle2,55,164,{align:'center'});
+    const metaY=letterTitle2?198:174;doc.font("Helvetica").fontSize(10).fillColor("#333").text(`Document No: ${issued.document_number}`,55,metaY).text(`Session: ${application.session_name}`,350,metaY,{align:"right"});
     doc.moveDown(3).font("Helvetica-Bold").fontSize(11).text(fullName).font("Helvetica").text(`Application Number: ${application.application_number}`);
     doc.moveDown(1.5).text(`Dear ${application.first_name},`);
     doc.moveDown().fontSize(11).text(letterBody,{align:"justify",lineGap:4});
     const signatoryName=template.registrar_name||application.registrar_name||'Registrar';const signatoryPosition=template.registrar_position||application.registrar_position||'Registrar';const signaturePath=template.registrar_signature_path||application.registrar_signature_path;
-    if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,625,{fit:[145,58],align:'left'})}catch{}}
-    doc.font("Helvetica-Bold").fontSize(10).fillColor('#222').text(signatoryName,65,690,{width:210}).font("Helvetica").fontSize(9).text(signatoryPosition,65,706,{width:210}).text("For: Ekiti State College of Technology",65,720,{width:250});
-    doc.fontSize(7).text(`Verify: ${verifyUrl}`,55,780,{width:480,align:"center"});
-    doc.end();
+    let signatureY=Math.max(doc.y+28,610);if(signatureY>680){doc.addPage();signatureY=100}if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,signatureY,{fit:[145,58],align:'left'})}catch{}}signatureY+=62;
+    doc.font("Helvetica-Bold").fontSize(10).fillColor('#222').text(signatoryName,65,signatureY,{width:210}).font("Helvetica").fontSize(9).text(signatoryPosition,65,signatureY+16,{width:210}).text("For: Ekiti State College of Technology",65,signatureY+30,{width:250});
+    doc.end();const mainBuffer=await completed;const output=await appendTemplateAttachment(mainBuffer,template.attachment_path,qr);return res.send(output);
   }catch(error){next(error);}
 }
+export const admissionLetter=(req,res,next)=>admissionPdf(req,res,next,'ADMISSION_LETTER');
+export const admissionNotification=(req,res,next)=>admissionPdf(req,res,next,'ADMISSION_NOTIFICATION');
 
 export async function verifyDocument(req,res,next){
   try{

@@ -153,14 +153,18 @@ const csrfProtection = csrf({ cookie: false });
 
 const admissionTemplateMultipart = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 3 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
-    const allowed = ["image/png", "image/jpeg"].includes(file.mimetype);
-    callback(allowed ? null : new Error("Watermark image must be a PNG or JPEG file."), allowed);
+    const imageFields = ["watermark_image", "registrar_signature"];
+    const allowed = imageFields.includes(file.fieldname)
+      ? ["image/png", "image/jpeg"].includes(file.mimetype)
+      : file.fieldname === "document_attachment" && file.mimetype === "application/pdf";
+    callback(allowed ? null : new Error("Upload PNG/JPEG images or a PDF document attachment in the correct field."), allowed);
   },
 }).fields([
   { name: "watermark_image", maxCount: 1 },
   { name: "registrar_signature", maxCount: 1 },
+  { name: "document_attachment", maxCount: 1 },
 ]);
 const admissionTemplateMultipartPaths = new Set([
   "/staff/admissions/documents",

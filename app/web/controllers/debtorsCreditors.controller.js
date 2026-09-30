@@ -40,6 +40,8 @@ export async function reportData(req){
     const scopes=new Map(),rules=new Map();
     scopeRows.forEach(x=>{if(!scopes.has(Number(x.payment_type_id)))scopes.set(Number(x.payment_type_id),[]);scopes.get(Number(x.payment_type_id)).push(x)});
     ruleRows.forEach(x=>{if(!rules.has(Number(x.payment_type_id)))rules.set(Number(x.payment_type_id),[]);rules.get(Number(x.payment_type_id)).push(x)});
+    const legacyByMatric=new Map();
+    legacyPayments.forEach(x=>{const matric=clean(x.matric_id).toLowerCase();if(!legacyByMatric.has(matric))legacyByMatric.set(matric,[]);legacyByMatric.get(matric).push(x)});
     const applicable=(type,person)=>{
       if(clean(type.scope).toUpperCase()==='GENERAL')return false;
       const assigned=scopes.get(Number(type.id))||[];
@@ -59,7 +61,7 @@ export async function reportData(req){
       const matchedCurrent=payments.filter(x=>typeIds.has(Number(x.payment_type_id))&&(Number(x.created_by)===Number(person.id)||keys.includes(clean(x.payee_id).toLowerCase())||clean(x.payee_email).toLowerCase()===clean(person.email).toLowerCase()));
       const currentPaid=matchedCurrent.reduce((sum,x)=>sum+Number(x.amount||0),0);
       const currentReferences=new Set(matchedCurrent.flatMap(x=>[clean(x.rrr),clean(x.order_id)]).filter(Boolean));
-      const legacyPaid=legacyPayments.filter(x=>clean(x.matric_id).toLowerCase()===clean(person.matric_number).toLowerCase()&&!currentReferences.has(clean(x.ref_number))&&!currentReferences.has(clean(x.order_id))).reduce((sum,x)=>sum+Number(x.amount_paid||0),0);
+      const legacyPaid=(legacyByMatric.get(clean(person.matric_number).toLowerCase())||[]).filter(x=>!currentReferences.has(clean(x.ref_number))&&!currentReferences.has(clean(x.order_id))).reduce((sum,x)=>sum+Number(x.amount_paid||0),0);
       return {...person,expected,paid:currentPaid+legacyPaid,current_paid:currentPaid,legacy_paid:legacyPaid};
     });
   }else{

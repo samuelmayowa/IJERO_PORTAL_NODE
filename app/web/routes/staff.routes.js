@@ -105,6 +105,7 @@ router.post("/admissions/documents", admissionRoles, admissionsCtrl.createTempla
 router.post("/admissions/documents/:id/update", admissionRoles, admissionsCtrl.updateTemplate);
 router.post("/admissions/documents/:id/publish", admissionRoles, admissionsCtrl.publishTemplate);
 router.get("/admissions/documents/:id/preview", admissionRoles, admissionsCtrl.previewTemplate);
+router.get("/admissions/documents/:id/attachment", admissionRoles, admissionsCtrl.templateAttachment);
 router.get("/admissions/documents/:id/sample.pdf", admissionRoles, admissionsCtrl.sampleTemplatePdf);
 router.get("/admissions/announcements", admissionRoles, admissionsCtrl.announcementsPage);
 router.post("/admissions/announcements", admissionRoles, admissionsCtrl.createAnnouncement);
