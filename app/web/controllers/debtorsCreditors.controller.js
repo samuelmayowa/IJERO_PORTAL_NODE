@@ -27,11 +27,15 @@ export async function reportData(req){
     const byMatric=new Map(),byEmail=new Map();for(const row of imports){const matric=clean(row.matric_number).toLowerCase(),email=clean(row.student_email).toLowerCase();if(matric&&!byMatric.has(matric))byMatric.set(matric,row);if(email&&!byEmail.has(email))byEmail.set(email,row)}
     const normal=value=>clean(value).toLowerCase();
     people=people.map(person=>{const imported=byMatric.get(normal(person.matric_number))||byEmail.get(normal(person.email))||{};let schoolId=Number(person.school_id)||0;const school=schools.find(x=>Number(x.id)===schoolId)||schools.find(x=>normal(x.name)===normal(imported.school));schoolId=Number(school?.id)||0;let departmentId=Number(person.department_id)||0;const department=departments.find(x=>Number(x.id)===departmentId)||departments.find(x=>normal(x.name)===normal(imported.department)&&(!schoolId||Number(x.school_id)===schoolId));departmentId=Number(department?.id)||0;let programmeId=Number(person.programme_id)||0;const programme=programmes.find(x=>Number(x.id)===programmeId)||programmes.find(x=>normal(x.name)===normal(imported.programme)&&(!departmentId||Number(x.department_id)===departmentId));programmeId=Number(programme?.id)||0;const admissionSession=sessions.find(x=>clean(x.name).startsWith(clean(imported.year_of_entry)));return {...person,level:person.level||imported.student_level||imported.level,state_of_origin:person.state_of_origin||imported.state_of_origin,admission_session_id:Number(admissionSession?.id)||null,school_id:schoolId||null,department_id:departmentId||null,programme_id:programmeId||null,school_name:person.school_name||school?.name||imported.school||null,department_name:person.department_name||department?.name||imported.department||null,programme_name:person.programme_name||programme?.name||imported.programme||null}});
-    const ids=feeTypes.map(x=>Number(x.id));let scopeRows=[],ruleRows=[],payments=[];
+    const ids=feeTypes.map(x=>Number(x.id));let scopeRows=[],ruleRows=[],payments=[],legacyPayments=[];
     if(ids.length){
       [scopeRows]=await pool.query(`SELECT payment_type_id,'school' kind,school_id target FROM payment_type_schools WHERE payment_type_id IN (?) UNION ALL SELECT payment_type_id,'department',department_id FROM payment_type_departments WHERE payment_type_id IN (?) UNION ALL SELECT payment_type_id,'programme',programme_id FROM payment_type_programmes WHERE payment_type_id IN (?)`,[ids,ids,ids]);
       [ruleRows]=await pool.query(`SELECT payment_type_id,entry_level,current_level,admission_session_id,amount_override FROM payment_type_rules WHERE payment_type_id IN (?)`,[ids]);
       [payments]=await pool.query(`SELECT * FROM payment_invoices pi WHERE pi.status='PAID' AND pi.payment_type_id IN (?) AND (pi.session_id=? OR (pi.session_id IS NULL AND (SELECT COUNT(DISTINCT pts.session_id) FROM payment_type_sessions pts WHERE pts.payment_type_id=pi.payment_type_id)<=1))`,[ids,filters.sessionId]);
+    }
+    const selectedSessionName=clean(sessions.find(x=>Number(x.id)===filters.sessionId)?.name);
+    if(selectedSessionName){
+      [legacyPayments]=await pool.query(`SELECT pay_id,matric_id,amount_paid,ref_number,order_id FROM legacy_student_payments WHERE LOWER(TRIM(status))='successful' AND TRIM(academic_session)=? AND LOWER(TRIM(pay_type))='school fees'`,[selectedSessionName]);
     }
     const scopes=new Map(),rules=new Map();
     scopeRows.forEach(x=>{if(!scopes.has(Number(x.payment_type_id)))scopes.set(Number(x.payment_type_id),[]);scopes.get(Number(x.payment_type_id)).push(x)});
@@ -52,8 +56,11 @@ export async function reportData(req){
       const obligations=feeTypes.filter(type=>applicable(type,person));
       const expected=obligations.reduce((sum,type)=>{const matched=(rules.get(Number(type.id))||[]).find(rule=>{const aliases=levelAliases(person.level);return (!levelToken(rule.entry_level)||aliases.includes(levelToken(rule.entry_level)))&&(!levelToken(rule.current_level)||aliases.includes(levelToken(rule.current_level)))&&(!rule.admission_session_id||Number(rule.admission_session_id)===Number(person.admission_session_id));});let amount=Number(type.amount||0);if(Number(type.uses_indigene_regime)){amount=clean(person.state_of_origin).toLowerCase()==='ekiti'?Number(type.amount_indigene||0):Number(type.amount_non_indigene||0)}return sum+Number(matched?.amount_override??amount)},0);
       const typeIds=new Set(obligations.map(x=>Number(x.id)));const keys=[String(person.id),clean(person.matric_number).toLowerCase(),clean(person.email).toLowerCase()];
-      const paid=payments.filter(x=>typeIds.has(Number(x.payment_type_id))&&(Number(x.created_by)===Number(person.id)||keys.includes(clean(x.payee_id).toLowerCase())||clean(x.payee_email).toLowerCase()===clean(person.email).toLowerCase())).reduce((sum,x)=>sum+Number(x.amount||0),0);
-      return {...person,expected,paid};
+      const matchedCurrent=payments.filter(x=>typeIds.has(Number(x.payment_type_id))&&(Number(x.created_by)===Number(person.id)||keys.includes(clean(x.payee_id).toLowerCase())||clean(x.payee_email).toLowerCase()===clean(person.email).toLowerCase()));
+      const currentPaid=matchedCurrent.reduce((sum,x)=>sum+Number(x.amount||0),0);
+      const currentReferences=new Set(matchedCurrent.flatMap(x=>[clean(x.rrr),clean(x.order_id)]).filter(Boolean));
+      const legacyPaid=legacyPayments.filter(x=>clean(x.matric_id).toLowerCase()===clean(person.matric_number).toLowerCase()&&!currentReferences.has(clean(x.ref_number))&&!currentReferences.has(clean(x.order_id))).reduce((sum,x)=>sum+Number(x.amount_paid||0),0);
+      return {...person,expected,paid:currentPaid+legacyPaid,current_paid:currentPaid,legacy_paid:legacyPaid};
     });
   }else{
     const stage=category;const invoiceField=stage==='ACCEPTANCE'?'acceptance_invoice_id':'compulsory_invoice_id';const eligibility=stage==='ACCEPTANCE'?`ad.status='ADMITTED'`:`ad.status='ADMITTED' AND aa.acceptance_payment_status='PAID'`;
