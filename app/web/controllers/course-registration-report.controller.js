@@ -250,7 +250,10 @@ export async function fetchData(req, res) {
       pu.last_name,
       sc.name,
       d.name,
-      p.name
+      p.name,
+      si.school,
+      si.department,
+      si.programme
   `;
 
   // Core grouped subquery: one row per student/session/semester
@@ -265,9 +268,9 @@ export async function fetchData(req, res) {
       COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')) AS student_level,
       COALESCE(NULLIF(pu.matric_number, ''), pu.username) AS student_username,
       CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name,
-      sc.name AS school_name,
-      d.name AS department_name,
-      p.name AS programme_name,
+      COALESCE(sc.name, si.school) AS school_name,
+      COALESCE(d.name, si.department) AS department_name,
+      COALESCE(p.name, si.programme) AS programme_name,
       COUNT(*) AS course_cnt,
       SUM(
         CASE WHEN UPPER(r.status) = 'SUBMITTED' THEN 1 ELSE 0 END
@@ -364,7 +367,11 @@ export async function fetchData(req, res) {
   };
 
   try {
-    const [sumRows] = await pool.query(summarySql, params);
+    const [[sumRows], [avgRows], [dataRows]] = await Promise.all([
+      pool.query(summarySql, params),
+      pool.query(avgDeptSql, params),
+      pool.query(selectSql, [...params, pageSize, offset]),
+    ]);
     if (sumRows && sumRows[0]) {
       totals.total_groups = Number(sumRows[0].total_groups || 0);
       totals.registered_courses = Number(sumRows[0].registered_courses || 0);
@@ -372,12 +379,10 @@ export async function fetchData(req, res) {
       totals.registered_students = Number(sumRows[0].registered_students || 0);
     }
 
-    const [avgRows] = await pool.query(avgDeptSql, params);
     if (avgRows && avgRows[0] && avgRows[0].avg_per_department != null) {
       totals.avg_per_department = Number(avgRows[0].avg_per_department || 0);
     }
 
-    const [dataRows] = await pool.query(selectSql, [...params, pageSize, offset]);
     rows = dataRows;
   } catch (e) {
     console.error('course-registration-report fetchData error:', e);
@@ -448,7 +453,10 @@ export async function exportCsv(req, res) {
       pu.last_name,
       sc.name,
       d.name,
-      p.name
+      p.name,
+      si.school,
+      si.department,
+      si.programme
   `;
 
   const groupedSubquery = `
@@ -462,9 +470,9 @@ export async function exportCsv(req, res) {
       COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')) AS student_level,
       COALESCE(NULLIF(pu.matric_number, ''), pu.username) AS student_username,
       CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name,
-      sc.name AS school_name,
-      d.name AS department_name,
-      p.name AS programme_name,
+      COALESCE(sc.name, si.school) AS school_name,
+      COALESCE(d.name, si.department) AS department_name,
+      COALESCE(p.name, si.programme) AS programme_name,
       COUNT(*) AS course_cnt,
       SUM(
         CASE WHEN UPPER(r.status) = 'SUBMITTED' THEN 1 ELSE 0 END
