@@ -26,6 +26,24 @@ async function getDepartments() {
   return rows;
 }
 
+async function getProgrammes() {
+  const [rows] = await pool.query(
+    'SELECT id, name, school_id, department_id FROM programmes ORDER BY name'
+  );
+  return rows;
+}
+
+async function getLevels() {
+  const [rows] = await pool.query(`
+    SELECT DISTINCT level FROM (
+      SELECT NULLIF(TRIM(level), '') level FROM student_profiles
+      UNION
+      SELECT NULLIF(TRIM(COALESCE(student_level, level)), '') level FROM student_imports
+    ) levels WHERE level IS NOT NULL ORDER BY level
+  `);
+  return rows.map(row => row.level);
+}
+
 /**
  * GET /staff/registration/report
  * Main page (filters + table shell)
@@ -36,6 +54,8 @@ export async function listPage(req, res) {
   let sessions = [];
   let schools = [];
   let departments = [];
+  let programmes = [];
+  let levels = [];
 
   try {
     sessions = await getSessions();
@@ -52,6 +72,12 @@ export async function listPage(req, res) {
   } catch (e) {
     console.error('regReport departments', e);
   }
+  try {
+    programmes = await getProgrammes();
+    levels = await getLevels();
+  } catch (e) {
+    console.error('regReport programmes/levels', e);
+  }
 
   const staff = req.session?.staff || req.session?.user || {};
   const hodDeptId = staff?.department_id ?? null;
@@ -62,6 +88,8 @@ export async function listPage(req, res) {
     sessions,
     schools,
     departments,
+    programmes,
+    levels,
     hodDeptId,
   });
 }
@@ -92,18 +120,23 @@ function buildBaseWhere(req) {
 
   // School / Department via student_profiles
   if (q.school_id) {
-    where.push('sp.school_id = ?');
+    where.push('COALESCE(sp.school_id, sc.id) = ?');
     params.push(q.school_id);
   }
 
   if (q.department_id) {
-    where.push('sp.department_id = ?');
+    where.push('COALESCE(sp.department_id, d.id) = ?');
     params.push(q.department_id);
+  }
+
+  if (q.programme_id) {
+    where.push('COALESCE(sp.programme_id, p.id) = ?');
+    params.push(q.programme_id);
   }
 
   // Level (from student_profiles.level)
   if (q.level) {
-    where.push('sp.level = ?');
+    where.push("COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')) = ?");
     params.push(q.level);
   }
 
@@ -126,7 +159,7 @@ function buildBaseWhere(req) {
   if (role === 'hod') {
     const hodDeptId = req.session?.user?.department_id || req.session?.staff?.department_id;
     if (hodDeptId) {
-      where.push('sp.department_id = ?');
+      where.push('COALESCE(sp.department_id, d.id) = ?');
       params.push(hodDeptId);
     }
   }
@@ -137,6 +170,7 @@ function buildBaseWhere(req) {
     where.push(`
       (
         pu.username LIKE ?
+        OR pu.matric_number LIKE ?
         OR pu.first_name LIKE ?
         OR pu.middle_name LIKE ?
         OR pu.last_name LIKE ?
@@ -144,7 +178,7 @@ function buildBaseWhere(req) {
         OR c.title LIKE ?
       )
     `);
-    params.push(like, like, like, like, like, like);
+    params.push(like, like, like, like, like, like, like);
   }
 
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -180,12 +214,24 @@ export async function fetchData(req, res) {
       ON pu.id = r.student_id
     LEFT JOIN student_profiles sp
       ON sp.user_id = r.student_id
+    LEFT JOIN (
+      SELECT si1.* FROM student_imports si1
+      INNER JOIN (
+        SELECT matric_number, MAX(id) latest_id
+        FROM student_imports
+        WHERE matric_number IS NOT NULL AND matric_number <> ''
+        GROUP BY matric_number
+      ) latest ON latest.latest_id = si1.id
+    ) si ON si.matric_number COLLATE utf8mb4_unicode_ci = pu.matric_number COLLATE utf8mb4_unicode_ci
     LEFT JOIN schools sc
       ON sc.id = sp.school_id
+      OR (sp.school_id IS NULL AND LOWER(TRIM(sc.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.school)) COLLATE utf8mb4_unicode_ci)
     LEFT JOIN departments d
       ON d.id = sp.department_id
+      OR (sp.department_id IS NULL AND LOWER(TRIM(d.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.department)) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
     LEFT JOIN programmes p
       ON p.id = sp.programme_id
+      OR (sp.programme_id IS NULL AND LOWER(TRIM(p.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.programme)) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
   `;
 
   const groupByClause = `
@@ -193,11 +239,12 @@ export async function fetchData(req, res) {
       r.student_id,
       r.session_id,
       r.semester,
-      sp.department_id,
-      sp.school_id,
-      sp.programme_id,
-      sp.level,
+      COALESCE(sp.department_id, d.id),
+      COALESCE(sp.school_id, sc.id),
+      COALESCE(sp.programme_id, p.id),
+      COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')),
       pu.username,
+      pu.matric_number,
       pu.first_name,
       pu.middle_name,
       pu.last_name,
@@ -212,11 +259,11 @@ export async function fetchData(req, res) {
       r.student_id,
       r.session_id,
       r.semester,
-      sp.department_id,
-      sp.school_id,
-      sp.programme_id,
-      sp.level AS student_level,
-      pu.username AS student_username,
+      COALESCE(sp.department_id, d.id) AS department_id,
+      COALESCE(sp.school_id, sc.id) AS school_id,
+      COALESCE(sp.programme_id, p.id) AS programme_id,
+      COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')) AS student_level,
+      COALESCE(NULLIF(pu.matric_number, ''), pu.username) AS student_username,
       CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name,
       sc.name AS school_name,
       d.name AS department_name,
@@ -244,6 +291,9 @@ export async function fetchData(req, res) {
     // "PENDING" = completely draft / nothing submitted
     statusWhereClause = 'WHERE g.submitted_cnt = 0';
   }
+  const registeredDepartmentWhere = statusWhereClause
+    ? `${statusWhereClause} AND g.submitted_cnt > 0 AND g.department_id IS NOT NULL`
+    : 'WHERE g.submitted_cnt > 0 AND g.department_id IS NOT NULL';
 
   // Summary over grouped rows
   const summarySql = `
@@ -269,8 +319,7 @@ export async function fetchData(req, res) {
       FROM (
         ${groupedSubquery}
       ) AS g
-      ${statusWhereClause}
-      WHERE g.submitted_cnt > 0 AND g.department_id IS NOT NULL
+      ${registeredDepartmentWhere}
       GROUP BY g.department_id
     ) AS t
   `;
@@ -363,12 +412,24 @@ export async function exportCsv(req, res) {
       ON pu.id = r.student_id
     LEFT JOIN student_profiles sp
       ON sp.user_id = r.student_id
+    LEFT JOIN (
+      SELECT si1.* FROM student_imports si1
+      INNER JOIN (
+        SELECT matric_number, MAX(id) latest_id
+        FROM student_imports
+        WHERE matric_number IS NOT NULL AND matric_number <> ''
+        GROUP BY matric_number
+      ) latest ON latest.latest_id = si1.id
+    ) si ON si.matric_number COLLATE utf8mb4_unicode_ci = pu.matric_number COLLATE utf8mb4_unicode_ci
     LEFT JOIN schools sc
       ON sc.id = sp.school_id
+      OR (sp.school_id IS NULL AND LOWER(TRIM(sc.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.school)) COLLATE utf8mb4_unicode_ci)
     LEFT JOIN departments d
       ON d.id = sp.department_id
+      OR (sp.department_id IS NULL AND LOWER(TRIM(d.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.department)) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
     LEFT JOIN programmes p
       ON p.id = sp.programme_id
+      OR (sp.programme_id IS NULL AND LOWER(TRIM(p.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.programme)) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
   `;
 
   const groupByClause = `
@@ -376,11 +437,12 @@ export async function exportCsv(req, res) {
       r.student_id,
       r.session_id,
       r.semester,
-      sp.department_id,
-      sp.school_id,
-      sp.programme_id,
-      sp.level,
+      COALESCE(sp.department_id, d.id),
+      COALESCE(sp.school_id, sc.id),
+      COALESCE(sp.programme_id, p.id),
+      COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')),
       pu.username,
+      pu.matric_number,
       pu.first_name,
       pu.middle_name,
       pu.last_name,
@@ -394,11 +456,11 @@ export async function exportCsv(req, res) {
       r.student_id,
       r.session_id,
       r.semester,
-      sp.department_id,
-      sp.school_id,
-      sp.programme_id,
-      sp.level AS student_level,
-      pu.username AS student_username,
+      COALESCE(sp.department_id, d.id) AS department_id,
+      COALESCE(sp.school_id, sc.id) AS school_id,
+      COALESCE(sp.programme_id, p.id) AS programme_id,
+      COALESCE(NULLIF(TRIM(sp.level), ''), NULLIF(TRIM(si.student_level), ''), NULLIF(TRIM(si.level), '')) AS student_level,
+      COALESCE(NULLIF(pu.matric_number, ''), pu.username) AS student_username,
       CONCAT_WS(' ', pu.first_name, pu.middle_name, pu.last_name) AS student_name,
       sc.name AS school_name,
       d.name AS department_name,

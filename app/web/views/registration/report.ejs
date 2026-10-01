@@ -65,8 +65,22 @@
 
           <!-- Level -->
           <div class="form-group col-md-2">
+            <label for="programme_id">Programme</label>
+            <select id="programme_id" name="programme_id" class="form-control">
+              <option value="">All</option>
+              <% (programmes || []).forEach(function(p) { %>
+                <option value="<%= p.id %>" data-school="<%= p.school_id %>" data-department="<%= p.department_id %>"><%= p.name %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <!-- Level -->
+          <div class="form-group col-md-2">
             <label for="level">Level</label>
-            <input id="level" name="level" class="form-control" placeholder="e.g. ND1, HND2">
+            <select id="level" name="level" class="form-control">
+              <option value="">All</option>
+              <% (levels || []).forEach(function(level) { %><option value="<%= level %>"><%= level %></option><% }); %>
+            </select>
           </div>
 
           <!-- Search -->
@@ -192,6 +206,7 @@
 
     const schoolSelect = document.getElementById('school_id');
     const deptSelect = document.getElementById('department_id');
+    const programmeSelect = document.getElementById('programme_id');
 
     function filterDepartments() {
       const schoolId = schoolSelect.value;
@@ -200,10 +215,23 @@
         const optSchool = opt.getAttribute('data-school');
         opt.style.display = (!schoolId || schoolId === optSchool) ? '' : 'none';
       });
+      filterProgrammes();
+    }
+
+    function filterProgrammes() {
+      const schoolId = schoolSelect.value;
+      const departmentId = deptSelect.value;
+      Array.from(programmeSelect.options).forEach(function (opt, idx) {
+        if (idx === 0) return;
+        const matchesSchool = !schoolId || schoolId === opt.getAttribute('data-school');
+        const matchesDepartment = !departmentId || departmentId === opt.getAttribute('data-department');
+        opt.style.display = matchesSchool && matchesDepartment ? '' : 'none';
+      });
     }
 
     if (schoolSelect && deptSelect) {
       schoolSelect.addEventListener('change', filterDepartments);
+      deptSelect.addEventListener('change', filterProgrammes);
       filterDepartments();
     }
 
