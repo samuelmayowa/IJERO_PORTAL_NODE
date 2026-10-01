@@ -222,16 +222,16 @@ export async function fetchData(req, res) {
         WHERE matric_number IS NOT NULL AND matric_number <> ''
         GROUP BY matric_number
       ) latest ON latest.latest_id = si1.id
-    ) si ON si.matric_number COLLATE utf8mb4_unicode_ci = pu.matric_number COLLATE utf8mb4_unicode_ci
+    ) si ON CONVERT(si.matric_number USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(pu.matric_number USING utf8mb4) COLLATE utf8mb4_unicode_ci
     LEFT JOIN schools sc
       ON sc.id = sp.school_id
-      OR (sp.school_id IS NULL AND LOWER(TRIM(sc.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.school)) COLLATE utf8mb4_unicode_ci)
+      OR (sp.school_id IS NULL AND CONVERT(LOWER(TRIM(sc.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.school)) USING utf8mb4) COLLATE utf8mb4_unicode_ci)
     LEFT JOIN departments d
       ON d.id = sp.department_id
-      OR (sp.department_id IS NULL AND LOWER(TRIM(d.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.department)) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
+      OR (sp.department_id IS NULL AND CONVERT(LOWER(TRIM(d.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.department)) USING utf8mb4) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
     LEFT JOIN programmes p
       ON p.id = sp.programme_id
-      OR (sp.programme_id IS NULL AND LOWER(TRIM(p.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.programme)) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
+      OR (sp.programme_id IS NULL AND CONVERT(LOWER(TRIM(p.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.programme)) USING utf8mb4) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
   `;
 
   const groupByClause = `
@@ -420,16 +420,16 @@ export async function exportCsv(req, res) {
         WHERE matric_number IS NOT NULL AND matric_number <> ''
         GROUP BY matric_number
       ) latest ON latest.latest_id = si1.id
-    ) si ON si.matric_number COLLATE utf8mb4_unicode_ci = pu.matric_number COLLATE utf8mb4_unicode_ci
+    ) si ON CONVERT(si.matric_number USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(pu.matric_number USING utf8mb4) COLLATE utf8mb4_unicode_ci
     LEFT JOIN schools sc
       ON sc.id = sp.school_id
-      OR (sp.school_id IS NULL AND LOWER(TRIM(sc.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.school)) COLLATE utf8mb4_unicode_ci)
+      OR (sp.school_id IS NULL AND CONVERT(LOWER(TRIM(sc.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.school)) USING utf8mb4) COLLATE utf8mb4_unicode_ci)
     LEFT JOIN departments d
       ON d.id = sp.department_id
-      OR (sp.department_id IS NULL AND LOWER(TRIM(d.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.department)) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
+      OR (sp.department_id IS NULL AND CONVERT(LOWER(TRIM(d.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.department)) USING utf8mb4) COLLATE utf8mb4_unicode_ci AND (sc.id IS NULL OR d.school_id = sc.id))
     LEFT JOIN programmes p
       ON p.id = sp.programme_id
-      OR (sp.programme_id IS NULL AND LOWER(TRIM(p.name)) COLLATE utf8mb4_unicode_ci = LOWER(TRIM(si.programme)) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
+      OR (sp.programme_id IS NULL AND CONVERT(LOWER(TRIM(p.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(LOWER(TRIM(si.programme)) USING utf8mb4) COLLATE utf8mb4_unicode_ci AND (d.id IS NULL OR p.department_id = d.id))
   `;
 
   const groupByClause = `
