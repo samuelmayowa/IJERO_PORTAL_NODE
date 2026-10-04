@@ -9,7 +9,7 @@ const id=value=>Number.parseInt(value,10)||0;
 function parsed(value){try{return value&&typeof value==="object"?value:JSON.parse(String(value||"{}"));}catch{return {};}}
 
 async function applicant(applicationId){
-  const [rows]=await pool.query(`SELECT aa.*,pu.first_name,pu.middle_name,pu.last_name,pu.username,pu.role,af.title application_title,s.name session_name FROM applicant_applications aa JOIN public_users pu ON pu.id=aa.applicant_user_id JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id WHERE aa.id=? AND pu.role='applicant' LIMIT 1`,[applicationId]);
+  const [rows]=await pool.query(`SELECT aa.*,pu.first_name,pu.middle_name,pu.last_name,pu.username,pu.role,pu.dob,pu.gender,pu.phone,pu.address,pu.state_of_origin,pu.lga,af.title application_title,s.name session_name FROM applicant_applications aa JOIN public_users pu ON pu.id=aa.applicant_user_id JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id WHERE aa.id=? AND pu.role='applicant' LIMIT 1`,[applicationId]);
   return rows[0]||null;
 }
 
@@ -22,7 +22,7 @@ export async function editPage(req,res,next){
       pool.query(`SELECT * FROM portal_audit_log WHERE entity_type='applicant_application' AND entity_id=? ORDER BY id DESC LIMIT 30`,[String(application.id)]),
     ]);
     const data=parsed(application.form_data),choice=data?.application_details?.programme_choice||{};
-    res.render("pages/staff/applicant-edit",{layout:"layouts/adminlte",title:"Edit Applicant",pageTitle:"Edit Applicant",application,choice,schools,departments,programmes,documents,audits});
+    res.render("pages/staff/applicant-edit",{layout:"layouts/adminlte",title:"Edit Applicant",pageTitle:"Edit Applicant",application,choice,olevel:data?.application_details?.olevel||{},schools,departments,programmes,documents,audits});
   }catch(error){next(error);}
 }
 
@@ -37,10 +37,16 @@ export async function updateApplicant(req,res){
     if(!programme)throw new Error("The selected programme does not belong to the selected department and school.");
     const firstName=clean(req.body.first_name),lastName=clean(req.body.last_name),middleName=clean(req.body.middle_name);
     if(!firstName||!lastName)throw new Error("First name and surname are required.");
+    const email=clean(req.body.email).toLowerCase();if(!email)throw new Error("Email is required.");
+    const [[duplicateEmail]]=await connection.query(`SELECT id FROM public_users WHERE username=? AND id<>? LIMIT 1`,[email,application.applicant_user_id]);if(duplicateEmail)throw new Error("That email already belongs to another portal account.");
     const data=parsed(application.form_data);data.application_details=data.application_details||{};data.application_details.programme_choice={...(data.application_details.programme_choice||{}),school_id:schoolId,school_name:programme.school_name,department_id:departmentId,department_name:programme.department_name,programme_id:programmeId,programme_name:programme.name};
-    await connection.query(`UPDATE public_users SET first_name=?,middle_name=?,last_name=? WHERE id=? AND role='applicant'`,[firstName,middleName||null,lastName,application.applicant_user_id]);
+    const subjectKeys=['english_language','mathematics','biology','physics','chemistry','economics','agricultural_science','geography','civic_education'];
+    const sittingCount=clean(req.body.olevel_sitting_count)==='2'?2:1,sittings=[];
+    for(let number=1;number<=sittingCount;number+=1){const subjects={};for(const key of subjectKeys)subjects[key]=clean(req.body[`sitting_${number}_${key}`]).toUpperCase();sittings.push({sitting_number:number,examination_type:clean(req.body[`sitting_${number}_exam_type`]).toUpperCase(),examination_number:clean(req.body[`sitting_${number}_exam_number`]).toUpperCase(),examination_year:clean(req.body[`sitting_${number}_exam_year`]),subjects});}
+    data.application_details.olevel={sitting_count:sittingCount,sittings};
+    await connection.query(`UPDATE public_users SET first_name=?,middle_name=?,last_name=?,username=?,dob=?,gender=?,phone=?,address=?,state_of_origin=?,lga=? WHERE id=? AND role='applicant'`,[firstName,middleName||null,lastName,email,clean(req.body.dob)||null,clean(req.body.gender)||null,clean(req.body.phone)||null,clean(req.body.address)||null,clean(req.body.state_of_origin)||null,clean(req.body.lga)||null,application.applicant_user_id]);
     await connection.query(`UPDATE applicant_applications SET programme_choice=?,form_data=? WHERE id=?`,[programme.name,JSON.stringify(data),applicationId]);
-    await writeAudit(connection,req,{action:"APPLICANT_RECORD_CORRECTED",entityType:"applicant_application",entityId:applicationId,reason,oldValues:{first_name:application.first_name,middle_name:application.middle_name,last_name:application.last_name,programme_choice:application.programme_choice},newValues:{first_name:firstName,middle_name:middleName,last_name:lastName,school_id:schoolId,department_id:departmentId,programme_id:programmeId,programme_choice:programme.name}});
+    await writeAudit(connection,req,{action:"APPLICANT_RECORD_CORRECTED",entityType:"applicant_application",entityId:applicationId,reason,oldValues:{first_name:application.first_name,middle_name:application.middle_name,last_name:application.last_name,email:application.username,programme_choice:application.programme_choice},newValues:{first_name:firstName,middle_name:middleName,last_name:lastName,email,school_id:schoolId,department_id:departmentId,programme_id:programmeId,programme_choice:programme.name,olevel:data.application_details.olevel}});
     await connection.commit();req.flash("success","Applicant record corrected successfully.");
   }catch(error){await connection.rollback();req.flash("error",error.message||"Unable to correct applicant record.");}
   finally{connection.release();}

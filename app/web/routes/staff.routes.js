@@ -1,5 +1,6 @@
 // app/web/routes/staff.routes.js
 import { Router } from "express";
+import multer from "multer";
 
 // Existing controllers already in your app
 import * as staffCtrl from "../controllers/staff.controller.js";
@@ -16,6 +17,7 @@ import * as studentEditCtrl from "../controllers/studentEdit.controller.js";
 import * as applicationReportCtrl from "../controllers/applicationReports.controller.js";
 import * as admissionsCtrl from "../controllers/admissions.controller.js";
 import * as applicantEditorCtrl from "../controllers/applicantEditor.controller.js";
+import * as passwordManagementCtrl from "../controllers/passwordManagement.controller.js";
 import { uploadApplicationDocumentFile } from "../middleware/applicationDocumentUpload.js";
 const router = Router();
 
@@ -35,6 +37,11 @@ const admissionRoles = requireRole(
   "registry", "registrary", "registrar",
   "admission officer", "admissions officer", "admission",
 );
+const admissionCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, String(file.originalname || "").toLowerCase().endsWith(".csv")),
+});
 
 const safe = (fnName) => {
   const fn = staffCtrl?.[fnName];
@@ -79,13 +86,20 @@ router.get(
 router.get("/admissions/manage", admissionRoles, admissionsCtrl.managePage);
 router.post("/admissions/:id/admit", admissionRoles, admissionsCtrl.admitOne);
 router.post("/admissions/bulk-admit", admissionRoles, admissionsCtrl.admitBulk);
+router.get("/admissions/scores/template.csv", admissionRoles, admissionsCtrl.scoreTemplate);
+router.post("/admissions/scores/upload", admissionRoles, admissionCsv.single("score_file"), admissionsCtrl.uploadScores);
+router.get("/admissions/bulk-upload/template.csv", admissionRoles, admissionsCtrl.bulkAdmissionTemplate);
+router.post("/admissions/bulk-upload/preview", admissionRoles, admissionCsv.single("admission_file"), admissionsCtrl.previewBulkAdmission);
+router.post("/admissions/bulk-upload/confirm", admissionRoles, admissionsCtrl.confirmBulkAdmission);
 router.post("/admissions/:id/revoke", admissionRoles, admissionsCtrl.revokeOne);
 router.get("/admissions/criteria", admissionRoles, admissionsCtrl.criteriaPage);
 router.post("/admissions/criteria", admissionRoles, admissionsCtrl.createCriterion);
 router.post("/admissions/criteria/:id/update", admissionRoles, admissionsCtrl.updateCriterion);
 router.post("/admissions/criteria/:id/toggle", admissionRoles, admissionsCtrl.toggleCriterion);
-router.post("/admissions/subjects", requireRole("admin", "registry"), admissionsCtrl.createSubject);
-router.post("/admissions/subjects/:id/toggle", requireRole("admin", "registry"), admissionsCtrl.toggleSubject);
+router.post("/admissions/subjects", admissionRoles, admissionsCtrl.createSubject);
+router.post("/admissions/subjects/:id/toggle", admissionRoles, admissionsCtrl.toggleSubject);
+router.get("/admissions/programme-acronyms", admissionRoles, admissionsCtrl.programmeAcronymsPage);
+router.post("/admissions/programme-acronyms/:id", requireRole("admin", "administrator", "superadmin"), admissionsCtrl.updateProgrammeAcronym);
 router.get("/admissions/screening", admissionRoles, admissionsCtrl.screeningPage);
 router.post("/admissions/screening", admissionRoles, admissionsCtrl.createScreening);
 router.post("/admissions/screening/:id/update", admissionRoles, admissionsCtrl.updateScreening);
@@ -145,6 +159,11 @@ router.get("/password-reset", safe("passwordResetPage"));
 router.get("/api/password/users", safe("listUsersForPasswordReset"));
 router.post("/api/password/reset/:id", safe("resetPasswordToCollege1"));
 router.post("/api/password/change", safe("changePasswordByAdmin"));
+router.get("/password/edit-details", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.detailsPage);
+router.get("/password/:type", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.page);
+router.post("/password/:type/:id/reset", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.reset);
+router.post("/password/edit-details/:type/:id", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.updateDetails);
+router.get("/students/reset-password", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), (req,res)=>res.redirect("/staff/password/student"));
 
 /* ─────────────── Uniform Measurement Report ─────────────── */
 router.get(

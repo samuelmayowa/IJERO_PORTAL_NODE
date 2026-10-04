@@ -298,7 +298,7 @@
                 <option value="">-- Not required when compulsory charges total ₦0 --</option>
                 <% compulsoryPaymentTypes.forEach((pt)=>{ %><option value="<%= pt.id %>" data-amount="<%= Number(pt.amount||0) %>" data-name="<%= pt.name %>" <%= selectedCompulsoryTypeId===Number(pt.id)?'selected':'' %>><%= pt.name %> — ₦<%= Number(pt.amount||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2}) %> — <%= pt.purpose %><%= pt.remita_service_type_id?' | STID: '+pt.remita_service_type_id:' | No STID' %></option><% }) %>
               </select>
-              <small class="text-muted">Selecting a type fills the configured amount below. You can still split it into multiple charge lines. Acceptance fee payment is required before compulsory-fee payment.</small>
+              <small class="text-muted">This supplies the Remita service type. Configure programme amounts from Programme Compulsory Fees. Acceptance fee payment is required before compulsory-fee payment.</small>
             </div>
 
           </div>
@@ -467,15 +467,7 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="card card-outline card-primary">
-                <div class="card-header"><h3 class="card-title">Compulsory Fee Charges</h3><div class="card-tools"><button type="button" class="btn btn-sm btn-primary" onclick="addCharge('compulsory')"><i class="fas fa-plus mr-1"></i>Add Charge</button></div></div>
-                <div class="card-body p-0 table-responsive"><table class="table table-bordered mb-0"><thead><tr><th>Charge Name</th><th style="width:150px">Amount (₦)</th><th style="width:60px"></th></tr></thead>
-                  <tbody id="compulsoryChargesBody"><% const compulsoryChargeRows=editing&&editing.compulsory_charges?.length?editing.compulsory_charges:[{charge_name:selectedCompulsoryType?.name||'Compulsory Fee',amount:Number(selectedCompulsoryType?.amount||0)}]; compulsoryChargeRows.forEach((charge)=>{ %><tr><td><input type="text" name="compulsory_charge_name" class="form-control" value="<%= charge.charge_name %>"></td><td><input type="number" name="compulsory_charge_amount" class="form-control charge-amount" min="0" step="0.01" value="<%= Number(charge.amount||0) %>" onchange="refreshTotals()" onkeyup="refreshTotals()"></td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeCharge(this)"><i class="fas fa-times"></i></button></td></tr><% }) %></tbody>
-                  <tfoot><tr><th>Total</th><th id="compulsoryTotal">₦<%= compulsoryChargeRows.reduce((sum,row)=>sum+Number(row.amount||0),0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2}) %></th><th></th></tr></tfoot></table></div>
-                <div class="card-footer text-muted small">Acceptance fee payment is required before compulsory-fee payment.</div>
-              </div>
-            </div>
+            <div class="col-md-4"><div class="card card-outline card-primary"><div class="card-header"><h3 class="card-title">Programme Compulsory Fees</h3></div><div class="card-body"><p>Compulsory-fee amounts are assigned to programmes after selecting their school and department.</p><a class="btn btn-primary" href="/staff/fees/programme-compulsory-fees"><i class="fas fa-coins mr-1"></i>Configure programme fees</a><% const compulsoryChargeRows=editing&&editing.compulsory_charges?.length?editing.compulsory_charges:[]; compulsoryChargeRows.forEach(charge=>{ %><input type="hidden" name="compulsory_charge_name" value="<%= charge.charge_name %>"><input type="hidden" name="compulsory_charge_amount" value="<%= Number(charge.amount||0) %>"><% }) %></div><div class="card-footer text-muted small">Existing legacy charges remain available as a fallback until programme fees are configured.</div></div></div>
           </div>
 
           <div class="row">
@@ -1063,6 +1055,7 @@
 
   function stageTotal(stage) {
     const body = document.getElementById(stage + 'ChargesBody');
+    if (!body) return 0;
 
     return Array.from(
       body.querySelectorAll('input[name$="_charge_amount"]')
@@ -1084,7 +1077,8 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-    document.getElementById('compulsoryTotal').textContent='₦'+stageTotal('compulsory').toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const compulsoryTotal = document.getElementById('compulsoryTotal');
+    if (compulsoryTotal) compulsoryTotal.textContent='₦'+stageTotal('compulsory').toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
 
   function applyCompulsoryPaymentTypeAmount() {

@@ -7,6 +7,7 @@ import * as pt from "../../controllers/paymentTypeController.js";
 import * as gp from "../../controllers/generalPaymentController.js";
 import * as applicationPaymentReportCtrl from "../../controllers/applicationPaymentReports.controller.js";
 import * as balancesCtrl from "../../controllers/debtorsCreditors.controller.js";
+import * as programmeCompulsoryFeeCtrl from "../../controllers/programmeCompulsoryFee.controller.js";
 import db from "../../../core/db.js";
 import {
   listLatePaymentCharges,
@@ -83,6 +84,9 @@ r.get("/payments/export.xlsx", financeRoles, gp.exportXlsx);
 r.get("/payments/export.pdf", financeRoles, gp.exportPdf);
 r.get("/debtors-creditors", balanceReportRoles, balancesCtrl.page);
 r.get("/debtors-creditors/export/:format", balanceReportRoles, balancesCtrl.exportReport);
+r.get("/programme-compulsory-fees", applicationFormRoles, programmeCompulsoryFeeCtrl.page);
+r.post("/programme-compulsory-fees", applicationFormRoles, programmeCompulsoryFeeCtrl.save);
+r.post("/programme-compulsory-fees/:id/remove", applicationFormRoles, programmeCompulsoryFeeCtrl.remove);
 
 // Application and acceptance fee reports
 r.get(

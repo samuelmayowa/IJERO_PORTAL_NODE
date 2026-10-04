@@ -328,7 +328,7 @@ async function applyConfiguredCompulsoryAmount(payload) {
     0,
   );
 
-  if (total > 0 || payload.compulsoryCharges.length > 1) return;
+  if (total > 0 || payload.compulsoryCharges.length !== 1) return;
 
   const [rows] = await db.query(`
     SELECT name, amount

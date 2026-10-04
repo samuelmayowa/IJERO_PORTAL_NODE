@@ -123,12 +123,38 @@ export async function admitApplication(req, applicationId, options = {}) {
     await connection.beginTransaction();
     const application = await applicationContext(connection, applicationId, true);
     if (!application) throw new Error("Application was not found.");
+    const [[transition]] = await connection.query(
+      `SELECT id FROM applicant_student_transitions WHERE applicant_application_id=? LIMIT 1`,
+      [applicationId],
+    );
+    if (application.acceptance_payment_status === "PAID" || transition) {
+      throw new Error("This admission cannot be changed because acceptance has been paid or Student Portal access has been created.");
+    }
     if (application.status === "ADMITTED") {
       const [[existing]] = await connection.query(`SELECT * FROM admission_decisions WHERE applicant_application_id=? LIMIT 1`, [applicationId]);
+      if (options.placement && existing) {
+        const actorId = req.user?.id || null;
+        await connection.query(
+          `UPDATE admission_decisions SET offered_school_id=?,offered_department_id=?,offered_programme_id=?,offered_programme_name=?,is_manual_override=1,decision_reason=?,admitted_by=?,admitted_at=NOW(),status='ADMITTED',revoked_by=NULL,revoked_at=NULL,revocation_reason=NULL WHERE id=?`,
+          [options.placement.schoolId, options.placement.departmentId, options.placement.programmeId, clean(options.placement.programmeName), clean(options.reason), actorId, existing.id],
+        );
+        const data = parsed(application.form_data); data.application_details = data.application_details || {};
+        data.application_details.programme_choice = { ...(data.application_details.programme_choice || {}), school_id:options.placement.schoolId, school_name:clean(options.placement.schoolName), department_id:options.placement.departmentId, department_name:clean(options.placement.departmentName), programme_id:options.placement.programmeId, programme_name:clean(options.placement.programmeName) };
+        await connection.query(`UPDATE applicant_applications SET programme_choice=?,form_data=?,reviewed_by=?,reviewed_at=NOW() WHERE id=?`, [clean(options.placement.programmeName), JSON.stringify(data), actorId, applicationId]);
+        await writeAudit(connection, req, { action:"ADMISSION_PLACEMENT_CHANGED", entityType:"applicant_application", entityId:applicationId, reason:clean(options.reason), oldValues:{ programme_id:existing.offered_programme_id, programme_name:existing.offered_programme_name }, newValues:{ programme_id:options.placement.programmeId, programme_name:options.placement.programmeName } });
+        await connection.commit();
+        return { admitted:true, updated:true, decisionId:existing.id };
+      }
       await connection.commit();
       return { admitted: false, existing: true, decision: existing || null };
     }
     const evaluation = await evaluateEligibility(applicationId, connection);
+    if (options.placement) {
+      evaluation.schoolId = Number(options.placement.schoolId) || null;
+      evaluation.departmentId = Number(options.placement.departmentId) || null;
+      evaluation.programmeId = Number(options.placement.programmeId) || null;
+      evaluation.programmeName = clean(options.placement.programmeName);
+    }
     const override = Boolean(options.override);
     if (!evaluation.eligible && !override) throw new Error(evaluation.reasons.join(" "));
     if (override && !clean(options.reason)) throw new Error("A reason is required for a manual eligibility override.");
@@ -138,15 +164,22 @@ export async function admitApplication(req, applicationId, options = {}) {
        (applicant_application_id, session_id, offered_school_id, offered_department_id,
         offered_programme_id, offered_programme_name, entrance_score, criterion_id,
         is_manual_override, decision_reason, admitted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE session_id=VALUES(session_id),offered_school_id=VALUES(offered_school_id),offered_department_id=VALUES(offered_department_id),offered_programme_id=VALUES(offered_programme_id),offered_programme_name=VALUES(offered_programme_name),entrance_score=VALUES(entrance_score),criterion_id=VALUES(criterion_id),status='ADMITTED',is_manual_override=VALUES(is_manual_override),decision_reason=VALUES(decision_reason),admitted_by=VALUES(admitted_by),admitted_at=NOW(),revoked_by=NULL,revoked_at=NULL,revocation_reason=NULL`,
       [applicationId, application.session_id, evaluation.schoolId, evaluation.departmentId,
        evaluation.programmeId, evaluation.programmeName, evaluation.score,
        evaluation.criterion?.id || null, override ? 1 : 0, clean(options.reason) || null, actorId],
     );
+    const [[savedDecision]] = await connection.query(`SELECT id FROM admission_decisions WHERE applicant_application_id=? LIMIT 1`, [applicationId]);
     await connection.query(
       `UPDATE applicant_applications SET status='ADMITTED', acceptance_payment_status=IF(acceptance_payment_status='NOT_AVAILABLE','UNPAID',acceptance_payment_status), reviewed_by=?, reviewed_at=NOW() WHERE id=?`,
       [actorId, applicationId],
     );
+    if (options.placement) {
+      const data = parsed(application.form_data); data.application_details = data.application_details || {};
+      data.application_details.programme_choice = { ...(data.application_details.programme_choice || {}), school_id:evaluation.schoolId, school_name:clean(options.placement.schoolName), department_id:evaluation.departmentId, department_name:clean(options.placement.departmentName), programme_id:evaluation.programmeId, programme_name:evaluation.programmeName };
+      await connection.query(`UPDATE applicant_applications SET programme_choice=?,form_data=? WHERE id=?`, [evaluation.programmeName, JSON.stringify(data), applicationId]);
+    }
     const fullName = [application.first_name, application.middle_name, application.last_name].filter(Boolean).join(" ");
     const message = `Congratulations ${fullName}. You have been offered provisional admission${evaluation.programmeName ? ` to study ${evaluation.programmeName}` : ""}. Please sign in to your portal to review the offer and pay the acceptance fee. Your admission letter may be subject to acceptance-fee confirmation.`;
     notificationId = await createPortalNotification(connection, {
@@ -156,10 +189,10 @@ export async function admitApplication(req, applicationId, options = {}) {
     await writeAudit(connection, req, {
       action: "ADMISSION_GRANTED", entityType: "applicant_application", entityId: applicationId,
       reason: clean(options.reason) || null, oldValues: { status: application.status },
-      newValues: { status: "ADMITTED", decision_id: decisionResult.insertId, programme: evaluation.programmeName },
+      newValues: { status: "ADMITTED", decision_id: savedDecision?.id || decisionResult.insertId, programme: evaluation.programmeName },
     });
     await connection.commit();
-    return { admitted: true, decisionId: decisionResult.insertId, notificationId };
+    return { admitted: true, decisionId: savedDecision?.id || decisionResult.insertId, notificationId };
   } catch (error) {
     await connection.rollback();
     throw error;

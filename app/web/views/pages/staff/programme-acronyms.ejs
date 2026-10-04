@@ -1,0 +1,15 @@
+<div class="card card-outline card-success">
+  <div class="card-header"><h3 class="card-title">Programme acronyms</h3></div>
+  <div class="card-body">
+    <p class="text-muted">Select a school and department to find a programme. Each acronym must be unique and remains in use until an administrator changes it.</p>
+    <div class="form-row mb-3">
+      <div class="col-md-4"><label>School</label><select id="acronymSchool" class="form-control"><option value="">All schools</option><% schools.forEach(x=>{ %><option value="<%= x.id %>"><%= x.name %></option><% }) %></select></div>
+      <div class="col-md-4"><label>Department</label><select id="acronymDepartment" class="form-control"><option value="">All departments</option><% departments.forEach(x=>{ %><option value="<%= x.id %>" data-school="<%= x.school_id %>"><%= x.name %></option><% }) %></select></div>
+      <div class="col-md-4"><label>Search programme</label><input id="acronymSearch" class="form-control" placeholder="Programme name or acronym"></div>
+    </div>
+    <div class="table-responsive"><table class="table table-hover"><thead><tr><th>School</th><th>Department</th><th>Programme</th><th style="width:280px">Unique acronym</th></tr></thead><tbody>
+      <% rows.forEach(row=>{ %><tr data-school="<%= row.school_id %>" data-department="<%= row.department_id %>" data-search="<%= `${row.programme_name||row.name} ${row.acronym||''}`.toLowerCase() %>"><td><%= row.school_name %></td><td><%= row.department_name %></td><td><strong><%= row.name %></strong></td><td><form method="post" action="/staff/admissions/programme-acronyms/<%= row.id %>" class="input-group"><input type="hidden" name="_csrf" value="<%= csrfToken||'' %>"><input name="acronym" value="<%= row.acronym||'' %>" maxlength="30" class="form-control text-uppercase" required <%= !['admin','administrator','superadmin'].includes(String(user?.role||'').toLowerCase())?'readonly':'' %>><div class="input-group-append"><button class="btn btn-success" <%= !['admin','administrator','superadmin'].includes(String(user?.role||'').toLowerCase())?'disabled':'' %>>Save</button></div></form></td></tr><% }) %>
+    </tbody></table></div>
+  </div>
+</div>
+<script>document.addEventListener('DOMContentLoaded',function(){var s=document.getElementById('acronymSchool'),d=document.getElementById('acronymDepartment'),q=document.getElementById('acronymSearch');function filter(){Array.from(d.options).forEach(function(o){o.hidden=!!o.value&&!!s.value&&o.dataset.school!==s.value});document.querySelectorAll('tbody tr').forEach(function(r){r.hidden=!!s.value&&r.dataset.school!==s.value||!!d.value&&r.dataset.department!==d.value||!!q.value&&!r.dataset.search.includes(q.value.toLowerCase())})}s.addEventListener('change',function(){d.value='';filter()});d.addEventListener('change',filter);q.addEventListener('input',filter)});</script>

@@ -25,6 +25,39 @@ import {
 const clean = (value) => String(value ?? "").trim();
 const id = (value) => Number.parseInt(value, 10) || 0;
 
+function parseCsv(buffer) {
+  const text = Buffer.isBuffer(buffer) ? buffer.toString("utf8").replace(/^\uFEFF/, "") : "";
+  const rows = [];
+  let row = [], cell = "", quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (quoted && text[i + 1] === '"') { cell += '"'; i += 1; }
+      else quoted = !quoted;
+    } else if (ch === "," && !quoted) { row.push(cell.trim()); cell = ""; }
+    else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && text[i + 1] === "\n") i += 1;
+      row.push(cell.trim()); cell = "";
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
+  if (!rows.length) throw new Error("The CSV file is empty.");
+  const headers = rows.shift().map(value => value.toUpperCase().replace(/\s+/g, " "));
+  return rows.map((values, index) => ({
+    rowNumber: index + 2,
+    values: Object.fromEntries(headers.map((header, column) => [header, clean(values[column])])),
+  }));
+}
+
+function requireCsv(file) {
+  if (!file || !String(file.originalname || "").toLowerCase().endsWith(".csv")) {
+    throw new Error("Select a CSV file.");
+  }
+  return parseCsv(file.buffer);
+}
+
 async function options() {
   const [
     [sessions],
@@ -97,6 +130,34 @@ export async function toggleSubject(req, res) {
     req.flash("error", error.message || "Unable to update subject.");
   }
   res.redirect(req.get("referer") || "/staff/admissions/criteria");
+}
+
+export async function programmeAcronymsPage(req, res, next) {
+  try {
+    const opts = await options();
+    const [rows] = await pool.query(
+      `SELECT p.id,p.name,p.acronym,p.school_id,p.department_id,d.name department_name,s.name school_name
+         FROM programmes p JOIN departments d ON d.id=p.department_id JOIN schools s ON s.id=p.school_id
+        ORDER BY s.name,d.name,p.name`,
+    );
+    res.render("pages/staff/programme-acronyms", { layout:"layouts/adminlte", title:"Programme Acronyms", pageTitle:"Programme Acronyms", rows, ...opts });
+  } catch (error) { next(error); }
+}
+
+export async function updateProgrammeAcronym(req, res) {
+  try {
+    const programmeId = id(req.params.id);
+    const acronym = clean(req.body.acronym).toUpperCase().replace(/[^A-Z0-9/-]/g, "");
+    if (!programmeId || acronym.length < 2 || acronym.length > 30) throw new Error("Enter a valid acronym containing 2 to 30 letters or numbers.");
+    const [[before]] = await pool.query(`SELECT id,name,acronym FROM programmes WHERE id=? LIMIT 1`, [programmeId]);
+    if (!before) throw new Error("Programme not found.");
+    await pool.query(`UPDATE programmes SET acronym=? WHERE id=?`, [acronym, programmeId]);
+    await writeAudit(null, req, { action:"PROGRAMME_ACRONYM_UPDATED", entityType:"programme", entityId:programmeId, oldValues:{ acronym:before.acronym }, newValues:{ acronym } });
+    req.flash("success", `${before.name} now uses ${acronym}.`);
+  } catch (error) {
+    req.flash("error", error.code === "ER_DUP_ENTRY" ? "That acronym is already assigned to another programme." : error.message || "The acronym could not be updated.");
+  }
+  res.redirect(req.get("referer") || "/staff/admissions/programme-acronyms");
 }
 
 export async function criteriaPage(req, res, next) {
@@ -430,6 +491,127 @@ export async function managePage(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+export function scoreTemplate(_req, res) {
+  res.type("text/csv");
+  res.setHeader("Content-Disposition", 'attachment; filename="entrance-score-template.csv"');
+  res.send("APPLICATION NO,SCORE\r\nAPP-2026-EXAMPLE-00000000,50\r\n");
+}
+
+export async function uploadScores(req, res) {
+  const connection = await pool.getConnection();
+  try {
+    const parsedRows = requireCsv(req.file);
+    if (!parsedRows.length) throw new Error("The CSV has no score rows.");
+    if (!("APPLICATION NO" in parsedRows[0].values) || !("SCORE" in parsedRows[0].values)) throw new Error("The CSV headings must be APPLICATION NO and SCORE.");
+    if (parsedRows.length > 5000) throw new Error("A maximum of 5,000 scores may be uploaded at once.");
+    await connection.beginTransaction();
+    const [batch] = await connection.query(
+      `INSERT INTO admission_import_batches (import_type,original_filename,total_rows,uploaded_by) VALUES ('ENTRANCE_SCORE',?,?,?)`,
+      [String(req.file.originalname).slice(0,255), parsedRows.length, req.user?.id || null],
+    );
+    let successful = 0; const errors = [];
+    for (const row of parsedRows) {
+      const applicationNumber = clean(row.values["APPLICATION NO"]);
+      const scoreText = clean(row.values.SCORE);
+      const score = Number(scoreText);
+      if (!applicationNumber || scoreText === "" || !Number.isFinite(score) || score < 0) {
+        errors.push(`Row ${row.rowNumber}: invalid application number or score.`); continue;
+      }
+      const [[application]] = await connection.query(
+        `SELECT aa.id,aa.application_form_id,aa.applicant_user_id,ap.id prerequisite_id,ap.jamb_total_score
+           FROM applicant_applications aa
+           LEFT JOIN application_prerequisites ap ON ap.application_form_id=aa.application_form_id AND ap.matched_applicant_user_id=aa.applicant_user_id
+          WHERE aa.application_number=? ORDER BY ap.id DESC LIMIT 1`, [applicationNumber],
+      );
+      if (!application) { errors.push(`Row ${row.rowNumber}: ${applicationNumber} was not found.`); continue; }
+      if (application.prerequisite_id) {
+        await connection.query(`UPDATE application_prerequisites SET jamb_total_score=?,match_status=IF(match_status='INVALID','MATCHED',match_status) WHERE id=?`, [score, application.prerequisite_id]);
+      } else {
+        await connection.query(
+          `INSERT INTO application_prerequisites (application_form_id,candidate_reference,jamb_total_score,matched_applicant_user_id,match_status,raw_data) VALUES (?,?,?,?, 'MATCHED', ?)`,
+          [application.application_form_id, applicationNumber, score, application.applicant_user_id, JSON.stringify({ source:"entrance_score_upload", application_number:applicationNumber, score })],
+        );
+      }
+      await connection.query(
+        `INSERT INTO admission_score_history (applicant_application_id,application_form_id,applicant_user_id,import_batch_id,previous_score,new_score,changed_by) VALUES (?,?,?,?,?,?,?)`,
+        [application.id, application.application_form_id, application.applicant_user_id, batch.insertId, application.jamb_total_score, score, req.user?.id || null],
+      );
+      successful += 1;
+    }
+    await connection.query(`UPDATE admission_import_batches SET successful_rows=?,skipped_rows=?,error_summary=? WHERE id=?`, [successful, errors.length, errors.slice(0,30).join("\n") || null, batch.insertId]);
+    await writeAudit(connection, req, { action:"ENTRANCE_SCORES_IMPORTED", entityType:"admission_import_batch", entityId:batch.insertId, newValues:{ successful, skipped:errors.length } });
+    await connection.commit();
+    req.flash(errors.length ? "error" : "success", `${successful} score(s) uploaded.${errors.length ? ` ${errors.length} row(s) skipped. ${errors[0]}` : ""}`);
+  } catch (error) {
+    await connection.rollback(); req.flash("error", error.message || "Scores could not be uploaded.");
+  } finally { connection.release(); }
+  res.redirect("/staff/admissions/manage");
+}
+
+export function bulkAdmissionTemplate(_req, res) {
+  res.type("text/csv");
+  res.setHeader("Content-Disposition", 'attachment; filename="bulk-admission-template.csv"');
+  res.send("S/N,APPLICATION NO,PROGRAMME ACRONYM\r\n1,APP-2026-EXAMPLE-00000000,BME\r\n");
+}
+
+export async function previewBulkAdmission(req, res) {
+  try {
+    const parsedRows = requireCsv(req.file);
+    if (!parsedRows.length || parsedRows.length > 5000) throw new Error("The CSV must contain between 1 and 5,000 admission rows.");
+    if (!("APPLICATION NO" in parsedRows[0].values) || !("PROGRAMME ACRONYM" in parsedRows[0].values)) throw new Error("The CSV headings must include S/N, APPLICATION NO and PROGRAMME ACRONYM.");
+    const preview = [];
+    for (const row of parsedRows) {
+      const applicationNumber = clean(row.values["APPLICATION NO"]);
+      const acronym = clean(row.values["PROGRAMME ACRONYM"]).toUpperCase();
+      const [[record]] = await pool.query(
+        `SELECT aa.id,aa.application_number,aa.status,aa.acceptance_payment_status,aa.programme_choice,af.session_id,se.name session_name,
+                CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) applicant_name,
+                p.id programme_id,p.name programme_name,p.department_id,p.school_id,d.name department_name,s.name school_name,
+                ad.status decision_status,t.id transition_id
+           FROM applicant_applications aa JOIN public_users pu ON pu.id=aa.applicant_user_id JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions se ON se.id=af.session_id
+           LEFT JOIN programmes p ON UPPER(p.acronym)=?
+           LEFT JOIN departments d ON d.id=p.department_id LEFT JOIN schools s ON s.id=p.school_id
+           LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
+           LEFT JOIN applicant_student_transitions t ON t.applicant_application_id=aa.id
+          WHERE aa.application_number=? LIMIT 1`, [acronym, applicationNumber],
+      );
+      let error = "";
+      if (!record) error = "Application number not found";
+      else if (!record.programme_id) error = `Programme acronym ${acronym || "(blank)"} was not found`;
+      else if (record.acceptance_payment_status === "PAID") error = "Acceptance fee has already been paid";
+      else if (record.transition_id) error = "Student Portal access has already been created";
+      preview.push({ rowNumber:row.rowNumber, applicationNumber, acronym, ...(record || {}), error, duplicate:Boolean(record?.decision_status === "ADMITTED") });
+    }
+    req.session.bulkAdmissionPreview = preview.map(row => ({ applicationId:row.id, applicationNumber:row.applicationNumber, programmeId:row.programme_id, programmeName:row.programme_name, departmentId:row.department_id, departmentName:row.department_name, schoolId:row.school_id, schoolName:row.school_name, error:row.error }));
+    req.session.bulkAdmissionFilename = String(req.file.originalname || "bulk-admission.csv").slice(0,255);
+    const opts = await options();
+    const sessionIds=[...new Set(preview.map(row=>Number(row.session_id)).filter(Boolean))];let sessionStats=[];
+    if(sessionIds.length){const placeholders=sessionIds.map(()=>'?').join(',');[sessionStats]=await pool.query(`SELECT ad.session_id,s.name session_name,COUNT(*) admitted_count FROM admission_decisions ad JOIN sessions s ON s.id=ad.session_id WHERE ad.status='ADMITTED' AND ad.session_id IN (${placeholders}) GROUP BY ad.session_id,s.name`,sessionIds);}
+    res.render("pages/staff/bulk-admission-preview", { layout:"layouts/adminlte", title:"Review Bulk Admission", pageTitle:"Review Bulk Admission", rows:preview, sessionStats, ...opts });
+  } catch (error) {
+    req.flash("error", error.message || "The admission file could not be read."); res.redirect("/staff/admissions/manage");
+  }
+}
+
+export async function confirmBulkAdmission(req, res) {
+  const rows = Array.isArray(req.session.bulkAdmissionPreview) ? req.session.bulkAdmissionPreview : [];
+  const originalFilename=clean(req.session.bulkAdmissionFilename)||"bulk-admission.csv";
+  delete req.session.bulkAdmissionPreview;
+  delete req.session.bulkAdmissionFilename;
+  if (!rows.length) { req.flash("error", "The admission preview has expired. Upload the CSV again."); return res.redirect("/staff/admissions/manage"); }
+  let successful = 0; const errors = [];
+  for (const row of rows) {
+    if (row.error || !row.applicationId) { errors.push(`${row.applicationNumber}: ${row.error || "invalid row"}`); continue; }
+    try {
+      const result = await admitApplication(req, row.applicationId, { override:true, reason:"Bulk admission list approved by an authorised officer.", placement:{ schoolId:row.schoolId, schoolName:row.schoolName, departmentId:row.departmentId, departmentName:row.departmentName, programmeId:row.programmeId, programmeName:row.programmeName } });
+      successful += 1; if (result.notificationId) dispatchNotificationEmails(result.notificationId).catch(()=>{});
+    } catch (error) { errors.push(`${row.applicationNumber}: ${error.message}`); }
+  }
+  await pool.query(`INSERT INTO admission_import_batches (import_type,original_filename,total_rows,successful_rows,skipped_rows,error_summary,uploaded_by) VALUES ('BULK_ADMISSION',?,?,?,?,?,?)`, [originalFilename,rows.length,successful,errors.length,errors.slice(0,30).join("\n")||null,req.user?.id||null]);
+  req.flash(errors.length ? "error" : "success", `${successful} applicant(s) admitted.${errors.length ? ` ${errors.length} skipped. ${errors[0]}` : ""}`);
+  res.redirect("/staff/admissions/manage");
 }
 
 export async function admitOne(req, res) {

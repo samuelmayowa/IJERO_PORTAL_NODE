@@ -202,6 +202,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           </li>
           <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admissions</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/criteria" class="nav-link <%= cur.startsWith('/staff/admissions/criteria') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Criteria</p></a></li>
+          <li class="nav-item"><a href="/staff/admissions/programme-acronyms" class="nav-link <%= cur.startsWith('/staff/admissions/programme-acronyms') ? 'active' : '' %>"><i class="fas fa-font nav-icon"></i><p>Programme Acronyms</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/screening" class="nav-link <%= cur.startsWith('/staff/admissions/screening') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Screening Schedules</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/documents" class="nav-link <%= cur.startsWith('/staff/admissions/documents') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Documents</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/announcements" class="nav-link <%= cur.startsWith('/staff/admissions/announcements') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Announcement Board</p></a></li>
@@ -301,6 +302,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/fees/payment-types" class="nav-link <%= cur.startsWith('/staff/fees/payment-types') && !cur.endsWith('/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Payment Types</p></a></li>
           <li class="nav-item"><a href="/staff/fees/payment-types/add" class="nav-link <%= cur.startsWith('/staff/fees/payment-types/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Payment Type</p></a></li>
           <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/debtors-creditors" class="nav-link <%= cur.startsWith('/staff/fees/debtors-creditors') ? 'active' : '' %>"><i class="fas fa-balance-scale nav-icon"></i><p>Debtors &amp; Creditors</p></a></li><% } %>
+          <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/programme-compulsory-fees" class="nav-link <%= cur.startsWith('/staff/fees/programme-compulsory-fees') ? 'active' : '' %>"><i class="fas fa-coins nav-icon"></i><p>Compulsory Fees</p></a></li><% } %>
           <li class="nav-item"><a href="/staff/fees/update" class="nav-link <%= cur.startsWith('/staff/fees/update') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add / Update Fees</p></a></li>
           <li class="nav-item"><a href="/staff/fees/late-payment-charges" class="nav-link <%= cur.startsWith('/staff/fees/late-payment-charges') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Late Payment Charges</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/utme" class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>
@@ -331,6 +333,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
         </ul>
       </li>
 
+      <% if (['admin','administrator','superadmin','registry','registrary','registrar'].includes(role)) { %>
       <!-- Manage Password -->
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/password') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/password') ? 'active' : '' %>">
@@ -344,6 +347,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/password/edit-details" class="nav-link <%= cur.startsWith('/staff/password/edit-details') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Edit Details</p></a></li>
         </ul>
       </li>
+      <% } %>
 
       <li class="nav-item"><a href="/records" class="nav-link <%= cur === '/records' ? 'active' : '' %>"><i class="nav-icon fas fa-table"></i><p>Student Academic Records</p></a></li>
       <li class="nav-item"><a href="/results" class="nav-link <%= cur === '/results' ? 'active' : '' %>"><i class="nav-icon fas fa-calculator"></i><p>Result Computation</p></a></li>
