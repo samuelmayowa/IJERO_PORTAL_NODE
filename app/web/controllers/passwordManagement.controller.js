@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { pool } from "../../core/db.js";
 import { writeAudit } from "../../services/auditService.js";
 
