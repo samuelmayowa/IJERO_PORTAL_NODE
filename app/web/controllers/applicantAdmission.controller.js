@@ -165,7 +165,7 @@ async function admissionPdf(req,res,next,documentType){
     const bodyY=letterTitle2?200:180;
     renderTemplateBody(doc,letterBody,{x:55,y:bodyY,width:485});
     const signatoryName=template.registrar_name||application.registrar_name||'Registrar';const signatoryPosition=template.registrar_position||application.registrar_position||'Registrar';const signaturePath=template.registrar_signature_path||application.registrar_signature_path;
-    let signatureY=doc.y+22;if(signatureY>680){doc.addPage();signatureY=100}if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,signatureY,{fit:[145,58],align:'left'})}catch{}}signatureY+=62;
+    let signatureY=doc.y+6;if(signatureY>680){doc.addPage();signatureY=100}if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,signatureY,{fit:[145,58],align:'left'})}catch{}}signatureY+=62;
     doc.font("Helvetica-Bold").fontSize(10).fillColor('#222').text(signatoryName,65,signatureY,{width:210}).font("Helvetica").fontSize(9).text(signatoryPosition,65,signatureY+16,{width:210}).text("For: Ekiti State College of Technology",65,signatureY+30,{width:250});
     doc.end();const mainBuffer=await completed;const output=await appendTemplateAttachment(mainBuffer,template.attachment_path,qr);return res.send(output);
   }catch(error){next(error);}
