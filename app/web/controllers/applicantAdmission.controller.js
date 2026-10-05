@@ -94,8 +94,8 @@ function renderTemplateBody(doc,html,{x=55,y=180,width=485}={}){
     const htmlSize=Number(block.inner.match(/<font[^>]*size=["']?(\d+)/i)?.[1]||0);
     const cssSize=Number(style.match(/font-size\s*:\s*([\d.]+)(?:px|pt)/i)?.[1]||0);
     const size=block.tag.startsWith('h')?Math.max(13,18-Number(block.tag.slice(1))):cssSize?Math.max(8,Math.min(18,cssSize*.75)):({1:8,2:10,3:11,4:13,5:16,6:20,7:24}[htmlSize]||11);
-    const isBold=/<(?:b|strong)(?:\s|>)/i.test(block.inner)||block.tag.startsWith('h');
-    const isItalic=/<(?:i|em)(?:\s|>)/i.test(block.inner);
+    const isBold=/^\s*<(?:b|strong)(?:\s[^>]*)?>[\s\S]*<\/(?:b|strong)>\s*$/i.test(block.inner)||block.tag.startsWith('h');
+    const isItalic=/^\s*<(?:i|em)(?:\s[^>]*)?>[\s\S]*<\/(?:i|em)>\s*$/i.test(block.inner);
     const font=isBold&&isItalic?'Helvetica-BoldOblique':isBold?'Helvetica-Bold':isItalic?'Helvetica-Oblique':'Helvetica';
     const colour=style.match(/(?:color|font-color)\s*:\s*(#[0-9a-f]{3,6}|[a-z]+)/i)?.[1]||'#222';
     const prefix=block.tag==='li'?'• ':'';
