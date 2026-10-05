@@ -82,6 +82,11 @@ function templateText(value,replacements){
 }
 function templateHtml(value,replacements){let html=String(value||'').replace(/\{\{\s*programme_name\s*\)/gi,'{{programme_name}}');for(const [key,replacement] of Object.entries(replacements))html=html.replaceAll(`{{${key}}}`,String(replacement||''));return html}
 function decodeHtml(value){return String(value||'').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").replace(/&#8358;|&#x20a6;/gi,'₦')}
+function hasWholeParagraphStyle(value,styleTags){
+  let html=String(value||'').trim();const neutral=styleTags.includes('b')?new Set(['font','span','i','em']):new Set(['font','span','b','strong']);
+  while(true){const outer=html.match(/^<([a-z][a-z0-9]*)\b[^>]*>([\s\S]*)<\/\1>$/i);if(!outer||!neutral.has(outer[1].toLowerCase()))break;html=outer[2].trim()}
+  const tags=styleTags.join('|');return new RegExp(`^<(?:${tags})(?:\\s[^>]*)?>[\\s\\S]*<\\/(?:${tags})>$`,'i').test(html)
+}
 function renderTemplateBody(doc,html,{x=55,y=180,width=485}={}){
   const source=String(html||'').replace(/<br\s*\/?\s*>/gi,'\n');
   const blocks=[];const blockPattern=/<(p|div|h[1-6]|li)([^>]*)>([\s\S]*?)<\/\1>/gi;let match;
@@ -91,13 +96,13 @@ function renderTemplateBody(doc,html,{x=55,y=180,width=485}={}){
   for(const block of blocks){
     const style=`${block.attrs} ${block.inner.match(/<(?:span|font)[^>]*style=["'][^"']*["'][^>]*>/i)?.[0]||''}`;
     const explicitAlign=style.match(/text-align\s*:\s*(left|right|center|justify)/i)?.[1];
-    const leadingSpaces=(block.inner.match(/^(?:\s|&nbsp;)+/i)?.[0].match(/&nbsp;/gi)||[]).length;
-    const align=(explicitAlign||(leadingSpaces>=10?'right':'left')).toLowerCase();
+    const rawText=block.inner.replace(/<[^>]+>/g,'');const leadingSpaces=(rawText.match(/^(?:\s|&nbsp;)+/i)?.[0].match(/&nbsp;/gi)||[]).length;
     const htmlSize=Number(block.inner.match(/<font[^>]*size=["']?(\d+)/i)?.[1]||0);
     const cssSizeMatch=style.match(/font-size\s*:\s*([\d.]+)(px|pt)/i);const cssSize=Number(cssSizeMatch?.[1]||0);const cssPoints=cssSizeMatch?.[2]?.toLowerCase()==='px'?cssSize*.75:cssSize;
     const size=block.tag.startsWith('h')?Math.max(13,18-Number(block.tag.slice(1))):cssSize?Math.max(8,Math.min(18,cssPoints)):({1:8,2:10,3:11,4:13,5:16,6:20,7:24}[htmlSize]||11);
-    const isBold=/^\s*<(?:b|strong)(?:\s[^>]*)?>[\s\S]*<\/(?:b|strong)>\s*$/i.test(block.inner)||block.tag.startsWith('h');
-    const isItalic=/^\s*<(?:i|em)(?:\s[^>]*)?>[\s\S]*<\/(?:i|em)>\s*$/i.test(block.inner);
+    const isBold=hasWholeParagraphStyle(block.inner,['b','strong'])||block.tag.startsWith('h');
+    const isItalic=hasWholeParagraphStyle(block.inner,['i','em']);
+    const align=(explicitAlign||(leadingSpaces>=10?'right':isBold?'left':'justify')).toLowerCase();
     const isTimes=/Times New Roman/i.test(style);const font=isTimes?(isBold&&isItalic?'Times-BoldItalic':isBold?'Times-Bold':isItalic?'Times-Italic':'Times-Roman'):(isBold&&isItalic?'Helvetica-BoldOblique':isBold?'Helvetica-Bold':isItalic?'Helvetica-Oblique':'Helvetica');
     const colour=style.match(/(?:color|font-color)\s*:\s*(#[0-9a-f]{3,6}|[a-z]+)/i)?.[1]||'#222';
     const prefix=block.tag==='li'?'• ':'';
@@ -160,7 +165,7 @@ async function admissionPdf(req,res,next,documentType){
     const bodyY=letterTitle2?200:180;
     renderTemplateBody(doc,letterBody,{x:55,y:bodyY,width:485});
     const signatoryName=template.registrar_name||application.registrar_name||'Registrar';const signatoryPosition=template.registrar_position||application.registrar_position||'Registrar';const signaturePath=template.registrar_signature_path||application.registrar_signature_path;
-    let signatureY=Math.max(doc.y+28,610);if(signatureY>680){doc.addPage();signatureY=100}if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,signatureY,{fit:[145,58],align:'left'})}catch{}}signatureY+=62;
+    let signatureY=doc.y+22;if(signatureY>680){doc.addPage();signatureY=100}if(signaturePath){try{doc.image(path.resolve('app/web'+signaturePath),65,signatureY,{fit:[145,58],align:'left'})}catch{}}signatureY+=62;
     doc.font("Helvetica-Bold").fontSize(10).fillColor('#222').text(signatoryName,65,signatureY,{width:210}).font("Helvetica").fontSize(9).text(signatoryPosition,65,signatureY+16,{width:210}).text("For: Ekiti State College of Technology",65,signatureY+30,{width:250});
     doc.end();const mainBuffer=await completed;const output=await appendTemplateAttachment(mainBuffer,template.attachment_path,qr);return res.send(output);
   }catch(error){next(error);}
