@@ -133,12 +133,14 @@ export async function doLogin(req, res) {
     if (!user) {
       // 2) try public_users (student/applicant)
       try {
+        const loginIdentifier=String(username||'').trim();
         const [pub] = await pool.query(
           `SELECT id, role, first_name, middle_name, last_name, username, matric_number, password_hash
            FROM public_users
-           WHERE username = ?
+           WHERE TRIM(LOWER(username)) = TRIM(LOWER(?))
+              OR TRIM(LOWER(matric_number)) = TRIM(LOWER(?))
            LIMIT 1`,
-          [username],
+          [loginIdentifier,loginIdentifier],
         );
 
         if (pub.length) {
@@ -153,11 +155,9 @@ export async function doLogin(req, res) {
               full_name:
                 `${pub[0].first_name || ""} ${pub[0].last_name || ""}`.trim(),
             };
-            return res.redirect(
-              pub[0].role === "applicant"
-                ? "/applicant/dashboard"
-                : "/student/dashboard",
-            );
+            const usedMatricNumber=Boolean(pub[0].matric_number)&&loginIdentifier.toLowerCase()===String(pub[0].matric_number).trim().toLowerCase();
+            if(usedMatricNumber)req.session.publicUser.role='student';
+            return res.redirect(usedMatricNumber||pub[0].role==='student'?'/student/dashboard':'/applicant/dashboard');
           }
         }
       } catch (e) {

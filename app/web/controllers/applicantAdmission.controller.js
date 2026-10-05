@@ -80,7 +80,7 @@ function templateText(value,replacements){
   let text=String(value||"");for(const [key,replacement] of Object.entries(replacements))text=text.replaceAll(`{{${key}}}`,String(replacement||""));
   return text.replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>/gi,"\n\n").replace(/<\/(?:div|h[1-6]|li|tr)>/gi,"\n").replace(/<li[^>]*>/gi,"• ").replace(/<[^>]+>/g,"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/\n{3,}/g,"\n\n").trim();
 }
-function templateHtml(value,replacements){let html=String(value||'');for(const [key,replacement] of Object.entries(replacements))html=html.replaceAll(`{{${key}}}`,String(replacement||''));return html}
+function templateHtml(value,replacements){let html=String(value||'').replace(/\{\{\s*programme_name\s*\)/gi,'{{programme_name}}');for(const [key,replacement] of Object.entries(replacements))html=html.replaceAll(`{{${key}}}`,String(replacement||''));return html}
 function decodeHtml(value){return String(value||'').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").replace(/&#8358;|&#x20a6;/gi,'₦')}
 function renderTemplateBody(doc,html,{x=55,y=180,width=485}={}){
   const source=String(html||'').replace(/<br\s*\/?\s*>/gi,'\n');
@@ -90,16 +90,18 @@ function renderTemplateBody(doc,html,{x=55,y=180,width=485}={}){
   doc.x=x;doc.y=y;
   for(const block of blocks){
     const style=`${block.attrs} ${block.inner.match(/<(?:span|font)[^>]*style=["'][^"']*["'][^>]*>/i)?.[0]||''}`;
-    const align=(style.match(/text-align\s*:\s*(left|right|center|justify)/i)?.[1]||'left').toLowerCase();
+    const explicitAlign=style.match(/text-align\s*:\s*(left|right|center|justify)/i)?.[1];
+    const leadingSpaces=(block.inner.match(/^(?:\s|&nbsp;)+/i)?.[0].match(/&nbsp;/gi)||[]).length;
+    const align=(explicitAlign||(leadingSpaces>=10?'right':'left')).toLowerCase();
     const htmlSize=Number(block.inner.match(/<font[^>]*size=["']?(\d+)/i)?.[1]||0);
-    const cssSize=Number(style.match(/font-size\s*:\s*([\d.]+)(?:px|pt)/i)?.[1]||0);
-    const size=block.tag.startsWith('h')?Math.max(13,18-Number(block.tag.slice(1))):cssSize?Math.max(8,Math.min(18,cssSize*.75)):({1:8,2:10,3:11,4:13,5:16,6:20,7:24}[htmlSize]||11);
+    const cssSizeMatch=style.match(/font-size\s*:\s*([\d.]+)(px|pt)/i);const cssSize=Number(cssSizeMatch?.[1]||0);const cssPoints=cssSizeMatch?.[2]?.toLowerCase()==='px'?cssSize*.75:cssSize;
+    const size=block.tag.startsWith('h')?Math.max(13,18-Number(block.tag.slice(1))):cssSize?Math.max(8,Math.min(18,cssPoints)):({1:8,2:10,3:11,4:13,5:16,6:20,7:24}[htmlSize]||11);
     const isBold=/^\s*<(?:b|strong)(?:\s[^>]*)?>[\s\S]*<\/(?:b|strong)>\s*$/i.test(block.inner)||block.tag.startsWith('h');
     const isItalic=/^\s*<(?:i|em)(?:\s[^>]*)?>[\s\S]*<\/(?:i|em)>\s*$/i.test(block.inner);
-    const font=isBold&&isItalic?'Helvetica-BoldOblique':isBold?'Helvetica-Bold':isItalic?'Helvetica-Oblique':'Helvetica';
+    const isTimes=/Times New Roman/i.test(style);const font=isTimes?(isBold&&isItalic?'Times-BoldItalic':isBold?'Times-Bold':isItalic?'Times-Italic':'Times-Roman'):(isBold&&isItalic?'Helvetica-BoldOblique':isBold?'Helvetica-Bold':isItalic?'Helvetica-Oblique':'Helvetica');
     const colour=style.match(/(?:color|font-color)\s*:\s*(#[0-9a-f]{3,6}|[a-z]+)/i)?.[1]||'#222';
     const prefix=block.tag==='li'?'• ':'';
-    const text=prefix+decodeHtml(block.inner.replace(/<[^>]+>/g,'')).replace(/[ \t]+/g,' ').trim();
+    const text=prefix+decodeHtml(block.inner.replace(/<[^>]+>/g,'')).replace(/\s+/g,' ').trim();
     if(!text)continue;
     doc.font(font).fontSize(size).fillColor(colour).text(text,{width,align,lineGap:4});
     doc.moveDown(.55);
@@ -146,8 +148,8 @@ async function admissionPdf(req,res,next,documentType){
     if(template?.watermark_text){doc.save().font('Helvetica-Bold').fontSize(52).fillColor('#777').opacity(Number(template.watermark_opacity)||.1).rotate(-35,{origin:[300,430]}).text(template.watermark_text,80,360,{width:500,align:'center'}).restore().opacity(1)}
     if(template?.watermark_image_path)drawTiledWatermark(doc,path.resolve('app/web'+template.watermark_image_path),Number(template.watermark_opacity)||.1);
     drawPersonalWatermark(doc,personalText);
-    try{doc.image("app/web/public/img/logo.png",60,40,{width:70});}catch{}
-    if(application.passport_path){try{doc.image(path.resolve(application.passport_path),475,40,{fit:[65,76],align:'center',valign:'center'});}catch{}}
+    try{doc.image("app/web/public/img/logo.png",60,42,{width:58});}catch{}
+    if(application.passport_path){try{doc.image(path.resolve(application.passport_path),482,42,{fit:[58,70],align:'center',valign:'center'});}catch{}}
     drawPrintDetails(doc,qr);
     doc.font("Helvetica-Bold").fontSize(15).fillColor("#247D57").text("EKITI STATE COLLEGE OF TECHNOLOGY",125,48,{align:"center",width:345});
     doc.fontSize(10).fillColor("#333").text("IJERO-EKITI, EKITI STATE",125,70,{align:"center",width:345});
