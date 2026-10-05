@@ -4,6 +4,7 @@ import { pool } from "../../core/db.js";
 import { authenticate } from "../../services/user.service.js";
 import { listStudentScopedPaymentTypes } from "../../services/studentPaymentScopeResolver.js";
 import { listApplicableLatePaymentCharges } from "../../services/latePaymentChargeService.js";
+import { ensureMatriculationForPublicUser } from "../../services/matriculationService.js";
 
 /** Render login page */
 export function showLogin(_req, res) {
@@ -225,7 +226,10 @@ async function publicUserHasRole(req, role) {
   try{const [[row]]=await pool.query(`SELECT 1 allowed FROM portal_user_roles WHERE public_user_id=? AND role=? LIMIT 1`,[user.id,role]);return Boolean(row);}catch{return user.role===role;}
 }
 export async function requireStudent(req, res, next) {
-  if (await publicUserHasRole(req,"student")) return next();
+  if (await publicUserHasRole(req,"student")) {
+    try { await ensureMatriculationForPublicUser(Number(req.session?.publicUser?.id||0)); } catch (error) { console.error("Matriculation reconciliation failed:",error.message); }
+    return next();
+  }
   return res.redirect("/login");
 }
 export async function requireApplicant(req, res, next) {
@@ -1016,6 +1020,14 @@ export async function applicantDashboard(req, res, next) {
       return res.redirect("/login");
     }
 
+    let studentPortalAccess = null;
+    const [[studentAccessRow]] = await pool.query(`SELECT t.applicant_application_id,t.status,pu.matric_number,EXISTS(SELECT 1 FROM portal_user_roles pur WHERE pur.public_user_id=pu.id AND pur.role='student') has_student_role FROM public_users pu LEFT JOIN applicant_student_transitions t ON t.public_user_id=pu.id WHERE pu.id=? ORDER BY t.id DESC LIMIT 1`,[applicantUserId]);
+    if(Number(studentAccessRow?.has_student_role)===1){
+      if(!studentAccessRow.matric_number){try{await ensureMatriculationForPublicUser(applicantUserId);}catch(error){console.error("Matriculation reconciliation failed:",error.message);}}
+      const [[refreshed]]=await pool.query(`SELECT matric_number FROM public_users WHERE id=?`,[applicantUserId]);
+      studentPortalAccess={matricNumber:refreshed?.matric_number||null};
+    }
+
     const [sessRows] = await pool.query(
       `
         SELECT id, name
@@ -1248,6 +1260,7 @@ export async function applicantDashboard(req, res, next) {
       announcements: announcementRows || [],
       dashboardAnnouncement,
       admissionPopup: unreadAdmissionRows?.[0] || null,
+      studentPortalAccess,
     });
   } catch (error) {
     next(error);

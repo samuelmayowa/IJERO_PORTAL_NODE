@@ -114,6 +114,13 @@ function statusClass(status) {
 <% if (typeof admissionPopup !== 'undefined' && admissionPopup) { %><%- include('../partials/portal-popup',{popupId:'admissionUpdateModal',tone:'success',icon:'fa-bell',title:admissionPopup.title,body:admissionPopup.message,actionUrl:admissionPopup.action_url||'/applicant/notifications',actionLabel:'View details'}) %><% } %>
 <% const popupAnnouncement=(typeof dashboardAnnouncement!=='undefined'&&dashboardAnnouncement)?dashboardAnnouncement:null; if(popupAnnouncement){ const popupTone=popupAnnouncement.priority==='URGENT'?'danger':popupAnnouncement.priority==='IMPORTANT'?'warning':'success'; %><%- include('../partials/portal-popup',{popupId:'announcementModal',tone:popupTone,icon:popupAnnouncement.priority==='URGENT'?'fa-exclamation-triangle':'fa-bullhorn',title:popupAnnouncement.title,body:popupAnnouncement.body,actionUrl:'/applicant/announcements',actionLabel:'View announcement'}) %><% } %>
 
+<% if(typeof studentPortalAccess!=='undefined'&&studentPortalAccess){ %>
+<div class="alert alert-success d-flex flex-column flex-md-row align-items-md-center justify-content-between shadow-sm">
+  <div class="mb-3 mb-md-0"><strong><i class="fas fa-graduation-cap mr-2"></i>Your Student Portal is ready.</strong><% if(studentPortalAccess.matricNumber){ %><div class="small mt-1">Matriculation number: <strong><%= studentPortalAccess.matricNumber %></strong></div><% } %></div>
+  <form method="post" action="/portal/switch/student" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken||'' %>"><button class="btn btn-success"><i class="fas fa-exchange-alt mr-1"></i>Switch to Student Portal</button></form>
+</div>
+<% } %>
+
 <div class="row">
   <div class="col-12 col-sm-6 col-md-3">
     <div class="small-box bg-info">

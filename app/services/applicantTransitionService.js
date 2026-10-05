@@ -23,7 +23,7 @@ export async function tryGrantStudentAccessForOrder(orderId) {
     await connection.query(`INSERT INTO student_profiles (user_id,school_id,department_id,programme_id,level,phone,status) SELECT pu.id,?,?,?,'100',pu.phone,'INCOMPLETE' FROM public_users pu WHERE pu.id=? AND NOT EXISTS (SELECT 1 FROM student_profiles sp WHERE sp.user_id=pu.id)`,[application.offered_school_id,application.offered_department_id,application.offered_programme_id,application.applicant_user_id]);
     await connection.query(`INSERT INTO portal_notifications (public_user_id,applicant_application_id,notification_type,title,message,action_url) VALUES (?,?,'STUDENT_ACCESS_GRANTED','Student Portal access is ready','Your compulsory fee has been confirmed and Student Portal access has been added to your account. Your Applicant Portal remains available.','/portal/choose')`,[application.applicant_user_id,application.id]);
     await connection.query(`INSERT INTO portal_audit_log (action,entity_type,entity_id,new_values) VALUES ('STUDENT_ACCESS_GRANTED','applicant_application',?,?)`,[String(application.id),JSON.stringify({transition_id:result.insertId,matriculation:"PENDING_MATRICULATION"})]);
-    let matriculation=null;try{matriculation=await allocateMatriculation(connection,application.id);}catch(error){if(!/not enabled|department code/i.test(error.message))throw error;}
+    let matriculation=null;try{matriculation=await allocateMatriculation(connection,application.id);}catch(error){if(!/programme acronym/i.test(error.message))throw error;}
     await connection.commit();return {transitioned:true,transitionId:result.insertId,matriculation};
   }catch(error){await connection.rollback();throw error;}finally{connection.release();}
 }
