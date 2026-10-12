@@ -580,7 +580,6 @@ export async function previewBulkAdmission(req, res) {
       let error = "";
       if (!record) error = "Application number not found";
       else if (!record.programme_id) error = `Programme acronym ${acronym || "(blank)"} was not found`;
-      else if (record.acceptance_payment_status === "PAID") error = "Acceptance fee has already been paid";
       else if (record.transition_id) error = "Student Portal access has already been created";
       preview.push({ rowNumber:row.rowNumber, applicationNumber, acronym, ...(record || {}), error, duplicate:Boolean(record?.decision_status === "ADMITTED") });
     }
@@ -716,6 +715,10 @@ export async function settingsPage(req, res, next) {
     next(error);
   }
 }
+
+export async function letterPrintingPage(req,res,next){try{const opts=await options();const sessionId=id(req.query.session_id)||id(opts.sessions.find(x=>x.is_current)?.id)||id(opts.sessions[0]?.id);const [rows]=await pool.query(`SELECT af.id application_form_id,af.title,s.name session_name,COALESCE(ast.letter_printing_enabled,0) letter_printing_enabled,ast.updated_at FROM application_forms af JOIN sessions s ON s.id=af.session_id LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND ast.application_form_id=af.id WHERE af.session_id=? ORDER BY af.title`,[sessionId]);res.render('pages/staff/admission-letter-printing',{layout:'layouts/adminlte',title:'Admission Letter Printing',pageTitle:'Admission Letter Printing',...opts,sessionId,rows})}catch(error){next(error)}}
+
+export async function setLetterPrinting(req,res){const sessionId=id(req.body.session_id),formId=id(req.body.application_form_id),enabled=req.body.enabled==='1'?1:0;try{if(!sessionId||!formId)throw new Error('Select a session and application type.');const [[form]]=await pool.query(`SELECT id FROM application_forms WHERE id=? AND session_id=?`,[formId,sessionId]);if(!form)throw new Error('The selected application type does not belong to that session.');await pool.query(`INSERT INTO admission_settings (session_id,application_form_id,acceptance_required_for_letter,letter_printing_enabled,matriculation_enabled,created_by,updated_by) VALUES (?,?,1,?,0,?,?) ON DUPLICATE KEY UPDATE letter_printing_enabled=VALUES(letter_printing_enabled),updated_by=VALUES(updated_by)`,[sessionId,formId,enabled,req.user?.id||null,req.user?.id||null]);await writeAudit(null,req,{action:enabled?'ADMISSION_LETTER_PRINTING_ENABLED':'ADMISSION_LETTER_PRINTING_DISABLED',entityType:'application_form',entityId:formId,newValues:{session_id:sessionId,letter_printing_enabled:Boolean(enabled)}});req.flash('success',enabled?'Admission-letter printing enabled.':'Admission-letter printing disabled.')}catch(error){req.flash('error',error.message||'The printing setting could not be changed.')}res.redirect(`/staff/admissions/letter-printing?session_id=${sessionId}`)}
 
 export async function saveSettings(req, res) {
   try {

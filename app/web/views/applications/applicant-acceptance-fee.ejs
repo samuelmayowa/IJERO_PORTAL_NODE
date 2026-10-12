@@ -103,9 +103,7 @@ function money(value) {
                   const admitted =
                     applicationStatus === 'ADMITTED';
 
-                  const paid =
-                    paymentStatus === 'PAID' ||
-                    invoiceStatus === 'PAID';
+                  const paid = Number(item.acceptance_outstanding||0)<=0;
 
                   const paymentConfigured =
                     Number(item.acceptance_payment_type_id) > 0 &&
@@ -161,6 +159,8 @@ function money(value) {
                       ₦<%= money(
                         item.configured_acceptance_total
                       ) %>
+                      <% if(Number(item.acceptance_outstanding)>0&&Number(item.acceptance_paid_total)>0){ %><div class="small text-danger">Unpaid variation: ₦<%= money(item.acceptance_outstanding) %></div><% } %>
+                      <% if(Number(item.acceptance_credit)>0){ %><div class="small text-info">Credit: ₦<%= money(item.acceptance_credit) %></div><% } %>
                     </td>
 
                     <td>
@@ -234,7 +234,7 @@ function money(value) {
                             class="btn btn-primary btn-sm"
                           >
                             <i class="fas fa-credit-card mr-1"></i>
-                            Pay Acceptance Fee
+                            <%= Number(item.acceptance_paid_total)>0?'Pay acceptance variation':'Pay Acceptance Fee' %>
                           </button>
                         </form>
                       <% } %>

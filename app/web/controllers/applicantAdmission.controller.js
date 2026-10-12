@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { PDFDocument as PDFLibDocument, StandardFonts, rgb } from 'pdf-lib';
 import { pool } from "../../core/db.js";
+import { getApplicationFeeSummary } from '../../services/admissionFeeObligationService.js';
 
 const secret = () => process.env.DOCUMENT_QR_SECRET || process.env.SESSION_SECRET || "change-this-document-secret";
 const tokenFor = documentNumber => crypto.createHmac("sha256", secret()).update(documentNumber).digest("hex");
@@ -17,6 +18,7 @@ async function ownedAdmission(applicationId, userId) {
       ad.id decision_id,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
       sc.name school_name,d.name department_name,p.name programme_name,
       COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
+      COALESCE(ast.letter_printing_enabled,0) letter_printing_enabled,
       ast.registrar_name,ast.registrar_position,ast.registrar_signature_path,
       (SELECT storage_path FROM application_documents ax WHERE ax.applicant_application_id=aa.id AND ax.document_type='PASSPORT' AND ax.is_current=1 AND ax.deleted_at IS NULL ORDER BY ax.id DESC LIMIT 1) passport_path
       FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id
@@ -24,7 +26,7 @@ async function ownedAdmission(applicationId, userId) {
       LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
       LEFT JOIN schools sc ON sc.id=ad.offered_school_id LEFT JOIN departments d ON d.id=ad.offered_department_id
       LEFT JOIN programmes p ON p.id=ad.offered_programme_id
-      LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND (ast.application_form_id=af.id OR ast.application_form_id IS NULL)
+      LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND ast.application_form_id=af.id
       WHERE aa.id=? AND aa.applicant_user_id=? ORDER BY ast.application_form_id DESC LIMIT 1`,
     [applicationId,userId],
   );
@@ -37,13 +39,14 @@ export async function statusPage(req,res,next) {
     const [applications]=await pool.query(
       `SELECT aa.id,aa.application_number,aa.status,aa.acceptance_payment_status,aa.submitted_at,
        af.title application_title,s.name session_name,ad.status decision_status,ad.offered_programme_name,ad.admitted_at,ad.revoked_at,
-       COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,
+       COALESCE(ast.acceptance_required_for_letter,1) acceptance_required_for_letter,COALESCE(ast.letter_printing_enabled,0) letter_printing_enabled,
        EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_LETTER' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_letter_template,
        EXISTS(SELECT 1 FROM admission_document_templates adt WHERE adt.document_type='ADMISSION_NOTIFICATION' AND adt.status='PUBLISHED' AND (adt.session_id IS NULL OR adt.session_id=af.session_id) AND (adt.application_form_id IS NULL OR adt.application_form_id=af.id)) has_published_notification_template
        FROM applicant_applications aa JOIN application_forms af ON af.id=aa.application_form_id JOIN sessions s ON s.id=af.session_id
        LEFT JOIN admission_decisions ad ON ad.applicant_application_id=aa.id
-       LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND (ast.application_form_id=af.id OR ast.application_form_id IS NULL)
+       LEFT JOIN admission_settings ast ON ast.session_id=af.session_id AND ast.application_form_id=af.id
        WHERE aa.applicant_user_id=? ORDER BY aa.id DESC,ast.application_form_id DESC`,[userId]);
+    for(const application of applications)application.fee_summary=await getApplicationFeeSummary(application.id,userId);
     res.render("applications/applicant-admission-status",{layout:"layouts/adminlte",title:"Admission Status",pageTitle:"Admission Status",applications});
   }catch(error){next(error);}
 }
@@ -129,7 +132,7 @@ async function admissionPdf(req,res,next,documentType){
     const application=await ownedAdmission(Number(req.params.applicationId),Number(req.session?.publicUser?.id||0));
     if(!application||application.decision_status!=="ADMITTED")return res.status(404).send("An active admission offer was not found.");
     const isLetter=documentType==='ADMISSION_LETTER';const documentLabel=isLetter?'Admission Letter':'Admission Notification';
-    if(isLetter&&Number(application.acceptance_required_for_letter)===1&&application.acceptance_payment_status!=="PAID")return res.status(403).render("pages/denied",{layout:"layouts/adminlte",title:"Admission Letter Unavailable",pageTitle:"Admission Letter Unavailable",reason:"Payment of the acceptance fee is required before your admission letter can be printed.",homeHref:"/applicant/admission/status"});
+    if(isLetter){const summary=await getApplicationFeeSummary(application.id,Number(req.session?.publicUser?.id||0));if(summary?.acceptance.outstanding>0||summary?.compulsory.outstanding>0)return res.status(403).render('pages/denied',{layout:'layouts/adminlte',title:'Admission Letter Unavailable',pageTitle:'Admission Letter Unavailable',reason:'Please complete your acceptance and compulsory fee payments before printing your admission letter.',homeHref:'/applicant/admission/status'});if(!Number(application.letter_printing_enabled))return res.status(403).render('pages/denied',{layout:'layouts/adminlte',title:'Admission Being Processed',pageTitle:'Admission Being Processed',reason:'Your admission is being processed. Please check back later.',homeHref:'/applicant/admission/status'});}
     const resolvedTemplate=await publishedTemplate(documentType,application);
     if(!resolvedTemplate)return res.status(409).render("pages/denied",{layout:"layouts/adminlte",title:`${documentLabel} Not Yet Available`,pageTitle:`${documentLabel} Not Yet Available`,reason:`Your ${documentLabel.toLowerCase()} has not yet been published. Please contact the Registry for assistance.`,homeHref:"/applicant/admission/status"});
     const issued=await issuedDocument(application,resolvedTemplate.id,documentType);

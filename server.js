@@ -179,6 +179,7 @@ const admissionSettingsMultipart = multer({
     callback(allowed ? null : new Error("Registrar signature must be a PNG or JPEG file."), allowed);
   },
 }).single("registrar_signature");
+const admissionCsvMultipart=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024},fileFilter:(_req,file,callback)=>callback(null,String(file.originalname||'').toLowerCase().endsWith('.csv'))});
 
 // Parse only these multipart forms before global CSRF so req.body._csrf is available.
 app.use((req, res, next) => {
@@ -190,6 +191,7 @@ app.use((req, res, next) => {
   if (req.method !== "POST" || req.path !== "/staff/admissions/settings") return next();
   return admissionSettingsMultipart(req, res, next);
 });
+app.use((req,res,next)=>{if(req.method!=='POST')return next();if(req.path==='/staff/admissions/scores/upload')return admissionCsvMultipart.single('score_file')(req,res,next);if(req.path==='/staff/admissions/bulk-upload/preview')return admissionCsvMultipart.single('admission_file')(req,res,next);return next()});
 
 // Global CSRF. Student profile uses its own parser-aware route protection.
 const csrfSkipPaths = [

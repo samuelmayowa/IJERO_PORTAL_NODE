@@ -3,6 +3,7 @@ import {
   createInvoice,
   getPaymentType,
 } from "./paymentService.js";
+import { getApplicationFeeSummary, latestPendingVariation } from './admissionFeeObligationService.js';
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -129,12 +130,7 @@ export async function listAcceptanceApplications(
   const fallbackAcceptanceStid =
     resolveAcceptanceServiceTypeId(null);
 
-  return (rows || []).map((row) => ({
-    ...row,
-    acceptance_stid:
-      clean(row.acceptance_stid) ||
-      fallbackAcceptanceStid,
-  }));
+  const output=[];for(const row of rows||[]){const summary=await getApplicationFeeSummary(row.id,applicantUserId);const part=summary?.acceptance;const latest=[...(part?.payments||[])].reverse()[0];output.push({...row,configured_acceptance_total:part?.expected||0,acceptance_paid_total:part?.paid||0,acceptance_outstanding:part?.outstanding||0,acceptance_credit:part?.credit||0,acceptance_payments:part?.payments||[],order_id:latest?.order_id||row.order_id,invoice_status:latest?.status||row.invoice_status,acceptance_stid:clean(row.acceptance_stid)||fallbackAcceptanceStid});}return output;
 }
 
 async function replaceAcceptanceLines({
@@ -142,8 +138,9 @@ async function replaceAcceptanceLines({
   applicantApplicationId,
   applicationFormId,
   invoiceId,
+  resolvedCharges=null,
 }) {
-  const [charges] = await connection.query(
+  const [legacyCharges] = resolvedCharges?[[...resolvedCharges]]:await connection.query(
     `
       SELECT
         id,
@@ -157,6 +154,7 @@ async function replaceAcceptanceLines({
     `,
     [applicationFormId],
   );
+  const charges=resolvedCharges||legacyCharges;
 
   const total = charges.reduce(
     (sum, charge) => sum + money(charge.amount),
@@ -230,6 +228,7 @@ export async function startOrResumeAcceptancePayment({
         aa.*,
         af.title AS application_title,
         af.slug AS application_slug,
+        af.session_id,
         af.acceptance_payment_type_id
       FROM applicant_applications aa
       JOIN application_forms af
@@ -279,6 +278,18 @@ export async function startOrResumeAcceptancePayment({
     );
   }
 
+  const feeSummary=await getApplicationFeeSummary(application.id,applicantUserId);
+  const obligation=feeSummary?.acceptance;
+  if(!obligation||obligation.expected<=0)throw new Error('No payable acceptance charge has been configured for this programme.');
+  if(obligation.outstanding<=0){const latest=[...obligation.payments].reverse().find(x=>x.status==='PAID');await db.query(`UPDATE applicant_applications SET acceptance_payment_status='PAID' WHERE id=?`,[application.id]);return {orderId:latest?.order_id,status:'PAID',slug:application.application_slug};}
+  const primaryPaid=obligation.payments.some(x=>Number(x.id)===Number(application.acceptance_invoice_id)&&x.status==='PAID');
+  if(primaryPaid){
+    const pending=await latestPendingVariation(application.id,'ACCEPTANCE');
+    if(pending){const changed=money(pending.variation_amount)!==obligation.outstanding;await db.query(`UPDATE payment_invoices SET amount=?,status='PENDING',rrr=CASE WHEN ?=1 THEN NULL ELSE rrr END,payment_meta=CASE WHEN ?=1 THEN NULL ELSE payment_meta END WHERE id=?`,[obligation.outstanding,changed?1:0,changed?1:0,pending.invoice_id]);await db.query(`UPDATE application_fee_variation_invoices SET expected_total=?,paid_before=?,variation_amount=?,status='PENDING' WHERE id=?`,[obligation.expected,obligation.paid,obligation.outstanding,pending.id]);return {orderId:pending.order_id,status:'PENDING',slug:application.application_slug};}
+    const created=await createInvoice({payment_type_id:paymentType.id,payee_id:clean(applicant.username)||String(applicant.id),payee_fullname:fullName(applicant)||'Applicant',payee_email:emailAddress(applicant),payee_phone:normalizePhone(applicant.phone),purpose:`${application.application_title} - Acceptance Fee Variation`,amount:obligation.outstanding,portal_charge_override:0,method:'ONLINE',session_id:application.session_id});
+    await db.query(`UPDATE payment_invoices SET remita_service_type_id=?,created_by=? WHERE id=?`,[serviceTypeId,applicant.id,created.id]);await db.query(`INSERT INTO application_fee_variation_invoices (applicant_application_id,invoice_id,fee_stage,expected_total,paid_before,variation_amount) VALUES (?,?,'ACCEPTANCE',?,?,?)`,[application.id,created.id,obligation.expected,obligation.paid,obligation.outstanding]);await db.query(`UPDATE applicant_applications SET acceptance_payment_status='PENDING' WHERE id=?`,[application.id]);return {orderId:created.order_id,status:'PENDING',slug:application.application_slug};
+  }
+
   if (application.acceptance_invoice_id) {
     const [invoiceRows] = await db.query(
       `
@@ -325,6 +336,7 @@ export async function startOrResumeAcceptancePayment({
             applicationFormId:
               application.application_form_id,
             invoiceId: invoice.id,
+            resolvedCharges:obligation.charges,
           });
 
         const amountChanged =
@@ -402,20 +414,7 @@ export async function startOrResumeAcceptancePayment({
     }
   }
 
-  const [chargeRows] = await db.query(
-    `
-      SELECT
-        id,
-        charge_name,
-        amount
-      FROM application_form_charges
-      WHERE application_form_id = ?
-        AND charge_stage = 'ACCEPTANCE'
-        AND is_active = 1
-      ORDER BY display_order, id
-    `,
-    [application.application_form_id],
-  );
+  const chargeRows=obligation.charges;
 
   const total = chargeRows.reduce(
     (sum, charge) => sum + money(charge.amount),
@@ -481,6 +480,7 @@ export async function startOrResumeAcceptancePayment({
       applicationFormId:
         application.application_form_id,
       invoiceId: created.id,
+      resolvedCharges:chargeRows,
     });
 
     await connection.commit();

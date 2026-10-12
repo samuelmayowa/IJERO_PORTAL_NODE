@@ -1,4 +1,5 @@
 import db from "../core/db.js";
+import { refreshApplicationFeeStatuses } from './admissionFeeObligationService.js';
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -28,6 +29,7 @@ export async function syncApplicationPaymentByOrderId(
 
   if (!invoice) return null;
 
+  const [[variation]]=await db.query(`SELECT applicant_application_id,fee_stage FROM application_fee_variation_invoices WHERE invoice_id=? LIMIT 1`,[invoice.id]);
   const [applicationRows] = await db.query(
     `
       SELECT
@@ -45,9 +47,10 @@ export async function syncApplicationPaymentByOrderId(
           ELSE 'APPLICATION'
         END AS payment_stage
       FROM applicant_applications aa
-      WHERE aa.application_invoice_id = ?
+      WHERE (aa.application_invoice_id = ?
          OR aa.acceptance_invoice_id = ?
-         OR aa.compulsory_invoice_id = ?
+         OR aa.compulsory_invoice_id = ?)
+         OR aa.id = ?
       ORDER BY aa.id DESC
       LIMIT 1
     `,
@@ -57,6 +60,7 @@ export async function syncApplicationPaymentByOrderId(
       invoice.id,
       invoice.id,
       invoice.id,
+      variation?.applicant_application_id||0,
     ],
   );
 
@@ -68,14 +72,14 @@ export async function syncApplicationPaymentByOrderId(
     invoice.status,
   ).toUpperCase();
 
-  const stage = clean(
-    application.payment_stage,
-  ).toUpperCase();
+  const stage = clean(variation?.fee_stage||application.payment_stage).toUpperCase();
 
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
+
+    if(variation){await connection.query(`UPDATE application_fee_variation_invoices SET status=? WHERE invoice_id=?`,[invoiceStatus==='PAID'?'PAID':['FAILED','CANCELLED'].includes(invoiceStatus)?invoiceStatus:'PENDING',invoice.id]);await refreshApplicationFeeStatuses(application.id,connection);await connection.commit();return {application_id:application.id,invoice_id:invoice.id,invoice_status:invoiceStatus,payment_stage:stage,variation:true};}
 
     if(stage==='COMPULSORY'){
       const paymentStatus=invoiceStatus==='PAID'?'PAID':['FAILED','CANCELLED'].includes(invoiceStatus)?'FAILED':'PENDING';

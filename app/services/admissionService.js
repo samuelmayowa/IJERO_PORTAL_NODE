@@ -1,6 +1,7 @@
 import db from "../core/db.js";
 import { writeAudit } from "./auditService.js";
 import { createPortalNotification } from "./notificationService.js";
+import { refreshApplicationFeeStatuses } from "./admissionFeeObligationService.js";
 
 const clean = value => String(value ?? "").trim();
 
@@ -127,9 +128,7 @@ export async function admitApplication(req, applicationId, options = {}) {
       `SELECT id FROM applicant_student_transitions WHERE applicant_application_id=? LIMIT 1`,
       [applicationId],
     );
-    if (application.acceptance_payment_status === "PAID" || transition) {
-      throw new Error("This admission cannot be changed because acceptance has been paid or Student Portal access has been created.");
-    }
+    if (transition) throw new Error("This admission cannot be changed because Student Portal access has already been created.");
     if (application.status === "ADMITTED") {
       const [[existing]] = await connection.query(`SELECT * FROM admission_decisions WHERE applicant_application_id=? LIMIT 1`, [applicationId]);
       if (options.placement && existing) {
@@ -141,6 +140,7 @@ export async function admitApplication(req, applicationId, options = {}) {
         const data = parsed(application.form_data); data.application_details = data.application_details || {};
         data.application_details.programme_choice = { ...(data.application_details.programme_choice || {}), school_id:options.placement.schoolId, school_name:clean(options.placement.schoolName), department_id:options.placement.departmentId, department_name:clean(options.placement.departmentName), programme_id:options.placement.programmeId, programme_name:clean(options.placement.programmeName) };
         await connection.query(`UPDATE applicant_applications SET programme_choice=?,form_data=?,reviewed_by=?,reviewed_at=NOW() WHERE id=?`, [clean(options.placement.programmeName), JSON.stringify(data), actorId, applicationId]);
+        await refreshApplicationFeeStatuses(applicationId,connection);
         await writeAudit(connection, req, { action:"ADMISSION_PLACEMENT_CHANGED", entityType:"applicant_application", entityId:applicationId, reason:clean(options.reason), oldValues:{ programme_id:existing.offered_programme_id, programme_name:existing.offered_programme_name }, newValues:{ programme_id:options.placement.programmeId, programme_name:options.placement.programmeName } });
         await connection.commit();
         return { admitted:true, updated:true, decisionId:existing.id };

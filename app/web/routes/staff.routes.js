@@ -1,6 +1,5 @@
 // app/web/routes/staff.routes.js
 import { Router } from "express";
-import multer from "multer";
 
 // Existing controllers already in your app
 import * as staffCtrl from "../controllers/staff.controller.js";
@@ -37,11 +36,6 @@ const admissionRoles = requireRole(
   "registry", "registrary", "registrar",
   "admission officer", "admissions officer", "admission",
 );
-const admissionCsv = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, String(file.originalname || "").toLowerCase().endsWith(".csv")),
-});
 
 const safe = (fnName) => {
   const fn = staffCtrl?.[fnName];
@@ -87,9 +81,9 @@ router.get("/admissions/manage", admissionRoles, admissionsCtrl.managePage);
 router.post("/admissions/:id/admit", admissionRoles, admissionsCtrl.admitOne);
 router.post("/admissions/bulk-admit", admissionRoles, admissionsCtrl.admitBulk);
 router.get("/admissions/scores/template.csv", admissionRoles, admissionsCtrl.scoreTemplate);
-router.post("/admissions/scores/upload", admissionRoles, admissionCsv.single("score_file"), admissionsCtrl.uploadScores);
+router.post("/admissions/scores/upload", admissionRoles, admissionsCtrl.uploadScores);
 router.get("/admissions/bulk-upload/template.csv", admissionRoles, admissionsCtrl.bulkAdmissionTemplate);
-router.post("/admissions/bulk-upload/preview", admissionRoles, admissionCsv.single("admission_file"), admissionsCtrl.previewBulkAdmission);
+router.post("/admissions/bulk-upload/preview", admissionRoles, admissionsCtrl.previewBulkAdmission);
 router.post("/admissions/bulk-upload/confirm", admissionRoles, admissionsCtrl.confirmBulkAdmission);
 router.post("/admissions/:id/revoke", admissionRoles, admissionsCtrl.revokeOne);
 router.get("/admissions/criteria", admissionRoles, admissionsCtrl.criteriaPage);
@@ -106,6 +100,8 @@ router.post("/admissions/screening/:id/update", admissionRoles, admissionsCtrl.u
 router.post("/admissions/screening/:id/status", admissionRoles, admissionsCtrl.changeScreeningStatus);
 router.get("/admissions/settings", requireRole("admin"), admissionsCtrl.settingsPage);
 router.post("/admissions/settings", requireRole("admin"), admissionsCtrl.saveSettings);
+router.get("/admissions/letter-printing", requireRole("admin","administrator","superadmin","registry","registrary","registrar"), admissionsCtrl.letterPrintingPage);
+router.post("/admissions/letter-printing", requireRole("admin","administrator","superadmin","registry","registrary","registrar"), admissionsCtrl.setLetterPrinting);
 router.get("/admissions/matriculation", admissionRoles, admissionsCtrl.matriculationPage);
 router.post("/admissions/matriculation/:applicationId/generate", admissionRoles, admissionsCtrl.generateMatric);
 router.post("/admissions/matriculation/bulk", admissionRoles, admissionsCtrl.generateMatricBulk);
