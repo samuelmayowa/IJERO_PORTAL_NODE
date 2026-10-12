@@ -1166,7 +1166,7 @@ export async function templatesPage(req, res, next) {
   try {
     const opts = await options();
     const [rows] = await pool.query(
-      `SELECT adt.*,s.name session_name,af.title application_title FROM admission_document_templates adt LEFT JOIN sessions s ON s.id=adt.session_id LEFT JOIN application_forms af ON af.id=adt.application_form_id ORDER BY adt.document_type,adt.created_at DESC`,
+      `SELECT adt.*,s.name session_name,af.title application_title FROM admission_document_templates adt LEFT JOIN sessions s ON s.id=adt.session_id LEFT JOIN application_forms af ON af.id=adt.application_form_id WHERE adt.removed_at IS NULL ORDER BY adt.document_type,adt.created_at DESC`,
     );
     let editTemplate = null;
     if (id(req.query.edit))
@@ -1832,6 +1832,42 @@ export async function publishTemplate(req, res) {
   } catch (error) {
     await connection.rollback();
     req.flash("error", error.message || "Unable to publish template.");
+  } finally {
+    connection.release();
+  }
+  res.redirect("/staff/admissions/documents");
+}
+
+export async function removeTemplate(req, res) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const templateId = id(req.params.id);
+    const [[template]] = await connection.query(
+      `SELECT id,title,status FROM admission_document_templates WHERE id=? AND removed_at IS NULL FOR UPDATE`,
+      [templateId],
+    );
+    if (!template) throw new Error("Document template not found.");
+    const [[usage]] = await connection.query(
+      `SELECT COUNT(*) total FROM issued_admission_documents WHERE template_id=?`,
+      [templateId],
+    );
+    await connection.query(
+      `UPDATE admission_document_templates SET status='ARCHIVED',removed_at=NOW(),removed_by=? WHERE id=?`,
+      [req.user?.id || null, templateId],
+    );
+    await writeAudit(connection, req, {
+      action: "ADMISSION_TEMPLATE_REMOVED",
+      entityType: "admission_document_template",
+      entityId: templateId,
+      oldValues: { status: template.status, title: template.title },
+      newValues: { status: "ARCHIVED", removed: true, issued_documents: Number(usage.total || 0) },
+    });
+    await connection.commit();
+    req.flash("success", "Document template removed.");
+  } catch (error) {
+    await connection.rollback();
+    req.flash("error", error.message || "Unable to remove document template.");
   } finally {
     connection.release();
   }

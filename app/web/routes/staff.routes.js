@@ -114,6 +114,7 @@ router.post("/admissions/documents/sample-draft.pdf", admissionRoles, admissions
 router.post("/admissions/documents", admissionRoles, admissionsCtrl.createTemplate);
 router.post("/admissions/documents/:id/update", admissionRoles, admissionsCtrl.updateTemplate);
 router.post("/admissions/documents/:id/publish", admissionRoles, admissionsCtrl.publishTemplate);
+router.post("/admissions/documents/:id/remove", admissionRoles, admissionsCtrl.removeTemplate);
 router.get("/admissions/documents/:id/preview", admissionRoles, admissionsCtrl.previewTemplate);
 router.get("/admissions/documents/:id/attachment", admissionRoles, admissionsCtrl.templateAttachment);
 router.get("/admissions/documents/:id/sample.pdf", admissionRoles, admissionsCtrl.sampleTemplatePdf);
