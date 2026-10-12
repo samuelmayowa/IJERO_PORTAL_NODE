@@ -439,6 +439,7 @@ async function getApplicationInvoiceContext(orderId) {
         aa.application_payment_status,
         aa.status AS application_status,
         CASE
+          WHEN variation.fee_stage IS NOT NULL THEN variation.fee_stage
           WHEN aa.compulsory_invoice_id = inv.id THEN 'COMPULSORY'
           WHEN aa.acceptance_invoice_id = inv.id
             THEN 'ACCEPTANCE'
@@ -450,11 +451,14 @@ async function getApplicationInvoiceContext(orderId) {
       FROM payment_invoices inv
       JOIN payment_types pt
         ON pt.id = inv.payment_type_id
+      LEFT JOIN application_fee_variation_invoices variation
+        ON variation.invoice_id = inv.id
       JOIN applicant_applications aa
         ON (
           aa.application_invoice_id = inv.id
           OR aa.acceptance_invoice_id = inv.id
           OR aa.compulsory_invoice_id = inv.id
+          OR aa.id = variation.applicant_application_id
         )
       JOIN application_forms af
         ON af.id = aa.application_form_id
