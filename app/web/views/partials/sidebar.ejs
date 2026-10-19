@@ -19,6 +19,7 @@ const staffRoles = new Set([
 
 const isStaffLike = staffRoles.has(role);
 const canManageAdmissions = ['admin','administrator','superadmin','registry','registrary','registrar','admission officer','admissions officer','admission'].includes(role);
+const canManageProgrammes = ['admin','administrator','superadmin','registry','registrary','registrar'].includes(role);
 
 // allowedModules is provided by enforceStatusGlobally (Set or null)
 function can(moduleKey) {
@@ -148,8 +149,8 @@ const inAttendance = cur.startsWith('/staff/attendance');
       </li>
 
       <!-- Manage Courses -->
-      <li class="nav-item has-treeview <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') ? 'menu-open' : '' %>">
-        <a href="#" class="nav-link <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') ? 'active' : '' %>">
+      <li class="nav-item has-treeview <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') || cur.startsWith('/staff/programme') ? 'menu-open' : '' %>">
+        <a href="#" class="nav-link <%= cur.startsWith('/staff/courses') || cur.startsWith('/staff/school') || cur.startsWith('/staff/department') || cur.startsWith('/staff/programme') ? 'active' : '' %>">
           <i class="nav-icon fas fa-book"></i>
           <p>Manage Courses <i class="right fas fa-angle-left"></i></p>
         </a>
@@ -182,6 +183,14 @@ const inAttendance = cur.startsWith('/staff/attendance');
               <i class="far fa-circle nav-icon"></i><p>Add/Edit Department</p>
             </a>
           </li>
+
+          <% if (canManageProgrammes) { %>
+          <li class="nav-item">
+            <a href="/staff/programmes" class="nav-link <%= cur.startsWith('/staff/programmes') ? 'active' : '' %>">
+              <i class="far fa-circle nav-icon"></i><p>Programme Management</p>
+            </a>
+          </li>
+          <% } %>
 
         </ul>
       </li>

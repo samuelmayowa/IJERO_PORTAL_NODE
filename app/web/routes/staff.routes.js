@@ -12,6 +12,7 @@ import * as guard from "../../core/session.js";
 import * as courseCtrl from "../controllers/course.controller.js";
 import * as schoolCtrl from "../controllers/school.controller.js";
 import * as departmentCtrl from "../controllers/department.controller.js";
+import * as programmeCtrl from "../controllers/programme.controller.js";
 import * as studentEditCtrl from "../controllers/studentEdit.controller.js";
 import * as applicationReportCtrl from "../controllers/applicationReports.controller.js";
 import * as admissionsCtrl from "../controllers/admissions.controller.js";
@@ -35,6 +36,10 @@ const admissionRoles = requireRole(
   "admin", "administrator", "superadmin",
   "registry", "registrary", "registrar",
   "admission officer", "admissions officer", "admission",
+);
+const programmeManagementRoles = requireRole(
+  "admin", "administrator", "superadmin",
+  "registry", "registrary", "registrar",
 );
 
 const safe = (fnName) => {
@@ -201,15 +206,22 @@ router.post("/departments/:id/update", departmentCtrl.update);
 router.post("/departments/:id/delete", departmentCtrl.remove);
 router.post(
   "/departments/programmes/create",
+  programmeManagementRoles,
   departmentCtrl.createProgramme,
 );
 router.post(
   "/departments/programmes/:id/delete",
+  programmeManagementRoles,
   departmentCtrl.deleteProgramme,
 );
 router.get(
   "/departments/programmes",
   departmentCtrl.listProgrammesByDepartment,
 );
+
+// ----- Programme Management (Admin and Registry only) -----
+router.get("/programmes", programmeManagementRoles, programmeCtrl.managePage);
+router.post("/programmes/create", programmeManagementRoles, programmeCtrl.create);
+router.post("/programmes/:id/update", programmeManagementRoles, programmeCtrl.update);
 
 export default router;
