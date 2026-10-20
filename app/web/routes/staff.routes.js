@@ -164,6 +164,7 @@ router.post("/api/password/change", safe("changePasswordByAdmin"));
 router.get("/password/edit-details", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.detailsPage);
 router.get("/password/:type", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.page);
 router.post("/password/:type/:id/reset", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.reset);
+router.post("/password/:type/:id/change", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.change);
 router.post("/password/edit-details/:type/:id", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), passwordManagementCtrl.updateDetails);
 router.get("/students/reset-password", requireRole("admin", "administrator", "superadmin", "registry", "registrary", "registrar"), (req,res)=>res.redirect("/staff/password/student"));
 

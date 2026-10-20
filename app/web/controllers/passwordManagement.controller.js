@@ -24,6 +24,22 @@ export async function reset(req,res){
   try{if(!userId)throw new Error("User not found.");const hash=await bcrypt.hash("College1",10);const table=type==="staff"?"staff":"public_users";const roleClause=type==="staff"?"":" AND role=?";const params=type==="staff"?[hash,userId]:[hash,userId,type];const [result]=await pool.query(`UPDATE ${table} SET password_hash=? WHERE id=?${roleClause} LIMIT 1`,params);if(!result.affectedRows)throw new Error("User not found.");await writeAudit(null,req,{action:"PASSWORD_RESET_TO_DEFAULT",entityType:type,entityId:userId,newValues:{reset:true}});req.flash("success","Password has been reset to College1.");}catch(error){req.flash("error",error.message||"Password could not be reset.");}res.redirect(req.get("referer")||`/staff/password/${type}`);
 }
 
+export async function change(req,res){
+  const type=typeOf(req),userId=id(req.params.id),password=String(req.body.password||''),confirmPassword=String(req.body.confirm_password||'');
+  try{
+    if(!userId)throw new Error("User not found.");
+    if(password.length<8)throw new Error("Password must contain at least 8 characters.");
+    if(password.length>128)throw new Error("Password cannot exceed 128 characters.");
+    if(password!==confirmPassword)throw new Error("The password confirmation does not match.");
+    const hash=await bcrypt.hash(password,10),table=type==="staff"?"staff":"public_users",roleClause=type==="staff"?"":" AND role=?",params=type==="staff"?[hash,userId]:[hash,userId,type];
+    const [result]=await pool.query(`UPDATE ${table} SET password_hash=? WHERE id=?${roleClause} LIMIT 1`,params);
+    if(!result.affectedRows)throw new Error("User not found.");
+    await writeAudit(null,req,{action:"PASSWORD_CHANGED_BY_ADMIN",entityType:type,entityId:userId,newValues:{changed:true}});
+    req.flash("success","Custom password updated successfully.");
+  }catch(error){req.flash("error",error.message||"Password could not be updated.");}
+  res.redirect(`/staff/password/${type}`);
+}
+
 export async function detailsPage(req,res,next){
   try{const type=typeOf(req),q=clean(req.query.q).slice(0,100),page=Math.max(1,id(req.query.page)||1),editId=id(req.query.edit),result=await users(type,q,page);let editing=null;if(editId){if(type==="staff")[[editing]]=await pool.query(`SELECT id,staff_no,full_name,first_name,middle_name,last_name,username,email,phone,status,school_id,department_id FROM staff WHERE id=?`,[editId]);else [[editing]]=await pool.query(`SELECT id,role,first_name,middle_name,last_name,dob,gender,state_of_origin,lga,phone,address,username email,matric_number,status FROM public_users WHERE id=? AND role=?`,[editId,type]);}res.render("pages/staff/edit-user-details",{layout:"layouts/adminlte",title:"Edit User Details",pageTitle:"Edit User Details",type,q,page,totalPages:Math.max(1,Math.ceil(result.total/25)),rows:result.rows,editing});
   }catch(error){next(error)}
