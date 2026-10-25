@@ -58,6 +58,22 @@ export async function findByUsername(username) {
   return { ...u, password_hash: rows[0].password_hash };
 }
 
+/** Refresh a signed-in staff account by its stable database id. */
+export async function findById(id) {
+  const [rows] = await pool.query(
+    `SELECT s.*,sc.name AS school,d.name AS department,
+            (SELECT GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ',')
+               FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+              WHERE ur.user_id=s.id) AS roles_csv
+       FROM staff s
+       LEFT JOIN schools sc ON sc.id=s.school_id
+       LEFT JOIN departments d ON d.id=s.department_id
+      WHERE s.id=? LIMIT 1`,
+    [Number(id)],
+  );
+  return rows.length ? hydrateUserRow(rows[0]) : null;
+}
+
 /** Auth */
 export async function authenticate(username, password) {
   const u = await findByUsername(username);
