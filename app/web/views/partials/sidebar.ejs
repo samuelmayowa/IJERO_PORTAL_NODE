@@ -457,20 +457,27 @@ const inAttendance = cur.startsWith('/staff/attendance');
 document.addEventListener('DOMContentLoaded', function () {
   const allowed = new Set(<%- JSON.stringify(staffPermissions) %>);
   const rules = [
-    ['roles.manage',['/staff/manage/assign-role']],
-    ['staff.manage',['/staff/users/add','/staff/manage/modify']],
-    ['passwords.manage',['/staff/password','/staff/password-reset','/staff/students/reset-password']],
-    ['sessions.manage',['/staff/session']],
-    ['programmes.manage',['/staff/programmes','/staff/departments','/staff/schools','/staff/courses']],
-    ['admissions.manage',['/staff/admissions']],
-    ['results.upload',['/staff/results/upload']],
-    ['results.approve',['/staff/results/approve']],
-    ['students.manage',['/staff/students/edit']],
-    ['students.clear',['/staff/exams/clearance']],
-    ['payments.verify',['/staff/bursary','/staff/payments/verify']]
+    [['roles.manage'],['/staff/manage/assign-role']],
+    [['staff.manage'],['/staff/users/add','/staff/manage/modify']],
+    [['passwords.manage'],['/staff/password','/staff/password-reset','/staff/students/reset-password']],
+    [['sessions.manage'],['/staff/session']],
+    [['schools.manage'],['/staff/departments','/staff/schools']],
+    [['programmes.manage'],['/staff/programmes']],
+    [['courses.manage'],['/staff/courses']],
+    [['admissions.view','admissions.manage','admissions.decide','admissions.documents'],['/staff/admissions']],
+    [['results.upload'],['/staff/results/upload']],
+    [['results.approve'],['/staff/results/approve']],
+    [['results.reports'],['/staff/results/reports']],
+    [['students.view','students.manage'],['/staff/students/edit']],
+    [['students.upload'],['/staff/students/upload']],
+    [['students.clear'],['/staff/exams/clearance']],
+    [['payments.verify'],['/staff/bursary','/staff/payments/verify']],
+    [['payments.manage','payments.reports'],['/staff/fees']],
+    [['attendance.manage','attendance.reports'],['/staff/attendance']],
+    [['vacancies.manage'],['/staff/vacancies']]
   ];
-  for (const [permission,prefixes] of rules) {
-    if (allowed.has(permission)) continue;
+  for (const [permissions,prefixes] of rules) {
+    if (permissions.some(permission => allowed.has(permission))) continue;
     document.querySelectorAll('a[href]').forEach(function (link) {
       const href = link.getAttribute('href') || '';
       if (prefixes.some(prefix => href.startsWith(prefix))) link.closest('li')?.remove();

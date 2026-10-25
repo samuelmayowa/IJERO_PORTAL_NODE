@@ -2,7 +2,7 @@
 import * as users from '../../services/user.service.js';
 import * as sessions from '../../services/session.service.js';
 import { pool } from '../../core/db.js';
-import { STAFF_PERMISSIONS, permissionsFor } from '../../core/staff-permissions.js';
+import { STAFF_PERMISSIONS, ROLE_PERMISSION_DEFAULTS, permissionsFor } from '../../core/staff-permissions.js';
 import { writeAudit } from '../../services/auditService.js';
 
 /* ---------- Helpers: normalize School/Department to NAMES ---------- */
@@ -150,6 +150,7 @@ export async function showAssignRole(_req, res) {
     title: 'Assign Role to Staff',
     pageTitle: 'Staff Roles and Permissions',
     permissionCatalogue: STAFF_PERMISSIONS,
+    rolePermissionDefaults: ROLE_PERMISSION_DEFAULTS,
   });
 }
 export async function showModifyStaff(_req, res) {

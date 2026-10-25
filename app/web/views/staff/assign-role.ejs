@@ -1,113 +1,23 @@
-<div class="card card-success">
-  <div class="card-header"><h3 class="card-title">Staff Roles and Permissions</h3></div>
-  <div class="card-body">
-    <div class="input-group">
-      <input id="fSearch" class="form-control" placeholder="Search by name, email, phone, username, staff number, department or school">
-      <div class="input-group-append"><button id="btnFind" class="btn btn-primary">Search</button><button id="btnClear" class="btn btn-light">Clear</button></div>
-    </div>
-
-    <div class="table-responsive mt-3">
-      <table class="table table-striped" id="tbRole">
-        <thead><tr><th>Staff</th><th>Roles and permissions</th><th>Action</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center">
-      <small id="pageInfo" class="text-muted"></small>
-      <nav><ul class="pagination mb-0" id="pager"></ul></nav>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="okModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-success">
-  <div class="modal-header py-2"><h5 class="modal-title">Success</h5><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div>
-  <div class="modal-body" id="okMsg">Done</div><div class="modal-footer py-2"><button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button></div>
-</div></div></div>
-<div class="modal fade" id="errModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-danger">
-  <div class="modal-header py-2"><h5 class="modal-title">Failed</h5><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div>
-  <div class="modal-body" id="errMsg">Error</div><div class="modal-footer py-2"><button type="button" class="btn btn-light btn-sm" data-dismiss="modal">Close</button></div>
-</div></div></div>
-
+<div class="card card-success"><div class="card-header"><h3 class="card-title">Staff Roles and Permissions</h3></div><div class="card-body">
+  <p class="text-muted">Staff entries are collapsed by default. Expand one account to review or change its access.</p>
+  <div class="input-group"><input id="fSearch" class="form-control" placeholder="Search name, email, phone, username, staff number, department or school"><div class="input-group-append"><button id="btnFind" class="btn btn-primary">Search</button><button id="btnClear" class="btn btn-light">Clear</button></div></div>
+  <div id="staffAccordion" class="accordion mt-3"></div>
+  <div class="d-flex justify-content-between align-items-center mt-3"><small id="pageInfo" class="text-muted"></small><nav><ul class="pagination mb-0" id="pager"></ul></nav></div>
+</div></div>
+<style>.access-summary{cursor:pointer}.permission-group{border:1px solid #e5e7eb;border-radius:.35rem;padding:.75rem;height:100%}.permission-group h6{color:#82103c}.role-pill{font-size:.75rem}.staff-meta{min-width:0}.staff-meta strong{overflow-wrap:anywhere}</style>
 <script>
-const ROLES = ['superadmin','admin','adminict','registry','admission officer','bursary','hod','dean','lecturer','ict','auditor','health center','works','library','provost','student union','staff'];
-const PERMISSIONS = <%- JSON.stringify(permissionCatalogue || []) %>;
-
-const pageSize = 10; let currentPage = 1;
-const pageInfo = document.getElementById('pageInfo'); const pager = document.getElementById('pager');
-
-function showOk(m){ Modal.success(m || 'Done'); }
-function showErr(m){ Modal.error(m || 'Error'); }
-
-function qs(){
-  return new URLSearchParams({
-    q: fSearch.value, page: currentPage, pageSize
-  }).toString();
-}
-
-function renderPager(total){
-  pager.innerHTML = '';
-  const pages = Math.max(1, Math.ceil(total / pageSize));
-  pageInfo.textContent = `Page ${currentPage} of ${pages} • ${total} result(s)`;
-  const add = (label, page, disabled=false, active=false)=>{
-    const li = document.createElement('li'); li.className = 'page-item' + (disabled?' disabled':'') + (active?' active':'');
-    const a = document.createElement('a'); a.className = 'page-link'; a.href='#'; a.textContent=label;
-    a.addEventListener('click', (e)=>{ e.preventDefault(); if(disabled||active) return; currentPage = page; search(); });
-    li.appendChild(a); pager.appendChild(li);
-  };
-  add('Prev', Math.max(1, currentPage-1), currentPage===1);
-  for(let p = Math.max(1,currentPage-2); p<=Math.min(pages,currentPage+2); p++) add(String(p), p, false, p===currentPage);
-  add('Next', Math.min(pages, currentPage+1), currentPage===pages);
-}
-
-async function search(){
-  const res = await fetch('/staff/api/staff?'+qs());
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok) { showErr(d.message || 'Unable to load staff accounts'); return; }
-  const tb = document.querySelector('#tbRole tbody'); tb.innerHTML='';
-  for(const u of (d.items || [])){
-    const tr = document.createElement('tr');
-    const roleChks = ROLES.map(r=>{
-      const has = (u.roles||[]).map(x=>x.toLowerCase()).includes(r.toLowerCase()) || String(u.role||'').toLowerCase()===r.toLowerCase();
-      return `<label class="mr-2"><input class="role-check" type="checkbox" value="${r}" ${has?'checked':''}> ${r}</label>`;
-    }).join('');
-    const permissionChks = PERMISSIONS.map(([key,label]) => `<label class="d-block mb-1"><input class="permission-check" type="checkbox" value="${key}" ${(u.permissions||[]).includes(key)?'checked':''}> <strong>${label}</strong><br><small class="text-muted ml-3">${key}</small></label>`).join('');
-    tr.innerHTML = `
-      <td><strong>${u.username || ''}</strong><br>${u.name || u.fullName || ''}<br><small>${u.email||''}</small></td>
-      <td><div class="mb-2"><strong>Roles</strong><br>${roleChks}</div><div class="border-top pt-2"><strong>Feature permissions</strong>${permissionChks}</div></td>
-      <td>
-        <button class="btn btn-sm btn-success btn-apply" data-username="${(u.username||'').trim()}">Save access</button>
-      </td>`;
-    tb.appendChild(tr);
-  }
-  tb.querySelectorAll('.btn-apply').forEach(btn=>{
-    btn.addEventListener('click', async (e)=>{
-      const tr = e.target.closest('tr');
-      const username = (btn.dataset.username || '').trim();
-      if (!username) return showErr('User reference missing for this record');
-
-      const roles = Array.from(tr.querySelectorAll('.role-check:checked')).map(x => x.value);
-      const permissions = Array.from(tr.querySelectorAll('.permission-check:checked')).map(x => x.value);
-
-      const res = await fetch('/staff/api/staff/assign-roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'CSRF-Token': '<%= csrfToken %>' },
-        body: JSON.stringify({ username, roles, permissions })
-      });
-      const data = await res.json();
-      if (data.success) { showOk('Roles and permissions updated'); search(); }
-      else showErr(data.message || 'Failed');
-    });
-  });
-  renderPager(d.total);
-}
-
-document.getElementById('btnFind').addEventListener('click', ()=>{ currentPage = 1; search(); });
-document.getElementById('btnClear').addEventListener('click', ()=>{
-  fSearch.value = '';
-  currentPage = 1; search();
-});
-fSearch.addEventListener('keydown', event => { if (event.key === 'Enter') { currentPage = 1; search(); } });
-
-search();
+const ROLES=['superadmin','admin','adminict','registry','admission officer','bursary','hod','dean','lecturer','ict','auditor','health center','works','library','provost','student union','staff'];
+const PERMISSIONS=<%- JSON.stringify(permissionCatalogue||[]) %>;
+const ROLE_DEFAULTS=<%- JSON.stringify(rolePermissionDefaults||{}) %>;
+const pageSize=10;let currentPage=1;const accordion=document.getElementById('staffAccordion'),pageInfo=document.getElementById('pageInfo'),pager=document.getElementById('pager');
+const esc=v=>String(v||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+function showOk(m){Modal.success(m||'Done')}function showErr(m){Modal.error(m||'Error')}
+function qs(){return new URLSearchParams({q:fSearch.value,page:currentPage,pageSize}).toString()}
+function renderPager(total){pager.innerHTML='';const pages=Math.max(1,Math.ceil(total/pageSize));pageInfo.textContent=`Page ${currentPage} of ${pages} • ${total} staff`;const add=(label,page,disabled=false,active=false)=>{const li=document.createElement('li');li.className='page-item'+(disabled?' disabled':'')+(active?' active':'');li.innerHTML=`<a class="page-link" href="#">${label}</a>`;li.onclick=e=>{e.preventDefault();if(!disabled&&!active){currentPage=page;search()}};pager.appendChild(li)};add('Prev',Math.max(1,currentPage-1),currentPage===1);for(let p=Math.max(1,currentPage-2);p<=Math.min(pages,currentPage+2);p++)add(String(p),p,false,p===currentPage);add('Next',Math.min(pages,currentPage+1),currentPage===pages)}
+function groupedPermissions(selected){const groups={};for(const [key,label,group] of PERMISSIONS){(groups[group]??=[]).push(`<label class="d-block mb-2"><input class="permission-check mr-1" type="checkbox" value="${esc(key)}" ${selected.has(key)?'checked':''}> ${esc(label)}<br><small class="text-muted ml-4">${esc(key)}</small></label>`)}return Object.entries(groups).map(([group,items])=>`<div class="col-lg-4 col-md-6 mb-3"><div class="permission-group"><h6>${esc(group)}</h6>${items.join('')}</div></div>`).join('')}
+function syncSummary(card){const roles=[...card.querySelectorAll('.role-check:checked')].map(x=>x.value),enabled=card.querySelectorAll('.permission-check:checked').length;card.querySelector('.role-summary').textContent=(roles.length?roles.join(', '):'No role')+` · ${enabled} of ${PERMISSIONS.length} permissions enabled`}
+function applyRoleDefaults(card){const selectedRoles=[...card.querySelectorAll('.role-check:checked')].map(x=>x.value.toLowerCase()),defaults=new Set();selectedRoles.forEach(role=>(ROLE_DEFAULTS[role]||[]).forEach(key=>defaults.add(key)));card.querySelectorAll('.permission-check').forEach(box=>box.checked=defaults.has(box.value));syncSummary(card)}
+async function save(card,button){const username=button.dataset.username,roles=[...card.querySelectorAll('.role-check:checked')].map(x=>x.value),permissions=[...card.querySelectorAll('.permission-check:checked')].map(x=>x.value);button.disabled=true;try{const res=await fetch('/staff/api/staff/assign-roles',{method:'POST',headers:{'Content-Type':'application/json','CSRF-Token':'<%= csrfToken %>'},body:JSON.stringify({username,roles,permissions})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.success)return showErr(data.message||'Unable to save access');syncSummary(card);showOk('Roles and permissions updated')}catch(_e){showErr('Unable to save access')}finally{button.disabled=false}}
+async function search(){const res=await fetch('/staff/api/staff?'+qs()),d=await res.json().catch(()=>({}));if(!res.ok)return showErr(d.message||'Unable to load staff accounts');accordion.innerHTML='';for(const u of(d.items||[])){const id=`staffAccess${u.id}`,roles=new Set((u.roles||[]).map(x=>x.toLowerCase())),permissions=new Set(u.permissions||[]),card=document.createElement('div');card.className='card mb-2';const roleChecks=ROLES.map(r=>`<label class="mr-3 mb-2"><input class="role-check mr-1" type="checkbox" value="${esc(r)}" ${roles.has(r)?'checked':''}> ${esc(r)}</label>`).join('');card.innerHTML=`<div class="card-header access-summary p-0" data-toggle="collapse" data-target="#${id}" aria-expanded="false"><div class="d-flex align-items-center p-3"><div class="staff-meta"><strong>${esc(u.name||u.username)}</strong> <span class="badge badge-${u.status==='ACTIVE'?'success':'secondary'}">${esc(u.status)}</span><br><small>${esc(u.username)} · ${esc(u.email)} · ${esc(u.staffNumber)}<br>${esc(u.school)}${u.department?' / '+esc(u.department):''}</small><br><span class="role-summary text-muted"></span></div><i class="fas fa-chevron-down ml-auto"></i></div></div><div id="${id}" class="collapse" data-parent="#staffAccordion"><div class="card-body"><h6>Roles</h6><div class="role-list">${roleChecks}</div><small class="text-muted d-block mb-3">Changing a role applies its defaults. You can then untick individual permissions before saving.</small><div class="row">${groupedPermissions(permissions)}</div><div class="text-right"><button class="btn btn-success btn-save" data-username="${esc(u.username)}"><i class="fas fa-save mr-1"></i>Save access</button></div></div></div>`;accordion.appendChild(card);syncSummary(card);card.querySelectorAll('.role-check').forEach(box=>box.addEventListener('change',()=>applyRoleDefaults(card)));card.querySelectorAll('.permission-check').forEach(box=>box.addEventListener('change',()=>syncSummary(card)));card.querySelector('.btn-save').addEventListener('click',e=>save(card,e.currentTarget))}if(!(d.items||[]).length)accordion.innerHTML='<div class="alert alert-light border text-center">No staff account matched your search.</div>';renderPager(Number(d.total||0))}
+btnFind.onclick=()=>{currentPage=1;search()};btnClear.onclick=()=>{fSearch.value='';currentPage=1;search()};fSearch.addEventListener('keydown',e=>{if(e.key==='Enter'){currentPage=1;search()}});search();
 </script>
