@@ -58,6 +58,10 @@ export function requireRole(...allowed) {
     if (!u) return res.redirect('/login');
 
     const role = String(u.role || '').toLowerCase();
+    const assignedRoles = new Set([
+      role,
+      ...(Array.isArray(u.roles) ? u.roles : []),
+    ].map(r => String(r || '').toLowerCase()).filter(Boolean));
 
     // Build a normalized full path like "/staff/courses/assigned"
     const fullPath =
@@ -71,7 +75,7 @@ export function requireRole(...allowed) {
       return next();
     }
 
-    if (!allow.includes(role)) {
+    if (!allow.some(candidate => assignedRoles.has(candidate))) {
       return res.status(403).render('pages/access-denied', {
         title: 'Access Denied',
         pageTitle: 'Access Denied',

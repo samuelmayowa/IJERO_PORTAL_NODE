@@ -1,16 +1,10 @@
 <div class="card card-success">
   <div class="card-header"><h3 class="card-title">Staff Roles and Permissions</h3></div>
   <div class="card-body">
-    <div class="form-row">
-      <div class="form-group col-md-2"><input id="fDept" class="form-control" placeholder="Department"></div>
-      <div class="form-group col-md-2"><input id="fSchool" class="form-control" placeholder="School"></div>
-      <div class="form-group col-md-2"><input id="fEmail" class="form-control" placeholder="Email"></div>
-      <div class="form-group col-md-2"><input id="fName" class="form-control" placeholder="Name"></div>
-      <div class="form-group col-md-2"><input id="fUsername" class="form-control" placeholder="Username"></div>
-      <div class="form-group col-md-2"><input id="fStaffNo" class="form-control" placeholder="Staff No"></div>
+    <div class="input-group">
+      <input id="fSearch" class="form-control" placeholder="Search by name, email, phone, username, staff number, department or school">
+      <div class="input-group-append"><button id="btnFind" class="btn btn-primary">Search</button><button id="btnClear" class="btn btn-light">Clear</button></div>
     </div>
-    <button id="btnFind" class="btn btn-primary mr-2">Find</button>
-    <button id="btnClear" class="btn btn-light">Clear Search Input</button>
 
     <div class="table-responsive mt-3">
       <table class="table table-striped" id="tbRole">
@@ -47,8 +41,7 @@ function showErr(m){ Modal.error(m || 'Error'); }
 
 function qs(){
   return new URLSearchParams({
-    department: fDept.value, school: fSchool.value, email: fEmail.value, name: fName.value,
-    username: fUsername.value, staffNumber: fStaffNo.value, page: currentPage, pageSize
+    q: fSearch.value, page: currentPage, pageSize
   }).toString();
 }
 
@@ -69,9 +62,10 @@ function renderPager(total){
 
 async function search(){
   const res = await fetch('/staff/api/staff?'+qs());
-  const d = await res.json();
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { showErr(d.message || 'Unable to load staff accounts'); return; }
   const tb = document.querySelector('#tbRole tbody'); tb.innerHTML='';
-  for(const u of d.items){
+  for(const u of (d.items || [])){
     const tr = document.createElement('tr');
     const roleChks = ROLES.map(r=>{
       const has = (u.roles||[]).map(x=>x.toLowerCase()).includes(r.toLowerCase()) || String(u.role||'').toLowerCase()===r.toLowerCase();
@@ -110,9 +104,10 @@ async function search(){
 
 document.getElementById('btnFind').addEventListener('click', ()=>{ currentPage = 1; search(); });
 document.getElementById('btnClear').addEventListener('click', ()=>{
-  fDept.value = fSchool.value = fEmail.value = fName.value = fUsername.value = fStaffNo.value = '';
+  fSearch.value = '';
   currentPage = 1; search();
 });
+fSearch.addEventListener('keydown', event => { if (event.key === 'Enter') { currentPage = 1; search(); } });
 
 search();
 </script>

@@ -378,6 +378,9 @@ export async function searchUsers({
     LEFT JOIN schools sc    ON sc.id = s.school_id
     LEFT JOIN departments d ON d.id = s.department_id
     WHERE 1=1
+      AND (? = '' OR s.username LIKE CONCAT('%', ?, '%') OR s.email LIKE CONCAT('%', ?, '%')
+        OR s.staff_no LIKE CONCAT('%', ?, '%') OR s.full_name LIKE CONCAT('%', ?, '%')
+        OR s.phone LIKE CONCAT('%', ?, '%') OR sc.name LIKE CONCAT('%', ?, '%') OR d.name LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.username LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.email    LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.staff_no LIKE CONCAT('%', ?, '%'))
@@ -388,6 +391,7 @@ export async function searchUsers({
     LIMIT ? OFFSET ?
     `,
     [
+      q,q,q,q,q,q,q,q,
       username, username,
       email,    email,
       staffNumber, staffNumber,
@@ -406,6 +410,9 @@ export async function searchUsers({
     LEFT JOIN schools sc    ON sc.id = s.school_id
     LEFT JOIN departments d ON d.id = s.department_id
     WHERE 1=1
+      AND (? = '' OR s.username LIKE CONCAT('%', ?, '%') OR s.email LIKE CONCAT('%', ?, '%')
+        OR s.staff_no LIKE CONCAT('%', ?, '%') OR s.full_name LIKE CONCAT('%', ?, '%')
+        OR s.phone LIKE CONCAT('%', ?, '%') OR sc.name LIKE CONCAT('%', ?, '%') OR d.name LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.username LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.email    LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR s.staff_no LIKE CONCAT('%', ?, '%'))
@@ -413,7 +420,7 @@ export async function searchUsers({
       AND (? = '' OR sc.name LIKE CONCAT('%', ?, '%'))
       AND (? = '' OR d.name LIKE CONCAT('%', ?, '%'))
     `,
-    [ username, username, email, email, staffNumber, staffNumber, name, name, school, school, department, department ]
+    [ q,q,q,q,q,q,q,q, username, username, email, email, staffNumber, staffNumber, name, name, school, school, department, department ]
   );
 
   return { items: rows.map(row => ({ ...row, roles: String(row.roles_csv || '').split(',').filter(Boolean) })), total: Number(cnt) || 0, page: Number(page), pageSize: limit };
