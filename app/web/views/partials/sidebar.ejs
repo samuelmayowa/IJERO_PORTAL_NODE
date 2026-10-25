@@ -18,8 +18,10 @@ const staffRoles = new Set([
 ]);
 
 const isStaffLike = staffRoles.has(role);
-const canManageAdmissions = ['admin','administrator','superadmin','registry','registrary','registrar','admission officer','admissions officer','admission'].includes(role);
-const canManageProgrammes = ['admin','administrator','superadmin','registry','registrary','registrar'].includes(role);
+const staffPermissionSet = new Set(typeof staffPermissions !== 'undefined' && Array.isArray(staffPermissions) ? staffPermissions : []);
+const hasStaffPermission = key => staffPermissionSet.has(key) || role === 'superadmin';
+const canManageAdmissions = ['admissions.view','admissions.manage','admissions.decide','admissions.documents','announcements.manage'].some(hasStaffPermission);
+const canManageProgrammes = ['schools.manage','programmes.manage'].some(hasStaffPermission);
 
 // allowedModules is provided by enforceStatusGlobally (Set or null)
 function can(moduleKey) {
@@ -210,7 +212,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
             </a>
           </li>
           <li class="nav-item"><a href="/staff/admissions/manage"           class="nav-link <%= cur.startsWith('/staff/admissions/manage') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Manage Admissions</p></a></li>
-          <% if(['admin','administrator','superadmin','registry','registrary','registrar'].includes(role)){ %><li class="nav-item"><a href="/staff/admissions/letter-printing" class="nav-link text-white" style="background:#6f42c1" ><i class="fas fa-print nav-icon"></i><p><strong>Enable Printing</strong></p></a></li><% } %>
+          <% if(hasStaffPermission('admissions.documents')){ %><li class="nav-item"><a href="/staff/admissions/letter-printing" class="nav-link text-white" style="background:#6f42c1" ><i class="fas fa-print nav-icon"></i><p><strong>Enable Printing</strong></p></a></li><% } %>
           <li class="nav-item"><a href="/staff/admissions/criteria" class="nav-link <%= cur.startsWith('/staff/admissions/criteria') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Criteria</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/programme-acronyms" class="nav-link <%= cur.startsWith('/staff/admissions/programme-acronyms') ? 'active' : '' %>"><i class="fas fa-font nav-icon"></i><p>Programme Acronyms</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/screening" class="nav-link <%= cur.startsWith('/staff/admissions/screening') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Screening Schedules</p></a></li>
@@ -219,7 +221,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/admissions/notifications" class="nav-link <%= cur.startsWith('/staff/admissions/notifications') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Email Deliveries</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/matriculation" class="nav-link <%= cur.startsWith('/staff/admissions/matriculation') ? 'active' : '' %>"><i class="fas fa-id-card nav-icon"></i><p>Matriculation Numbers</p></a></li>
           <li class="nav-item"><a href="/staff/admissions/applications" class="nav-link <%= cur.startsWith('/staff/admissions/applications') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Applications Report</p></a></li>
-          <% if (['admin','administrator','superadmin'].includes(role)) { %><li class="nav-item"><a href="/staff/admissions/settings" class="nav-link <%= cur.startsWith('/staff/admissions/settings') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Settings</p></a></li><% } %>
+          <% if (hasStaffPermission('admissions.manage')) { %><li class="nav-item"><a href="/staff/admissions/settings" class="nav-link <%= cur.startsWith('/staff/admissions/settings') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Admission Settings</p></a></li><% } %>
         </ul>
       </li>
       <% } %>
@@ -246,7 +248,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
             </a>
           </li>
 
-          <% const _canApproveResults = ['hod','dean','registry','admin','superadmin','administrator','bursary'].includes(role); %>
+          <% const _canApproveResults = hasStaffPermission('results.approve'); %>
           <% if (_canApproveResults) { %>
             <li class="nav-item">
               <a href="/staff/results/approve"
@@ -311,9 +313,9 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/fees/payments"class="nav-link <%= cur.startsWith('/staff/fees/payments') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>All / General Payment</p></a></li>
           <li class="nav-item"><a href="/staff/fees/payment-types" class="nav-link <%= cur.startsWith('/staff/fees/payment-types') && !cur.endsWith('/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Payment Types</p></a></li>
           <li class="nav-item"><a href="/staff/fees/payment-types/add" class="nav-link <%= cur.startsWith('/staff/fees/payment-types/add') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add Payment Type</p></a></li>
-          <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/debtors-creditors" class="nav-link <%= cur.startsWith('/staff/fees/debtors-creditors') ? 'active' : '' %>"><i class="fas fa-balance-scale nav-icon"></i><p>Debtors &amp; Creditors</p></a></li><% } %>
-          <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/programme-compulsory-fees" class="nav-link <%= cur.startsWith('/staff/fees/programme-compulsory-fees') ? 'active' : '' %>"><i class="fas fa-coins nav-icon"></i><p>Compulsory Fees</p></a></li><% } %>
-          <% if (['admin','administrator','superadmin','bursary','bursar'].includes(role)) { %><li class="nav-item"><a href="/staff/fees/programme-acceptance-fees" class="nav-link <%= cur.startsWith('/staff/fees/programme-acceptance-fees') ? 'active' : '' %>"><i class="fas fa-hand-holding-usd nav-icon"></i><p>Programme Acceptance Fees</p></a></li><% } %>
+          <% if (hasStaffPermission('payments.reports')) { %><li class="nav-item"><a href="/staff/fees/debtors-creditors" class="nav-link <%= cur.startsWith('/staff/fees/debtors-creditors') ? 'active' : '' %>"><i class="fas fa-balance-scale nav-icon"></i><p>Debtors &amp; Creditors</p></a></li><% } %>
+          <% if (hasStaffPermission('payments.manage')) { %><li class="nav-item"><a href="/staff/fees/programme-compulsory-fees" class="nav-link <%= cur.startsWith('/staff/fees/programme-compulsory-fees') ? 'active' : '' %>"><i class="fas fa-coins nav-icon"></i><p>Compulsory Fees</p></a></li><% } %>
+          <% if (hasStaffPermission('payments.manage')) { %><li class="nav-item"><a href="/staff/fees/programme-acceptance-fees" class="nav-link <%= cur.startsWith('/staff/fees/programme-acceptance-fees') ? 'active' : '' %>"><i class="fas fa-hand-holding-usd nav-icon"></i><p>Programme Acceptance Fees</p></a></li><% } %>
           <li class="nav-item"><a href="/staff/fees/update" class="nav-link <%= cur.startsWith('/staff/fees/update') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Add / Update Fees</p></a></li>
           <li class="nav-item"><a href="/staff/fees/late-payment-charges" class="nav-link <%= cur.startsWith('/staff/fees/late-payment-charges') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Late Payment Charges</p></a></li>
           <li class="nav-item"><a href="/staff/bursary/utme" class="nav-link <%= cur.startsWith('/staff/bursary/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME</p></a></li>
@@ -344,7 +346,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
         </ul>
       </li>
 
-      <% if (['admin','administrator','superadmin','registry','registrary','registrar'].includes(role)) { %>
+      <% if (hasStaffPermission('passwords.manage')) { %>
       <!-- Manage Password -->
       <li class="nav-item has-treeview <%= cur.startsWith('/staff/password') ? 'menu-open' : '' %>">
         <a href="#" class="nav-link <%= cur.startsWith('/staff/password') ? 'active' : '' %>">
@@ -464,7 +466,10 @@ document.addEventListener('DOMContentLoaded', function () {
     [['schools.manage'],['/staff/departments','/staff/schools']],
     [['programmes.manage'],['/staff/programmes']],
     [['courses.manage'],['/staff/courses']],
-    [['admissions.view','admissions.manage','admissions.decide','admissions.documents'],['/staff/admissions']],
+    [['admissions.view'],['/staff/admissions/applications','/staff/admissions/notifications']],
+    [['admissions.manage','admissions.decide'],['/staff/admissions/manage','/staff/admissions/criteria','/staff/admissions/programme-acronyms','/staff/admissions/screening','/staff/admissions/matriculation','/staff/admissions/settings']],
+    [['admissions.documents'],['/staff/admissions/documents','/staff/admissions/letter-printing']],
+    [['announcements.manage'],['/staff/admissions/announcements']],
     [['results.upload'],['/staff/results/upload']],
     [['results.approve'],['/staff/results/approve']],
     [['results.reports'],['/staff/results/reports']],

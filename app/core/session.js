@@ -75,6 +75,12 @@ export function requireRole(...allowed) {
       return next();
     }
 
+    const isSuperadminOnly = allow.length === 1 && allow[0] === 'superadmin';
+    if (!allow.some(candidate => assignedRoles.has(candidate)) && req.staffPermissionGranted && !isSuperadminOnly) {
+      req.user = u;
+      return next();
+    }
+
     if (!allow.some(candidate => assignedRoles.has(candidate))) {
       return res.status(403).render('pages/access-denied', {
         title: 'Access Denied',
