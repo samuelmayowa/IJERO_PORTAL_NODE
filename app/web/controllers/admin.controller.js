@@ -2,6 +2,8 @@
 import * as users from '../../services/user.service.js';
 import * as sessions from '../../services/session.service.js';
 import { pool } from '../../core/db.js';
+import { STAFF_PERMISSIONS, permissionsFor } from '../../core/staff-permissions.js';
+import { writeAudit } from '../../services/auditService.js';
 
 /* ---------- Helpers: normalize School/Department to NAMES ---------- */
 async function normalizeSchoolName(input) {
@@ -146,7 +148,8 @@ export const switchBackSession = (_req, res) => res.redirect('/staff/session/cur
 export async function showAssignRole(_req, res) {
   res.render('staff/assign-role', {
     title: 'Assign Role to Staff',
-    pageTitle: 'Assign Role to Staff'
+    pageTitle: 'Staff Roles and Permissions',
+    permissionCatalogue: STAFF_PERMISSIONS,
   });
 }
 export async function showModifyStaff(_req, res) {
@@ -178,6 +181,10 @@ export const listUsers = async (req, res) => {
       pageSize: Number(pageSize) || 10
     });
 
+    data.items = await Promise.all((data.items || []).map(async item => ({
+      ...item,
+      permissions: [...await permissionsFor({ id: item.id, roles: item.roles || [], role: item.roles?.[0] })],
+    })));
     return res.json(data);
   } catch (e) {
     return res.status(500).json({ items: [], total: 0, error: e.message || 'Failed to load users' });
@@ -241,7 +248,24 @@ export const assignExtraRoles = async (req, res) => {
     const roles = Array.isArray(rolesRaw) ? rolesRaw : (rolesRaw ? [rolesRaw] : []);
     if (!username) return res.status(400).json({ success: false, message: 'Username is required' });
 
+    const permissions = Array.isArray(req.body?.permissions) ? req.body.permissions.map(x => String(x)) : [];
+    const [[target]] = await pool.query('SELECT id,username FROM staff WHERE TRIM(LOWER(username))=TRIM(LOWER(?)) LIMIT 1', [username]);
+    if (!target) throw new Error('User not found');
+    const wantsSuperadmin = roles.map(x => String(x).toLowerCase()).includes('superadmin');
+    if (Number(target.id) === Number(req.user?.id) && !wantsSuperadmin) throw new Error('You cannot remove your own superadmin access.');
+    const [[currentSuper]]=await pool.query(`SELECT COUNT(DISTINCT ur.user_id) total FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN staff s ON s.id=ur.user_id WHERE r.name='superadmin' AND s.status='ACTIVE'`);
+    const [[targetSuper]]=await pool.query(`SELECT 1 ok FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=? AND r.name='superadmin' LIMIT 1`,[target.id]);
+    if(targetSuper && !wantsSuperadmin && Number(currentSuper.total)<=1) throw new Error('The final active superadmin cannot be removed.');
     await users.setRoles({ username, roles });
+    const validKeys=new Set(STAFF_PERMISSIONS.map(([key])=>key));
+    const conn=await pool.getConnection();
+    try{
+      await conn.beginTransaction();
+      await conn.query('DELETE FROM staff_permission_overrides WHERE staff_id=?',[target.id]);
+      for(const key of validKeys) await conn.query('INSERT INTO staff_permission_overrides(staff_id,permission_key,allowed,granted_by) VALUES (?,?,?,?)',[target.id,key,permissions.includes(key)?1:0,req.user?.id||null]);
+      await writeAudit(conn,req,{action:'STAFF_ACCESS_UPDATED',entityType:'staff',entityId:target.id,reason:'Roles and permissions updated',newValues:{roles,permissions}});
+      await conn.commit();
+    }catch(error){await conn.rollback();throw error}finally{conn.release()}
     return res.json({ success: true });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message || 'Could not assign roles' });

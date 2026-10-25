@@ -15,10 +15,10 @@ function hydrateUserRow(row) {
     .filter(Boolean);
 
   const priority = [
-    'superadmin','administrator','admin','staff','hod','lecturer','dean','ict','bursary','registry',
+    'superadmin','administrator','admin','adminict','staff','hod','lecturer','dean','ict','bursary','registry',
     'admission officer','auditor','health center','works','library','provost','student union','student','applicant'
   ];
-  const primary = roles.find(r => priority.includes(r.toLowerCase())) || roles[0] || 'staff';
+  const primary = priority.find(candidate => roles.some(r => r.toLowerCase() === candidate)) || roles[0] || 'staff';
 
   return {
     id: row.id,
@@ -355,6 +355,7 @@ export async function searchUsers({
       s.staff_no    AS staffNumber,
       s.status,
       s.phone,
+      (SELECT GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ',') FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=s.id) AS roles_csv,
       sc.name       AS school,
       d.name        AS department
     FROM staff s
@@ -399,7 +400,7 @@ export async function searchUsers({
     [ username, username, email, email, staffNumber, staffNumber, name, name, school, school, department, department ]
   );
 
-  return { items: rows, total: Number(cnt) || 0, page: Number(page), pageSize: limit };
+  return { items: rows.map(row => ({ ...row, roles: String(row.roles_csv || '').split(',').filter(Boolean) })), total: Number(cnt) || 0, page: Number(page), pageSize: limit };
 }
 
 // --- helpers to resolve "ID or Name" to numeric ID ---

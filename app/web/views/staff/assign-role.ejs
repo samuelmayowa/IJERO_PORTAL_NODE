@@ -1,5 +1,5 @@
 <div class="card card-success">
-  <div class="card-header"><h3 class="card-title">Assign Role to Staff</h3></div>
+  <div class="card-header"><h3 class="card-title">Staff Roles and Permissions</h3></div>
   <div class="card-body">
     <div class="form-row">
       <div class="form-group col-md-2"><input id="fDept" class="form-control" placeholder="Department"></div>
@@ -14,7 +14,7 @@
 
     <div class="table-responsive mt-3">
       <table class="table table-striped" id="tbRole">
-        <thead><tr><th>Username</th><th>Name</th><th>Current Role(s)</th><th>Add Roles</th><th>Action</th></tr></thead>
+        <thead><tr><th>Staff</th><th>Roles and permissions</th><th>Action</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -36,7 +36,8 @@
 </div></div></div>
 
 <script>
-const ROLES = ['hod','lecturer','applicant','student','dean','ict','student union','bursary','registry','admission officer','auditor','health center','works','library','provost','admin','staff'];
+const ROLES = ['superadmin','admin','adminict','registry','admission officer','bursary','hod','dean','lecturer','ict','auditor','health center','works','library','provost','student union','staff'];
+const PERMISSIONS = <%- JSON.stringify(permissionCatalogue || []) %>;
 
 const pageSize = 10; let currentPage = 1;
 const pageInfo = document.getElementById('pageInfo'); const pager = document.getElementById('pager');
@@ -74,15 +75,14 @@ async function search(){
     const tr = document.createElement('tr');
     const roleChks = ROLES.map(r=>{
       const has = (u.roles||[]).map(x=>x.toLowerCase()).includes(r.toLowerCase()) || String(u.role||'').toLowerCase()===r.toLowerCase();
-      return `<label class="mr-2"><input type="checkbox" value="${r}" ${has?'checked':''}> ${r}</label>`;
+      return `<label class="mr-2"><input class="role-check" type="checkbox" value="${r}" ${has?'checked':''}> ${r}</label>`;
     }).join('');
+    const permissionChks = PERMISSIONS.map(([key,label]) => `<label class="d-block mb-1"><input class="permission-check" type="checkbox" value="${key}" ${(u.permissions||[]).includes(key)?'checked':''}> <strong>${label}</strong><br><small class="text-muted ml-3">${key}</small></label>`).join('');
     tr.innerHTML = `
-      <td>${u.username || ''}</td>
-      <td>${u.name || u.fullName || ''}</td>
-      <td>${[u.role].concat(u.roles || []).filter(Boolean).join(', ')}</td>
-      <td>${roleChks}</td>
+      <td><strong>${u.username || ''}</strong><br>${u.name || u.fullName || ''}<br><small>${u.email||''}</small></td>
+      <td><div class="mb-2"><strong>Roles</strong><br>${roleChks}</div><div class="border-top pt-2"><strong>Feature permissions</strong>${permissionChks}</div></td>
       <td>
-        <button class="btn btn-sm btn-success btn-apply" data-username="${(u.username||'').trim()}">Apply</button>
+        <button class="btn btn-sm btn-success btn-apply" data-username="${(u.username||'').trim()}">Save access</button>
       </td>`;
     tb.appendChild(tr);
   }
@@ -92,15 +92,16 @@ async function search(){
       const username = (btn.dataset.username || '').trim();
       if (!username) return showErr('User reference missing for this record');
 
-      const roles = Array.from(tr.querySelectorAll('input[type=checkbox]:checked')).map(x => x.value);
+      const roles = Array.from(tr.querySelectorAll('.role-check:checked')).map(x => x.value);
+      const permissions = Array.from(tr.querySelectorAll('.permission-check:checked')).map(x => x.value);
 
       const res = await fetch('/staff/api/staff/assign-roles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'CSRF-Token': '<%= csrfToken %>' },
-        body: JSON.stringify({ username, roles })
+        body: JSON.stringify({ username, roles, permissions })
       });
       const data = await res.json();
-      if (data.success) { showOk('Roles updated'); search(); }
+      if (data.success) { showOk('Roles and permissions updated'); search(); }
       else showErr(data.message || 'Failed');
     });
   });

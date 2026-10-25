@@ -21,6 +21,7 @@ import adminRoutes from "./app/web/routes/admin.routes.js";
 import legacyPaymentRecoveryRoutes from "./app/web/routes/staff/legacy-payment-recovery.routes.js";
 import { ROLE_MENUS } from "./app/web/config/role-menus.js";
 import { requireMenuPermission } from "./app/core/permissions.js";
+import { enforceStaffPermission } from "./app/core/staff-permissions.js";
 import { ensureAdminUser } from "./app/services/user.service.js";
 import {
   listOpenApplicationForms,
@@ -361,6 +362,7 @@ app.use((err, req, res, next) => {
 });
 
 app.use(enforceStatusGlobally);
+app.use('/staff', enforceStaffPermission);
 app.use((req, res, next) => {
   if (res.locals.title === undefined) res.locals.title = "Dashboard";
   next();
@@ -685,6 +687,8 @@ app.use(
   requireRole(
     "staff",
     "admin",
+    "superadmin",
+    "adminict",
     "hod",
     "registry",
     "lecturer",
@@ -705,6 +709,8 @@ app.use(
   requireRole(
     "staff",
     "admin",
+    "superadmin",
+    "adminict",
     "hod",
     "registry",
     "lecturer",
@@ -744,6 +750,9 @@ app.use(
   requireRole(
     "staff",
     "admin",
+    "superadmin",
+    "administrator",
+    "adminict",
     "registry",
     "admission officer",
     "hod",
@@ -773,6 +782,9 @@ app.use(
   requireRole(
     "staff",
     "admin",
+    "superadmin",
+    "administrator",
+    "adminict",
     "hod",
     "registry",
     "admission officer",

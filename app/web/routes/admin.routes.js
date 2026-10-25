@@ -58,8 +58,8 @@ router.post('/api/staff/:id/delete',     requireRole('admin','staff'), blockIfRe
 // ──────────────────────────────────────────────────────────────
 // Assign extra roles
 // ──────────────────────────────────────────────────────────────
-router.get('/manage/assign-role',        requireRole('admin','staff'), showAssignRole);
-router.post('/api/staff/assign-roles',   requireRole('admin','staff'), blockIfReadOnly('Assign Roles'),  assignExtraRoles);
+router.get('/manage/assign-role',        requireRole('superadmin'), showAssignRole);
+router.post('/api/staff/assign-roles',   requireRole('superadmin'), blockIfReadOnly('Assign Roles'),  assignExtraRoles);
 
 // ──────────────────────────────────────────────────────────────
 // AJAX: users by role (used in reset & elsewhere)

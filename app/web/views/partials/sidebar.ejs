@@ -452,3 +452,33 @@ const inAttendance = cur.startsWith('/staff/attendance');
 
   </ul>
 </nav>
+<% if (isStaffLike && typeof staffPermissions !== 'undefined' && Array.isArray(staffPermissions)) { %>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const allowed = new Set(<%- JSON.stringify(staffPermissions) %>);
+  const rules = [
+    ['roles.manage',['/staff/manage/assign-role']],
+    ['staff.manage',['/staff/users/add','/staff/manage/modify']],
+    ['passwords.manage',['/staff/password','/staff/password-reset','/staff/students/reset-password']],
+    ['sessions.manage',['/staff/session']],
+    ['programmes.manage',['/staff/programmes','/staff/departments','/staff/schools','/staff/courses']],
+    ['admissions.manage',['/staff/admissions']],
+    ['results.upload',['/staff/results/upload']],
+    ['results.approve',['/staff/results/approve']],
+    ['students.manage',['/staff/students/edit']],
+    ['students.clear',['/staff/exams/clearance']],
+    ['payments.verify',['/staff/bursary','/staff/payments/verify']]
+  ];
+  for (const [permission,prefixes] of rules) {
+    if (allowed.has(permission)) continue;
+    document.querySelectorAll('a[href]').forEach(function (link) {
+      const href = link.getAttribute('href') || '';
+      if (prefixes.some(prefix => href.startsWith(prefix))) link.closest('li')?.remove();
+    });
+  }
+  document.querySelectorAll('.nav-item.has-treeview').forEach(function(group){
+    if (!group.querySelector('.nav-treeview .nav-item')) group.remove();
+  });
+});
+</script>
+<% } %>
