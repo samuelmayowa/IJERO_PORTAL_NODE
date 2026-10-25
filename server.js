@@ -201,6 +201,10 @@ const csrfSkipPaths = [
 ];
 
 app.use((req, res, next) => {
+  if (
+    req.method === "POST" &&
+    /^\/staff\/admissions\/applicants\/\d+\/passport\/passport$/.test(req.path)
+  ) return next();
   if (csrfSkipPaths.includes(req.path)) return next();
   return csrfProtection(req, res, next);
 });

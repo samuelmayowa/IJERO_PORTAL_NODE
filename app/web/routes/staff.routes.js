@@ -1,5 +1,7 @@
 // app/web/routes/staff.routes.js
 import { Router } from "express";
+import csrf from "csurf";
+import multer from "multer";
 
 // Existing controllers already in your app
 import * as staffCtrl from "../controllers/staff.controller.js";
@@ -20,6 +22,32 @@ import * as applicantEditorCtrl from "../controllers/applicantEditor.controller.
 import * as passwordManagementCtrl from "../controllers/passwordManagement.controller.js";
 import { uploadApplicationDocumentFile } from "../middleware/applicationDocumentUpload.js";
 const router = Router();
+const parserAwareCsrf = csrf({ cookie: false });
+const validateParsedCsrf = (req, res, next) => parserAwareCsrf(req, res, (error) => {
+  if (!error) return next();
+  if (error.code === "EBADCSRFTOKEN") {
+    return res.status(403).render("pages/denied", {
+      title: "Access Denied", pageTitle: "ACCESS DENIED",
+      reason: "Invalid or missing security token. Please refresh and try again.", homeHref: "/staff",
+    });
+  }
+  return next(error);
+});
+const studentPassportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = ["image/jpeg", "image/png"].includes(file.mimetype);
+    callback(allowed ? null : new Error("Passport photograph must be a JPG or PNG image."), allowed);
+  },
+}).single("photo");
+const parseStudentPassport = (req, res, next) => studentPassportUpload(req, res, (error) => {
+  if (!error) return next();
+  const message = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE"
+    ? "The selected photograph exceeds the maximum size of 5 MB."
+    : error.message || "The passport photograph could not be uploaded.";
+  return res.status(400).json({ success: false, message });
+});
 
 /* ──────────────────────────────────────────────────────────
    Helpers: resolve guards & safe controller access
@@ -112,7 +140,7 @@ router.post("/admissions/matriculation/:applicationId/generate", admissionRoles,
 router.post("/admissions/matriculation/bulk", admissionRoles, admissionsCtrl.generateMatricBulk);
 router.get("/admissions/applicants/:id/edit", admissionRoles, applicantEditorCtrl.editPage);
 router.post("/admissions/applicants/:id/edit", admissionRoles, applicantEditorCtrl.updateApplicant);
-router.post("/admissions/applicants/:id/passport/:documentType", admissionRoles, uploadApplicationDocumentFile, applicantEditorCtrl.replacePassport);
+router.post("/admissions/applicants/:id/passport/:documentType", admissionRoles, uploadApplicationDocumentFile, validateParsedCsrf, applicantEditorCtrl.replacePassport);
 router.get("/admissions/documents", admissionRoles, admissionsCtrl.templatesPage);
 router.post("/admissions/documents/preview-draft", admissionRoles, admissionsCtrl.previewDraftTemplate);
 router.post("/admissions/documents/sample-draft.pdf", admissionRoles, admissionsCtrl.sampleDraftTemplatePdf);
@@ -142,18 +170,24 @@ router.get(
 /* ───────────────────── Student Edit ───────────────────── */
 router.get(
   "/students/edit",
-  requireRole("admin", "registry"),
+  programmeManagementRoles,
   studentEditCtrl.showStudentEditPage,
 );
 router.get(
   "/api/students",
-  requireRole("admin", "registry"),
+  programmeManagementRoles,
   studentEditCtrl.listStudents,
 );
 router.post(
   "/api/students/:id",
-  requireRole("admin", "registry"),
+  programmeManagementRoles,
   studentEditCtrl.updateStudent,
+);
+router.post(
+  "/api/students/:id/passport",
+  programmeManagementRoles,
+  parseStudentPassport,
+  studentEditCtrl.replacePassport,
 );
 
 /* ───────────────── Password tools (existing) ────────────── */

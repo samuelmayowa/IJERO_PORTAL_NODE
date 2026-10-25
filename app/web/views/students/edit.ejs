@@ -96,6 +96,19 @@
       <div class="form-row">
         <div class="form-group col-md-4"><label>Level</label><input id="editLevel" class="form-control"></div>
       </div>
+      <hr>
+      <h6>Replace Passport Photograph</h6>
+      <div class="form-row">
+        <div class="form-group col-md-5">
+          <label>JPG or PNG (maximum 5 MB)</label>
+          <input id="editPassport" type="file" class="form-control-file" accept="image/jpeg,image/png">
+        </div>
+        <div class="form-group col-md-7">
+          <label>Reason for replacement</label>
+          <input id="editPassportReason" class="form-control" placeholder="Required for the audit log">
+        </div>
+      </div>
+      <button id="btnReplacePassport" type="button" class="btn btn-outline-primary">Replace Passport</button>
     </div>
 
     <div class="modal-footer">
@@ -201,6 +214,8 @@ function openEdit(id) {
   editDept.value = u.department || '';
   editProgramme.value = u.programme || '';
   editLevel.value = u.student_level || '';
+  editPassport.value = '';
+  editPassportReason.value = '';
 
   $('#editModal').modal('show');
 }
@@ -283,6 +298,34 @@ document.getElementById('btnSaveEdit').addEventListener('click', async () => {
     load();
   } else {
     showErr(d.message || 'Failed');
+  }
+});
+
+document.getElementById('btnReplacePassport').addEventListener('click', async () => {
+  const id = editId.value;
+  const file = editPassport.files[0];
+  const reason = editPassportReason.value.trim();
+  if (!file) return showErr('Select a JPG or PNG passport photograph.');
+  if (!reason) return showErr('Enter a reason for replacing the passport photograph.');
+
+  const form = new FormData();
+  form.append('photo', file);
+  form.append('reason', reason);
+  const button = document.getElementById('btnReplacePassport');
+  button.disabled = true;
+  try {
+    const res = await fetch('/staff/api/students/' + encodeURIComponent(id) + '/passport', {
+      method: 'POST', headers: { 'CSRF-Token': csrfToken }, body: form
+    });
+    const d = await res.json();
+    if (!res.ok || !d.success) return showErr(d.message || 'Passport update failed.');
+    editPassport.value = '';
+    editPassportReason.value = '';
+    showOk(d.message);
+  } catch (_error) {
+    showErr('Passport update failed. Please try again.');
+  } finally {
+    button.disabled = false;
   }
 });
 
