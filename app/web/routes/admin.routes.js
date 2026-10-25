@@ -52,6 +52,9 @@ router.post('/session/back',             requireRole('admin','staff'), blockIfRe
 // ──────────────────────────────────────────────────────────────
 router.get('/manage/modify',             requireRole('admin','staff'), showModifyStaff);
 router.get('/api/staff',                 requireRole('admin','staff'), searchStaff); // read-only
+// Keep named staff actions before /api/staff/:id so Express does not treat
+// "assign-roles" as a numeric staff id.
+router.post('/api/staff/assign-roles',   requireRole('superadmin'), blockIfReadOnly('Assign Roles'),  assignExtraRoles);
 router.post('/api/staff/:id',            requireRole('admin','staff'), blockIfReadOnly('Update Staff'),  updateStaff);
 router.post('/api/staff/:id/delete',     requireRole('admin','staff'), blockIfReadOnly('Delete Staff'),  deleteStaff);
 
@@ -59,7 +62,6 @@ router.post('/api/staff/:id/delete',     requireRole('admin','staff'), blockIfRe
 // Assign extra roles
 // ──────────────────────────────────────────────────────────────
 router.get('/manage/assign-role',        requireRole('superadmin'), showAssignRole);
-router.post('/api/staff/assign-roles',   requireRole('superadmin'), blockIfReadOnly('Assign Roles'),  assignExtraRoles);
 
 // ──────────────────────────────────────────────────────────────
 // AJAX: users by role (used in reset & elsewhere)
