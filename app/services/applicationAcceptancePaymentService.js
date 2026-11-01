@@ -30,6 +30,25 @@ function money(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function selectAcceptancePaymentOrders(obligation = {}) {
+  const payments = Array.isArray(obligation.payments)
+    ? obligation.payments
+    : [];
+  const newestFirst = [...payments].reverse();
+  const pending = newestFirst.find(
+    (payment) => clean(payment?.status).toUpperCase() === "PENDING",
+  );
+  const paid = newestFirst.find(
+    (payment) => clean(payment?.status).toUpperCase() === "PAID",
+  );
+  const outstanding = money(obligation.outstanding);
+
+  return {
+    pendingOrderId: outstanding > 0 ? clean(pending?.order_id) || null : null,
+    receiptOrderId: clean(paid?.order_id) || null,
+  };
+}
+
 function fullName(applicant) {
   return [
     applicant?.first_name,
@@ -130,7 +149,31 @@ export async function listAcceptanceApplications(
   const fallbackAcceptanceStid =
     resolveAcceptanceServiceTypeId(null);
 
-  const output=[];for(const row of rows||[]){const summary=await getApplicationFeeSummary(row.id,applicantUserId);const part=summary?.acceptance;const latest=[...(part?.payments||[])].reverse()[0];output.push({...row,configured_acceptance_total:part?.expected||0,acceptance_paid_total:part?.paid||0,acceptance_outstanding:part?.outstanding||0,acceptance_credit:part?.credit||0,acceptance_payments:part?.payments||[],order_id:latest?.order_id||row.order_id,invoice_status:latest?.status||row.invoice_status,acceptance_stid:clean(row.acceptance_stid)||fallbackAcceptanceStid});}return output;
+  const output = [];
+
+  for (const row of rows || []) {
+    const summary = await getApplicationFeeSummary(
+      row.id,
+      applicantUserId,
+    );
+    const acceptance = summary?.acceptance;
+    const orders = selectAcceptancePaymentOrders(acceptance);
+
+    output.push({
+      ...row,
+      configured_acceptance_total: acceptance?.expected || 0,
+      acceptance_paid_total: acceptance?.paid || 0,
+      acceptance_outstanding: acceptance?.outstanding || 0,
+      acceptance_credit: acceptance?.credit || 0,
+      acceptance_payments: acceptance?.payments || [],
+      pending_order_id: orders.pendingOrderId,
+      receipt_order_id: orders.receiptOrderId,
+      acceptance_stid:
+        clean(row.acceptance_stid) || fallbackAcceptanceStid,
+    });
+  }
+
+  return output;
 }
 
 async function replaceAcceptanceLines({

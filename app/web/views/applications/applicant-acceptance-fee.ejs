@@ -92,14 +92,6 @@ function money(value) {
                     item.application_status || ''
                   ).toUpperCase();
 
-                  const paymentStatus = String(
-                    item.acceptance_payment_status || ''
-                  ).toUpperCase();
-
-                  const invoiceStatus = String(
-                    item.invoice_status || ''
-                  ).toUpperCase();
-
                   const admitted =
                     applicationStatus === 'ADMITTED';
 
@@ -172,7 +164,7 @@ function money(value) {
                         <span class="badge badge-secondary">
                           Not Available
                         </span>
-                      <% } else if (item.order_id) { %>
+                      <% } else if (item.pending_order_id) { %>
                         <span class="badge badge-warning">
                           Pending
                         </span>
@@ -190,12 +182,12 @@ function money(value) {
                           You are not eligible for acceptance-fee
                           payment until this application is admitted.
                         </div>
-                      <% } else if (paid && item.order_id) { %>
+                      <% } else if (paid && item.receipt_order_id) { %>
                         <a
                           class="btn btn-success btn-sm"
                           target="_blank"
                           href="/payment/print/<%= encodeURIComponent(
-                            item.order_id
+                            item.receipt_order_id
                           ) %>?type=receipt&dl=0"
                         >
                           <i class="fas fa-receipt mr-1"></i>
@@ -207,11 +199,11 @@ function money(value) {
                           Acceptance payment configuration is
                           awaiting completion by the College.
                         </div>
-                      <% } else if (item.order_id) { %>
+                      <% } else if (item.pending_order_id) { %>
                         <a
                           class="btn btn-warning btn-sm"
                           href="/payment?from=application&order_id=<%= encodeURIComponent(
-                            item.order_id
+                            item.pending_order_id
                           ) %>"
                         >
                           <i class="fas fa-credit-card mr-1"></i>
