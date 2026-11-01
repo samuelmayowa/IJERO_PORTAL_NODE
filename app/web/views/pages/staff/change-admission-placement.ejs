@@ -1,0 +1,53 @@
+<div class="alert alert-warning shadow-sm">
+  <strong><i class="fas fa-shield-alt mr-2"></i>Controlled placement change</strong>
+  <div>Use this only after confirming the new admission placement. Paid invoices remain unchanged. If the matriculation acronym changes, the old number is permanently reserved and retained as a searchable alias.</div>
+</div>
+
+<div class="card modern-panel">
+  <div class="card-header"><h3 class="card-title">Find transitioned student</h3></div>
+  <div class="card-body">
+    <form method="get" class="form-row">
+      <div class="col-md-10"><input class="form-control" name="q" value="<%= q %>" placeholder="Application number, name, email or matriculation number"></div>
+      <div class="col-md-2"><button class="btn btn-primary btn-block"><i class="fas fa-search mr-1"></i>Search</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card modern-panel">
+  <div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Student</th><th>Current placement</th><th>Matriculation</th><th style="min-width:440px">New placement</th></tr></thead>
+      <tbody>
+      <% if (!rows.length) { %><tr><td colspan="4" class="text-center text-muted py-5">No transitioned students matched the search.</td></tr><% } %>
+      <% rows.forEach(row => { %>
+        <tr>
+          <td><strong><%= row.full_name %></strong><br><small><%= row.application_number %><br><%= row.email %></small></td>
+          <td><%= row.school_name || '—' %><br><strong><%= row.department_name || '—' %></strong><br><small><%= row.programme_name || '—' %></small></td>
+          <td><strong><%= row.matric_number || 'Not generated' %></strong><% if(Number(row.previous_matric_count)>0){ %><br><span class="badge badge-info"><%= row.previous_matric_count %> previous alias</span><% } %></td>
+          <td>
+            <form method="post" action="/staff/admissions/change-placement/<%= row.applicant_application_id %>" class="placement-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+              <input type="hidden" name="search_q" value="<%= q %>">
+              <div class="form-row">
+                <div class="col-md-4"><select name="school_id" class="form-control form-control-sm placement-school" required><option value="">School</option><% schools.forEach(x=>{ %><option value="<%= x.id %>"><%= x.name %></option><% }) %></select></div>
+                <div class="col-md-4"><select name="department_id" class="form-control form-control-sm placement-department" required><option value="">Department</option><% departments.forEach(x=>{ %><option value="<%= x.id %>" data-school="<%= x.school_id %>"><%= x.name %></option><% }) %></select></div>
+                <div class="col-md-4"><select name="programme_id" class="form-control form-control-sm placement-programme" required><option value="">Programme</option><% programmes.forEach(x=>{ %><option value="<%= x.id %>" data-school="<%= x.school_id %>" data-department="<%= x.department_id %>"><%= x.name %></option><% }) %></select></div>
+              </div>
+              <div class="input-group input-group-sm mt-2"><input class="form-control" name="reason" minlength="10" maxlength="500" required placeholder="Required reason for change"><div class="input-group-append"><button class="btn btn-warning" onclick="return confirm('Change this student placement and update their academic profile and matriculation number?')"><i class="fas fa-exchange-alt mr-1"></i>Change placement</button></div></div>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.placement-form').forEach(function(form){
+  var school=form.querySelector('.placement-school'),department=form.querySelector('.placement-department'),programme=form.querySelector('.placement-programme');
+  function filter(select,predicate){Array.from(select.options).forEach(function(option,index){if(index===0)return;option.hidden=!predicate(option);});if(select.selectedOptions[0]?.hidden)select.value='';}
+  school.addEventListener('change',function(){filter(department,function(o){return o.dataset.school===school.value});department.value='';programme.value='';filter(programme,function(){return false});});
+  department.addEventListener('change',function(){filter(programme,function(o){return o.dataset.school===school.value&&o.dataset.department===department.value});programme.value='';});
+});
+</script>

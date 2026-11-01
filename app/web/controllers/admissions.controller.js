@@ -11,6 +11,7 @@ import {
 import { sendPendingEmail } from "../../services/notificationService.js";
 import { writeAudit } from "../../services/auditService.js";
 import { generateMatriculation } from "../../services/matriculationService.js";
+import { changeAdmissionPlacement, initializeMatricNumberAliases } from "../../services/admissionPlacementService.js";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -830,6 +831,67 @@ export async function matriculationPage(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+export async function changePlacementPage(req, res, next) {
+  try {
+    await initializeMatricNumberAliases();
+    const opts = await options();
+    const q = clean(req.query.q).slice(0, 150);
+    const params = [];
+    let search = '';
+    if (q) {
+      search = `AND (aa.application_number LIKE ? OR pu.username LIKE ? OR pu.matric_number LIKE ? OR CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) LIKE ?)`;
+      const term = `%${q}%`;
+      params.push(term, term, term, term);
+    }
+    const [rows] = await pool.query(
+      `SELECT aa.id applicant_application_id,aa.application_number,
+              pu.id public_user_id,pu.username email,pu.matric_number,
+              CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) full_name,
+              ad.offered_school_id,ad.offered_department_id,ad.offered_programme_id,
+              s.name school_name,d.name department_name,p.name programme_name,
+              t.status transition_status,ma.sequence_number,
+              (SELECT COUNT(*) FROM matric_number_aliases a WHERE a.public_user_id=pu.id) previous_matric_count
+         FROM applicant_applications aa
+         JOIN public_users pu ON pu.id=aa.applicant_user_id
+         JOIN admission_decisions ad ON ad.applicant_application_id=aa.id AND ad.status='ADMITTED'
+         JOIN applicant_student_transitions t ON t.applicant_application_id=aa.id
+         LEFT JOIN matric_number_assignments ma ON ma.applicant_application_id=aa.id
+         LEFT JOIN schools s ON s.id=ad.offered_school_id
+         LEFT JOIN departments d ON d.id=ad.offered_department_id
+         LEFT JOIN programmes p ON p.id=ad.offered_programme_id
+        WHERE 1=1 ${search}
+        ORDER BY aa.updated_at DESC LIMIT 100`,
+      params,
+    );
+    res.render('pages/staff/change-admission-placement', {
+      layout: 'layouts/adminlte',
+      title: 'Change Admission Placement',
+      pageTitle: 'Change Admission Placement',
+      rows,
+      q,
+      ...opts,
+    });
+  } catch (error) { next(error); }
+}
+
+export async function changePlacement(req, res) {
+  try {
+    const result = await changeAdmissionPlacement(req, id(req.params.applicationId), {
+      schoolId: id(req.body.school_id),
+      departmentId: id(req.body.department_id),
+      programmeId: id(req.body.programme_id),
+      reason: req.body.reason,
+    });
+    const matricNotice = result.oldMatricNumber && result.oldMatricNumber !== result.newMatricNumber
+      ? ` Matriculation number changed from ${result.oldMatricNumber} to ${result.newMatricNumber}; the old number remains reserved as an alias.`
+      : '';
+    req.flash('success', `Placement changed to ${result.programmeName}.${matricNotice} Fee balances were recalculated.`);
+  } catch (error) {
+    req.flash('error', error.message || 'Admission placement could not be changed.');
+  }
+  res.redirect(`/staff/admissions/change-placement?q=${encodeURIComponent(clean(req.body.search_q))}`);
 }
 export async function generateMatric(req, res) {
   try {

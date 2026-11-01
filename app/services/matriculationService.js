@@ -10,6 +10,8 @@ export async function allocateMatriculation(connection,applicationId){
   await connection.query(`INSERT IGNORE INTO matric_number_sequences (session_id,programme_id,department_id,last_number) VALUES (?,0,0,0)`,[app.session_id]);
   const [[sequence]]=await connection.query(`SELECT * FROM matric_number_sequences WHERE session_id=? FOR UPDATE`,[app.session_id]);
   const next=Number(sequence.last_number)+1;const matric=`EKSCOTECH/${yearCode(app.session_name)}/${code}/${String(next).padStart(3,'0')}`;
+  const [[reserved]]=await connection.query(`SELECT matric_number FROM matric_number_assignments WHERE matric_number=? UNION ALL SELECT matric_number FROM matric_number_aliases WHERE matric_number=? LIMIT 1`,[matric,matric]);
+  if(reserved)throw new Error('The generated matriculation number is already reserved. Contact ICT.');
   const [result]=await connection.query(`INSERT INTO matric_number_assignments (applicant_application_id,public_user_id,session_id,admission_year,programme_id,department_id,sequence_number,matric_number) VALUES (?,?,?,?,?,?,?,?)`,[app.id,app.applicant_user_id,app.session_id,yearCode(app.session_name),app.offered_programme_id,app.offered_department_id,next,matric]);
   await connection.query(`UPDATE matric_number_sequences SET last_number=? WHERE id=?`,[next,sequence.id]);
   await connection.query(`UPDATE public_users SET matric_number=? WHERE id=?`,[matric,app.applicant_user_id]);

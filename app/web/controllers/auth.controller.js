@@ -135,12 +135,15 @@ export async function doLogin(req, res) {
       try {
         const loginIdentifier=String(username||'').trim();
         const [pub] = await pool.query(
-          `SELECT id, role, first_name, middle_name, last_name, username, matric_number, password_hash
-           FROM public_users
-           WHERE TRIM(LOWER(username)) = TRIM(LOWER(?))
-              OR TRIM(LOWER(matric_number)) = TRIM(LOWER(?))
+          `SELECT DISTINCT pu.id,pu.role,pu.first_name,pu.middle_name,pu.last_name,
+                  pu.username,pu.matric_number,pu.password_hash
+           FROM public_users pu
+           LEFT JOIN matric_number_aliases ma ON ma.public_user_id=pu.id
+           WHERE TRIM(LOWER(pu.username)) = TRIM(LOWER(?))
+              OR TRIM(LOWER(pu.matric_number)) = TRIM(LOWER(?))
+              OR TRIM(LOWER(ma.matric_number)) = TRIM(LOWER(?))
            LIMIT 1`,
-          [loginIdentifier,loginIdentifier],
+          [loginIdentifier,loginIdentifier,loginIdentifier],
         );
 
         if (pub.length) {
@@ -155,7 +158,7 @@ export async function doLogin(req, res) {
               full_name:
                 `${pub[0].first_name || ""} ${pub[0].last_name || ""}`.trim(),
             };
-            const usedMatricNumber=Boolean(pub[0].matric_number)&&loginIdentifier.toLowerCase()===String(pub[0].matric_number).trim().toLowerCase();
+            const usedMatricNumber=loginIdentifier.toLowerCase()!==String(pub[0].username||'').trim().toLowerCase();
             if(usedMatricNumber)req.session.publicUser.role='student';
             return res.redirect(usedMatricNumber||pub[0].role==='student'?'/student/dashboard':'/applicant/dashboard');
           }
@@ -787,6 +790,18 @@ export async function studentDashboard(req, res) {
       const payeeB = resolved.context?.username || publicUser?.username || "";
       const payeeC = resolved.context?.phone || publicUser?.phone || "";
       const payeeD = String(studentId);
+      const [aliasRows] = await pool.query(
+        `SELECT matric_number FROM matric_number_aliases WHERE public_user_id=?`,
+        [studentId],
+      );
+      const paymentIdentifiers = [...new Set([
+        payeeA,
+        payeeB,
+        payeeC,
+        payeeD,
+        ...(aliasRows || []).map(row => row.matric_number),
+      ].map(value => String(value || '').trim()).filter(Boolean))];
+      const identityPlaceholders = paymentIdentifiers.map(() => '?').join(',');
 
       let paidRows = [];
       let legacyPaidRows = [];
@@ -797,10 +812,10 @@ export async function studentDashboard(req, res) {
             SELECT payment_type_id, purpose, amount
             FROM payment_invoices
             WHERE status = 'PAID'
-              AND payee_id IN (?, ?, ?, ?)
+              AND payee_id IN (${identityPlaceholders})
               AND payment_type_id IN (?)
           `,
-          [payeeA, payeeB, payeeC, payeeD, resolvedIds],
+          [...paymentIdentifiers, resolvedIds],
         );
         paidRows = rows || [];
       }
@@ -813,17 +828,14 @@ export async function studentDashboard(req, res) {
             SELECT purpose, amount
             FROM payment_invoices
             WHERE status = 'PAID'
-              AND payee_id IN (?, ?, ?, ?)
+              AND payee_id IN (${identityPlaceholders})
               AND (payment_type_id IS NULL OR payment_type_id = 0)
               AND TRIM(COALESCE(purpose, '')) = 'School Fees'
               AND payment_meta LIKE '%"source":"legacy_student_payments"%'
               AND payment_meta LIKE ?
           `,
           [
-            payeeA,
-            payeeB,
-            payeeC,
-            payeeD,
+            ...paymentIdentifiers,
             `%"legacy_session":"${legacySessionName}"%`,
           ],
         );
@@ -858,11 +870,11 @@ export async function studentDashboard(req, res) {
             status,
             DATE(COALESCE(paid_at, created_at)) AS date
           FROM payment_invoices
-          WHERE payee_id IN (?, ?, ?, ?)
+          WHERE payee_id IN (${identityPlaceholders})
           ORDER BY id DESC
           LIMIT 4
         `,
-        [payeeA, payeeB, payeeC, payeeD],
+        paymentIdentifiers,
       );
 
       recentPayments = recentRows || [];
@@ -956,10 +968,16 @@ export async function studentPaymentHistory(req, res) {
     const stu = profileRows?.[0] || null;
     photo_path = stu?.photo_path || null;
 
+    const [aliasRows] = await pool.query(
+      `SELECT matric_number FROM matric_number_aliases WHERE public_user_id=?`,
+      [studentId],
+    );
+
     const studentIdentifiers = [
       stu?.matric_number,
       publicUser?.matric_number,
       studentId,
+      ...(aliasRows || []).map(row => row.matric_number),
     ]
       .map((value) => String(value ?? "").trim())
       .filter(Boolean)

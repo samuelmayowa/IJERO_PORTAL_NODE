@@ -138,6 +138,8 @@ router.post("/admissions/letter-printing", requireRole("admin","administrator","
 router.get("/admissions/matriculation", admissionRoles, admissionsCtrl.matriculationPage);
 router.post("/admissions/matriculation/:applicationId/generate", admissionRoles, admissionsCtrl.generateMatric);
 router.post("/admissions/matriculation/bulk", admissionRoles, admissionsCtrl.generateMatricBulk);
+router.get("/admissions/change-placement", admissionRoles, admissionsCtrl.changePlacementPage);
+router.post("/admissions/change-placement/:applicationId", admissionRoles, admissionsCtrl.changePlacement);
 router.get("/admissions/applicants/:id/edit", admissionRoles, applicantEditorCtrl.editPage);
 router.post("/admissions/applicants/:id/edit", admissionRoles, applicantEditorCtrl.updateApplicant);
 router.post("/admissions/applicants/:id/passport/:documentType", admissionRoles, uploadApplicationDocumentFile, validateParsedCsrf, applicantEditorCtrl.replacePassport);

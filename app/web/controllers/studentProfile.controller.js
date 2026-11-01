@@ -44,8 +44,8 @@ export async function loadStudentProfile(userId) {
   return rows.length ? rows[0] : null;
 }
 
-// Helper: load public user + derive email from username (since DB has no email column)
-// Also hydrate school/department/programme/level from student_imports (uploaded Excel).
+// Helper: load public user + authoritative academic placement from student_profiles.
+// student_imports remains a compatibility fallback for older uploaded students.
 async function getPublicUserWithEmail(userId) {
   // Base public_users data (now also pulling matric_number)
   const [[publicUser]] = await pool.query(
@@ -79,6 +79,22 @@ async function getPublicUserWithEmail(userId) {
   publicUser.programmeName = null;
   publicUser.levelName = null;
 
+  const [[academicProfile]] = await pool.query(
+    `SELECT sp.level,s.name school_name,d.name department_name,p.name programme_name
+       FROM student_profiles sp
+       LEFT JOIN schools s ON s.id=sp.school_id
+       LEFT JOIN departments d ON d.id=sp.department_id
+       LEFT JOIN programmes p ON p.id=sp.programme_id
+      WHERE sp.user_id=? LIMIT 1`,
+    [userId],
+  );
+  if (academicProfile) {
+    publicUser.schoolName = academicProfile.school_name || null;
+    publicUser.departmentName = academicProfile.department_name || null;
+    publicUser.programmeName = academicProfile.programme_name || null;
+    publicUser.levelName = academicProfile.level || null;
+  }
+
   // Try to pull academic data from student_imports.
   // We match by email and/or matric_number so either one can work.
   try {
@@ -105,10 +121,10 @@ async function getPublicUserWithEmail(userId) {
     if (rows.length) {
       const src = rows[0];
 
-      publicUser.schoolName      = src.school || null;
-      publicUser.departmentName  = src.department || null;
-      publicUser.programmeName   = src.programme || null;
-      publicUser.levelName       = src.student_level || null;
+      publicUser.schoolName ||= src.school || null;
+      publicUser.departmentName ||= src.department || null;
+      publicUser.programmeName ||= src.programme || null;
+      publicUser.levelName ||= src.student_level || null;
     }
   } catch (err) {
     console.error('Error loading academic info from student_imports:', err);
