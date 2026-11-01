@@ -3,6 +3,7 @@ export const ROLES = {
   STUDENT: 'student',
   STAFF: 'staff',
   ADMIN: 'admin',
+  ADMIN_ICT: 'adminict',
   HOD: 'hod',
   LECTURER: 'lecturer',
   DEAN: 'dean',
@@ -23,6 +24,7 @@ export const HOME_BY_ROLE = {
   student:  '/student/dashboard',
   staff:    '/staff/dashboard',
   admin:    '/staff/dashboard',
+  adminict: '/staff/dashboard',
 
   hod: '/staff/dashboard',
   lecturer: '/staff/dashboard',

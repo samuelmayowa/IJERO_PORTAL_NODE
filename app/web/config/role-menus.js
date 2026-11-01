@@ -32,6 +32,8 @@ export const ROLE_MENUS = {
 
   superadmin: null,
   administrator: null,
+  // Admin ICT is filtered by the granular staff-permission policy.
+  adminict: null,
 
   // Example HOD set kept from your current file
   hod: [

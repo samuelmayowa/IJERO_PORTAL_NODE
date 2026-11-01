@@ -197,7 +197,7 @@ export function redirectByRole(userOrRole) {
   role = String(role || '').toLowerCase();
 
   const staffRoles = new Set([
-    'admin', 'administrator', 'superadmin',
+    'admin', 'adminict', 'administrator', 'superadmin',
     'staff',
     'lecturer', 'lecturer', 'teaching',
     'h.o.d', 'hod', 'head of department',

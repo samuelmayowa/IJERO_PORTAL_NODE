@@ -119,7 +119,7 @@ async function resolveStaff(req) {
 
 function scopeForRole(role) {
   const r = toLower(role);
-  if (['admin', 'registry', 'bursary'].includes(r)) return { totals: 'all', regs: 'all' };
+  if (['admin', 'adminict', 'administrator', 'superadmin', 'registry', 'bursary'].includes(r)) return { totals: 'all', regs: 'all' };
   if (r === 'hod') return { totals: 'department', regs: 'department' };
   if (r === 'dean') return { totals: 'school', regs: 'school' };
   if (r === 'lecturer') return { totals: 'department', regs: 'lecturerCourses' };

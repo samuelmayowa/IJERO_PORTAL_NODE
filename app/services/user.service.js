@@ -15,8 +15,8 @@ function hydrateUserRow(row) {
     .filter(Boolean);
 
   const priority = [
-    'superadmin','administrator','admin','adminict','staff','hod','lecturer','dean','ict','bursary','registry',
-    'admission officer','auditor','health center','works','library','provost','student union','student','applicant'
+    'superadmin','administrator','admin','adminict','hod','lecturer','dean','ict','bursary','registry',
+    'admission officer','auditor','health center','works','library','provost','student union','staff','student','applicant'
   ];
   const primary = priority.find(candidate => roles.some(r => r.toLowerCase() === candidate)) || roles[0] || 'staff';
 

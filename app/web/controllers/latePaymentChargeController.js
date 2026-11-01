@@ -47,7 +47,7 @@ function getStaffUser(req, res) {
 function isAdmin(req, res) {
   const user = getStaffUser(req, res);
   const role = clean(user?.role || user?.role_name || user?.type).toLowerCase();
-  return role === "admin" || role === "administrator" || role === "portal administrator";
+  return role === "admin" || role === "adminict" || role === "administrator" || role === "portal administrator";
 }
 
 function requireAdmin(req, res) {

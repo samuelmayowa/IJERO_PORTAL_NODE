@@ -60,7 +60,7 @@ export async function viewAssignedCoursesPage(req, res) {
     // only my assigned courses
     where += ' AND ca.staff_id = ?';
     params.push(userId);
-  } else if (role === 'admin' || role === 'registry') {
+  } else if (role === 'admin' || role === 'adminict' || role === 'administrator' || role === 'superadmin' || role === 'registry') {
     // see everything — no extra filter
   } else if (userId) {
     // default: behave like lecturer (only my assignments)

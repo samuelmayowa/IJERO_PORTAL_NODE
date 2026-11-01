@@ -31,7 +31,7 @@ function requireAdmin(req, res) {
       ''
   ).toLowerCase();
 
-  const allowed = ['admin', 'portal administrator', 'ict'];
+  const allowed = ['admin', 'adminict', 'portal administrator', 'ict'];
   if (!allowed.includes(role)) {
     req.flash('error', 'You are not allowed to manage lecture venues.');
     res.redirect('/staff/dashboard');

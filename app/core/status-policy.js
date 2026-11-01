@@ -46,7 +46,7 @@ export function isLoginAllowed(status, role = '') {
   const r = String(role || '').toLowerCase();
   const s = String(status || '').toUpperCase();
 
-  if (r === 'staff' || r === 'admin' || r === 'hod' || r === 'lecturer' || r === 'dean' ||
+  if (r === 'staff' || r === 'admin' || r === 'adminict' || r === 'administrator' || r === 'superadmin' || r === 'hod' || r === 'lecturer' || r === 'dean' ||
       r === 'ict' || r === 'bursary' || r === 'registry' || r === 'admission officer' ||
       r === 'auditor' || r === 'health center' || r === 'works' || r === 'library' ||
       r === 'provost' || r === 'student union') {

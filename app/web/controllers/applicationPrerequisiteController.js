@@ -23,6 +23,7 @@ function isAdmin(req, res) {
 
   return (
     role === "admin" ||
+    role === "adminict" ||
     role === "administrator" ||
     role === "portal administrator"
   );

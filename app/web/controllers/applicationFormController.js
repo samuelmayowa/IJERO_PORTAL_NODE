@@ -117,12 +117,13 @@ function isAdmin(req, res) {
 
   return (
     role === "admin" ||
+    role === "adminict" ||
     role === "administrator" ||
     role === "portal administrator"
   );
 }
 
-function canManageApplicationForms(req,res){const user=getStaffUser(req,res);const role=clean(user?.role||user?.role_name||user?.type).toLowerCase();return ['admin','administrator','portal administrator','superadmin','bursary','bursar'].includes(role)}
+function canManageApplicationForms(req,res){const user=getStaffUser(req,res);const role=clean(user?.role||user?.role_name||user?.type).toLowerCase();return ['admin','adminict','administrator','portal administrator','superadmin','bursary','bursar'].includes(role)}
 
 function requireAdmin(req, res) {
   if (canManageApplicationForms(req,res)) return true;

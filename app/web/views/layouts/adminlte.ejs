@@ -157,7 +157,9 @@
         const roleCandidates = [
           'admin','staff','lecturer','hod','dean','bursary','registry','admission officer','ict','student','applicant'
         ];
-        const roleFile = roleCandidates.includes(_role) ? _role : 'staff';
+        // Admin ICT shares the administrative navigation shell; granular
+        // permissions still decide which links and routes are available.
+        const roleFile = _role === 'adminict' ? 'admin' : (roleCandidates.includes(_role) ? _role : 'staff');
 
         // Ensure currentPath & allowedModules always exist for partials
         const _currentPath = (typeof currentPath === 'string') ? currentPath : '';
