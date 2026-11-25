@@ -41,6 +41,18 @@ const cardStatusSql = `CASE
    AND UPPER(COALESCE(sp.academic_status,''))='ACTIVE'
   THEN 'ACTIVE' ELSE 'INACTIVE' END`;
 
+const studentFrom = `
+    FROM public_users pu
+    JOIN student_id_cards sic ON sic.public_user_id=pu.id
+    LEFT JOIN student_profiles sp ON sp.user_id=pu.id
+    LEFT JOIN schools s ON s.id=sp.school_id
+    LEFT JOIN departments d ON d.id=sp.department_id
+    LEFT JOIN programmes p ON p.id=sp.programme_id
+    LEFT JOIN student_imports si ON si.id=COALESCE(
+      (SELECT MAX(si2.id) FROM student_imports si2 WHERE si2.matric_number=pu.matric_number),
+      (SELECT MAX(si3.id) FROM student_imports si3 WHERE si3.student_email=pu.username)
+    )`;
+
 const studentSelect = `
   SELECT pu.id public_user_id,pu.first_name,pu.middle_name,pu.last_name,
          pu.matric_number,pu.username email,pu.status public_status,
@@ -53,18 +65,7 @@ const studentSelect = `
          COALESCE(NULLIF(p.name,''),NULLIF(si.programme,''),'') effective_programme,
          sic.public_code,sic.is_enabled,sic.created_at card_created_at,
          ${cardStatusSql} card_status
-    FROM public_users pu
-    JOIN student_id_cards sic ON sic.public_user_id=pu.id
-    LEFT JOIN student_profiles sp ON sp.user_id=pu.id
-    LEFT JOIN schools s ON s.id=sp.school_id
-    LEFT JOIN departments d ON d.id=sp.department_id
-    LEFT JOIN programmes p ON p.id=sp.programme_id
-    LEFT JOIN student_imports si ON si.id=(
-      SELECT si2.id FROM student_imports si2
-       WHERE (pu.matric_number IS NOT NULL AND si2.matric_number=pu.matric_number)
-          OR (pu.username IS NOT NULL AND si2.student_email=pu.username)
-       ORDER BY si2.id DESC LIMIT 1
-    )`;
+    ${studentFrom}`;
 
 function mapStudent(row) {
   if (!row) return null;
@@ -101,7 +102,11 @@ export async function listStudentCards({ search = "", status = "", limit = 100, 
   const pageSql = boundedLimit == null ? "" : " LIMIT ? OFFSET ?";
   const pageParams = boundedLimit == null ? params : [...params, boundedLimit, boundedOffset];
   const [[countRows], [rows]] = await Promise.all([
-    pool.query(`SELECT COUNT(*) total FROM (${studentSelect} WHERE ${whereSql}) student_cards`, params),
+    pool.query(`SELECT COUNT(*) total
+      FROM public_users pu
+      JOIN student_id_cards sic ON sic.public_user_id=pu.id
+      LEFT JOIN student_profiles sp ON sp.user_id=pu.id
+      WHERE ${whereSql}`, params),
     pool.query(`${studentSelect} WHERE ${whereSql} ORDER BY pu.last_name,pu.first_name,pu.id${pageSql}`, pageParams),
   ]);
   const mapped = rows.map(mapStudent);
