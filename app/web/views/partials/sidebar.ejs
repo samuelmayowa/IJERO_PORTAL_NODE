@@ -270,6 +270,7 @@ const inAttendance = cur.startsWith('/staff/attendance');
           <li class="nav-item"><a href="/staff/lecture-time"         class="nav-link <%= cur.startsWith('/staff/lecture-time') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Set lecture time</p></a></li>
           <li class="nav-item"><a href="/staff/exams/date"         class="nav-link <%= cur.startsWith('/staff/exams/date') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Set Exam Date</p></a></li>
           <li class="nav-item"><a href="/staff/students/edit"           class="nav-link <%= cur.startsWith('/staff/students/edit') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Edit Student</p></a></li>
+          <% if (['admin','administrator','superadmin','adminict'].includes(role)) { %><li class="nav-item"><a href="/staff/student-id-cards" class="nav-link <%= cur.startsWith('/staff/student-id-cards') ? 'active' : '' %>"><i class="fas fa-id-card nav-icon"></i><p>Student ID Cards</p></a></li><% } %>
           <li class="nav-item"><a href="/staff/students/reset-password" class="nav-link <%= cur.startsWith('/staff/students/reset-password') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>Reset Password</p></a></li>
           <li class="nav-item"><a href="/staff/students/utme"           class="nav-link <%= cur.startsWith('/staff/students/utme') ? 'active' : '' %>"><i class="far fa-circle nav-icon"></i><p>UTME DATA</p></a></li>
           <li class="nav-item">

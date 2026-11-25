@@ -68,6 +68,7 @@ import resultsUploadRoutes from "./app/web/routes/results-upload.routes.js";
 import studentResultsRoutes from "./app/web/routes/student-results.routes.js";
 import staffResultsApprovalRoutes from "./app/web/routes/staff/results-approval.routes.js";
 import staffResultsReportsRoutes from "./app/web/routes/staff/results-reports.routes.js";
+import studentIdCardRoutes from "./app/web/routes/student-id-card.routes.js";
 
 // -------------------------------------------------------------
 // INITIALIZATION
@@ -391,6 +392,7 @@ function ensureUserForViews(req, res, next) {
 // ROUTES
 // -------------------------------------------------------------
 app.get("/", (_req, res) => res.render("pages/landing"));
+app.use("/", studentIdCardRoutes);
 app.use("/", authRoutes);
 app.use("/", vacancyRoutes);
 
