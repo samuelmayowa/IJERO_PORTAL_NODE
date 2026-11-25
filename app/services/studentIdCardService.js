@@ -93,10 +93,15 @@ function mapStudent(row) {
   };
 }
 
-export async function listStudentCards({ search = "", status = "", limit = 100, offset = 0 } = {}) {
+export async function listStudentCards({ search = "", status = "", ids = [], limit = 100, offset = 0 } = {}) {
   await ensureStudentCards();
   const where = [`(pu.role='student' OR EXISTS (SELECT 1 FROM portal_user_roles pur WHERE pur.public_user_id=pu.id AND pur.role='student'))`];
   const params = [];
+  const selectedIds = [...new Set((Array.isArray(ids) ? ids : [ids]).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))];
+  if (selectedIds.length) {
+    where.push(`pu.id IN (${selectedIds.map(() => "?").join(",")})`);
+    params.push(...selectedIds);
+  }
   const q = clean(search);
   if (q) {
     where.push(`(pu.matric_number LIKE ? OR pu.username LIKE ? OR CONCAT_WS(' ',pu.first_name,pu.middle_name,pu.last_name) LIKE ?)`);

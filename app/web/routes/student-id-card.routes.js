@@ -23,6 +23,8 @@ router.get("/verify/student/:code", controller.publicVerification);
 router.get("/verify/student/:code/photo", controller.publicPhoto);
 router.get("/staff/student-id-cards", adminOnly, controller.adminList);
 router.get("/staff/student-id-cards/export.xlsx", adminOnly, controller.exportExcel);
+router.post("/staff/student-id-cards/download-selected.zip", adminOnly, controller.downloadSelectedQrZip);
+router.get("/staff/student-id-cards/download-all.zip", adminOnly, controller.downloadAllQrZip);
 router.get("/staff/student-id-cards/:id", adminOnly, controller.adminCard);
 router.get("/staff/student-id-cards/:id/qr.svg", adminOnly, controller.downloadQr);
 

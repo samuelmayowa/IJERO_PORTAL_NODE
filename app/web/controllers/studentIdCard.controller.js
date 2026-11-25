@@ -1,4 +1,5 @@
 import XLSX from "xlsx";
+import archiver from "archiver";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -35,6 +36,22 @@ function permittedApplicationPhoto(filePath) {
   const root = path.resolve("app/uploads/applications");
   const file = path.resolve(filePath);
   return file.startsWith(`${root}${path.sep}`) && fs.existsSync(file) ? file : null;
+}
+
+async function sendQrZip(req, res, rows, filename) {
+  res.set({
+    "Content-Type": "application/zip",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "private, no-store",
+  });
+  const archive = archiver("zip", { zlib: { level: 6 } });
+  archive.pipe(res);
+  for (const student of rows) {
+    const svg = labelledQrSvg(verificationUrl(req, student.public_code), student.matric_number);
+    const identity = student.matric_number || `STUDENT-${student.public_user_id}`;
+    archive.append(svg, { name: `IDCARD_${safeFilenamePart(identity)}_QR.svg` });
+  }
+  await archive.finalize();
 }
 
 export async function publicVerification(req, res, next) {
@@ -86,6 +103,28 @@ export async function downloadQr(req, res, next) {
     const filename = `IDCARD_${safeFilenamePart(student.matric_number)}_QR.svg`;
     res.set({ "Content-Type": "image/svg+xml; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" });
     return res.send(svg);
+  } catch (error) { return next(error); }
+}
+
+export async function downloadSelectedQrZip(req, res, next) {
+  try {
+    const rawIds = Array.isArray(req.body?.student_ids) ? req.body.student_ids : [req.body?.student_ids];
+    const ids = [...new Set(rawIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))];
+    if (!ids.length) return res.status(400).send("Select at least one student before downloading.");
+    if (ids.length > 10000) return res.status(400).send("Too many student records were selected.");
+    const { allRows } = await listStudentCards({ ids, limit: null });
+    if (!allRows.length) return res.status(404).send("No matching student ID cards were found.");
+    return await sendQrZip(req, res, allRows, "selected-student-id-qrcodes.zip");
+  } catch (error) { return next(error); }
+}
+
+export async function downloadAllQrZip(req, res, next) {
+  try {
+    const search = String(req.query.q || "").trim();
+    const status = String(req.query.status || "").trim().toUpperCase();
+    const { allRows } = await listStudentCards({ search, status, limit: null });
+    if (!allRows.length) return res.status(404).send("No matching student ID cards were found.");
+    return await sendQrZip(req, res, allRows, "all-student-id-qrcodes.zip");
   } catch (error) { return next(error); }
 }
 

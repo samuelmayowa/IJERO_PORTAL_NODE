@@ -1,1 +1,49 @@
-<div class="card card-outline card-success"><div class="card-header"><h3 class="card-title"><i class="fas fa-id-card mr-2"></i>Student ID cards</h3></div><div class="card-body"><form class="form-row align-items-end mb-3" method="get"><div class="col-md-5"><label>Search</label><input class="form-control" name="q" value="<%= q %>" placeholder="Name, matric number or email"></div><div class="col-md-3"><label>Status</label><select class="form-control" name="status"><option value="">All statuses</option><option value="ACTIVE" <%= status==='ACTIVE'?'selected':'' %>>Active</option><option value="INACTIVE" <%= status==='INACTIVE'?'selected':'' %>>Inactive</option></select></div><div class="col-md-4"><button class="btn btn-success mr-2">Apply</button><a class="btn btn-outline-success" href="/staff/student-id-cards/export.xlsx?<%= new URLSearchParams({q,status}).toString() %>"><i class="fas fa-file-excel mr-1"></i>Download Excel</a></div></form><p class="text-muted"><%= total %> student card record<%= total===1?'':'s' %>. QR downloads are restricted to administrators.</p></div><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Student</th><th>Matric number</th><th>Programme</th><th>Level</th><th>Status</th><th></th></tr></thead><tbody><% if(!rows.length){ %><tr><td colspan="6" class="text-center text-muted py-4">No student records match this search.</td></tr><% } rows.forEach(student=>{ %><tr><td><strong><%= student.full_name %></strong><br><small class="text-muted"><%= student.department %></small></td><td><%= student.matric_number||'Not recorded' %></td><td><%= student.programme %></td><td><%= student.level %></td><td><span class="badge badge-<%= student.card_status==='ACTIVE'?'success':'danger' %>"><%= student.card_status %></span></td><td class="text-right"><a class="btn btn-sm btn-outline-success" href="/staff/student-id-cards/<%= student.public_user_id %>">Preview</a> <a class="btn btn-sm btn-success" href="/staff/student-id-cards/<%= student.public_user_id %>/qr.svg">Download QR</a></td></tr><% }) %></tbody></table></div><% if(pages>1){ %><div class="card-footer d-flex justify-content-between"><span>Page <%= page %> of <%= pages %></span><div><% if(page>1){ %><a class="btn btn-sm btn-outline-secondary" href="?q=<%= encodeURIComponent(q) %>&status=<%= encodeURIComponent(status) %>&page=<%= page-1 %>">Previous</a><% } if(page<pages){ %><a class="btn btn-sm btn-outline-secondary" href="?q=<%= encodeURIComponent(q) %>&status=<%= encodeURIComponent(status) %>&page=<%= page+1 %>">Next</a><% } %></div></div><% } %></div>
+<div class="card card-outline card-success">
+  <div class="card-header"><h3 class="card-title"><i class="fas fa-id-card mr-2"></i>Student ID cards</h3></div>
+  <div class="card-body">
+    <form class="form-row align-items-end mb-3" method="get">
+      <div class="col-md-5"><label>Search</label><input class="form-control" name="q" value="<%= q %>" placeholder="Name, matric number or email"></div>
+      <div class="col-md-3"><label>Status</label><select class="form-control" name="status"><option value="">All statuses</option><option value="ACTIVE" <%= status==='ACTIVE'?'selected':'' %>>Active</option><option value="INACTIVE" <%= status==='INACTIVE'?'selected':'' %>>Inactive</option></select></div>
+      <div class="col-md-4"><button class="btn btn-success mr-2">Apply</button><a class="btn btn-outline-success" href="/staff/student-id-cards/export.xlsx?<%= new URLSearchParams({q,status}).toString() %>"><i class="fas fa-file-excel mr-1"></i>Download Excel</a></div>
+    </form>
+    <div class="d-flex flex-wrap align-items-center mb-3">
+      <button type="submit" form="selectedQrForm" id="downloadSelected" class="btn btn-success mr-2 mb-2" disabled><i class="fas fa-file-archive mr-1"></i>Download selected</button>
+      <a class="btn btn-outline-success mb-2" href="/staff/student-id-cards/download-all.zip?<%= new URLSearchParams({q,status}).toString() %>"><i class="fas fa-file-archive mr-1"></i>Download all</a>
+      <span id="selectedCount" class="text-muted ml-3 mb-2">0 selected</span>
+    </div>
+    <p class="text-muted"><%= total %> student card record<%= total===1?'':'s' %>. ZIP and individual QR downloads are restricted to administrators.</p>
+  </div>
+  <form id="selectedQrForm" method="post" action="/staff/student-id-cards/download-selected.zip">
+    <input type="hidden" name="_csrf" value="<%= csrfToken||'' %>">
+    <div class="table-responsive"><table class="table table-hover mb-0">
+      <thead><tr><th style="width:42px"><input type="checkbox" id="selectPage" aria-label="Select all students on this page"></th><th>Student</th><th>Matric number</th><th>Programme</th><th>Level</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <% if(!rows.length){ %><tr><td colspan="7" class="text-center text-muted py-4">No student records match this search.</td></tr><% } %>
+        <% rows.forEach(student=>{ %><tr>
+          <td><input class="student-select" type="checkbox" name="student_ids" value="<%= student.public_user_id %>" aria-label="Select <%= student.full_name %>"></td>
+          <td><strong><%= student.full_name %></strong><br><small class="text-muted"><%= student.department %></small></td><td><%= student.matric_number||'Not recorded' %></td><td><%= student.programme %></td><td><%= student.level %></td><td><span class="badge badge-<%= student.card_status==='ACTIVE'?'success':'danger' %>"><%= student.card_status %></span></td>
+          <td class="text-right"><a class="btn btn-sm btn-outline-success" href="/staff/student-id-cards/<%= student.public_user_id %>">Preview</a> <a class="btn btn-sm btn-success" href="/staff/student-id-cards/<%= student.public_user_id %>/qr.svg">Download QR</a></td>
+        </tr><% }) %>
+      </tbody>
+    </table></div>
+  </form>
+  <% if(pages>1){ %><div class="card-footer d-flex justify-content-between"><span>Page <%= page %> of <%= pages %></span><div><% if(page>1){ %><a class="btn btn-sm btn-outline-secondary" href="?q=<%= encodeURIComponent(q) %>&status=<%= encodeURIComponent(status) %>&page=<%= page-1 %>">Previous</a><% } if(page<pages){ %><a class="btn btn-sm btn-outline-secondary" href="?q=<%= encodeURIComponent(q) %>&status=<%= encodeURIComponent(status) %>&page=<%= page+1 %>">Next</a><% } %></div></div><% } %>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const selectPage = document.getElementById('selectPage');
+  const boxes = Array.from(document.querySelectorAll('.student-select'));
+  const button = document.getElementById('downloadSelected');
+  const count = document.getElementById('selectedCount');
+  function refreshSelection() {
+    const selected = boxes.filter(box => box.checked).length;
+    button.disabled = selected === 0;
+    count.textContent = selected + ' selected';
+    selectPage.checked = boxes.length > 0 && selected === boxes.length;
+    selectPage.indeterminate = selected > 0 && selected < boxes.length;
+  }
+  selectPage.addEventListener('change', function () { boxes.forEach(box => { box.checked = selectPage.checked; }); refreshSelection(); });
+  boxes.forEach(box => box.addEventListener('change', refreshSelection));
+  refreshSelection();
+});
+</script>
