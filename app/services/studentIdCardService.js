@@ -48,6 +48,17 @@ const studentFrom = `
     LEFT JOIN schools s ON s.id=sp.school_id
     LEFT JOIN departments d ON d.id=sp.department_id
     LEFT JOIN programmes p ON p.id=sp.programme_id
+    LEFT JOIN student_photos sph ON sph.id=(
+      SELECT sph2.id FROM student_photos sph2
+       WHERE sph2.student_id=pu.id AND sph2.photo_type='PROFILE'
+       ORDER BY sph2.uploaded_at DESC,sph2.id DESC LIMIT 1
+    )
+    LEFT JOIN application_documents adoc ON adoc.id=(
+      SELECT MAX(adoc2.id) FROM application_documents adoc2
+       WHERE adoc2.uploaded_by_applicant_user_id=pu.id
+         AND adoc2.document_type='PASSPORT'
+         AND adoc2.is_current=1 AND adoc2.deleted_at IS NULL
+    )
     LEFT JOIN student_imports si ON si.id=COALESCE(
       (SELECT MAX(si2.id) FROM student_imports si2 WHERE si2.matric_number=pu.matric_number),
       (SELECT MAX(si3.id) FROM student_imports si3 WHERE si3.student_email=pu.username)
@@ -56,7 +67,8 @@ const studentFrom = `
 const studentSelect = `
   SELECT pu.id public_user_id,pu.first_name,pu.middle_name,pu.last_name,
          pu.matric_number,pu.username email,pu.status public_status,
-         sp.photo_path,sp.level,sp.academic_status,
+         COALESCE(NULLIF(sph.file_path,''),NULLIF(sp.photo_path,'')) photo_path,
+         adoc.storage_path application_photo_path,sp.level,sp.academic_status,
          s.name school_name,d.name department_name,p.name programme_name,
          COALESCE(NULLIF(si.year_of_entry,''),'') year_of_entry,
          COALESCE(NULLIF(sp.level,''),NULLIF(si.student_level,''),'') effective_level,

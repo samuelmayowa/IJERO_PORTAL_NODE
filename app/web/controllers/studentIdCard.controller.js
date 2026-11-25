@@ -1,4 +1,5 @@
 import XLSX from "xlsx";
+import path from "node:path";
 import {
   cardQrDataUrl,
   exportRows,
@@ -16,12 +17,30 @@ function positiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function studentPhotoUrl(student, url) {
+  if (student?.photo_path) return `/public${String(student.photo_path).replace(/^\/public/, "")}`;
+  return student?.application_photo_path ? `${url}/photo` : "/public/img/avatar.png";
+}
+
 export async function publicVerification(req, res, next) {
   try {
     res.set({ "Cache-Control": "private, no-store, max-age=0", "X-Robots-Tag": "noindex, nofollow, noarchive" });
     const student = await getStudentCardByCode(req.params.code);
     if (!student) return res.status(404).render("pages/student-id-verification", { layout: false, title: "Student ID Verification", student: null, ...institutionDetails() });
-    return res.render("pages/student-id-verification", { layout: false, title: "Student ID Verification", student, ...institutionDetails() });
+    const url = verificationUrl(req, student.public_code);
+    return res.render("pages/student-id-verification", { layout: false, title: "Student ID Verification", student, photoUrl: studentPhotoUrl(student, url), ...institutionDetails() });
+  } catch (error) { return next(error); }
+}
+
+export async function publicPhoto(req, res, next) {
+  try {
+    const student = await getStudentCardByCode(req.params.code);
+    if (!student?.application_photo_path || student.photo_path) return res.status(404).send("Student photograph not found.");
+    const root = path.resolve("app/uploads/applications");
+    const file = path.resolve(student.application_photo_path);
+    if (file !== root && !file.startsWith(`${root}${path.sep}`)) return res.status(403).send("Photograph path is not permitted.");
+    res.set({ "Cache-Control": "private, no-store, max-age=0", "X-Robots-Tag": "noindex, nofollow, noarchive" });
+    return res.sendFile(file);
   } catch (error) { return next(error); }
 }
 
@@ -42,7 +61,7 @@ export async function adminCard(req, res, next) {
     if (!student) return res.status(404).send("Student ID card not found.");
     const url = verificationUrl(req, student.public_code);
     const qrDataUrl = await cardQrDataUrl(url);
-    return res.render("pages/staff/student-id-card-detail", { layout: "layouts/adminlte", title: "Student ID Card", pageTitle: "Student ID Card", student, verificationUrl: url, qrDataUrl, ...institutionDetails() });
+    return res.render("pages/staff/student-id-card-detail", { layout: "layouts/adminlte", title: "Student ID Card", pageTitle: "Student ID Card", student, verificationUrl: url, photoUrl: studentPhotoUrl(student, url), qrDataUrl, ...institutionDetails() });
   } catch (error) { return next(error); }
 }
 

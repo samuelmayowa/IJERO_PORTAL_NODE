@@ -20,6 +20,7 @@ const adminOnly = (req, res, next) => {
 };
 
 router.get("/verify/student/:code", controller.publicVerification);
+router.get("/verify/student/:code/photo", controller.publicPhoto);
 router.get("/staff/student-id-cards", adminOnly, controller.adminList);
 router.get("/staff/student-id-cards/export.xlsx", adminOnly, controller.exportExcel);
 router.get("/staff/student-id-cards/:id", adminOnly, controller.adminCard);
