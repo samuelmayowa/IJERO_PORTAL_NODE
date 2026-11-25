@@ -1,4 +1,5 @@
 import XLSX from "xlsx";
+import fs from "node:fs";
 import path from "node:path";
 import {
   cardQrDataUrl,
@@ -18,8 +19,22 @@ function positiveInt(value, fallback) {
 }
 
 function studentPhotoUrl(student, url) {
-  if (student?.photo_path) return `/public${String(student.photo_path).replace(/^\/public/, "")}`;
-  return student?.application_photo_path ? `${url}/photo` : "/public/img/avatar.png";
+  return student ? `${url}/photo` : "/public/img/avatar.png";
+}
+
+function permittedProfilePhoto(filePath) {
+  const value = String(filePath || "");
+  if (!value.startsWith("/uploads/students/")) return null;
+  const root = path.resolve("app/web/public/uploads/students");
+  const file = path.resolve("app/web/public", value.replace(/^\/+/, ""));
+  return file.startsWith(`${root}${path.sep}`) && fs.existsSync(file) ? file : null;
+}
+
+function permittedApplicationPhoto(filePath) {
+  if (!filePath) return null;
+  const root = path.resolve("app/uploads/applications");
+  const file = path.resolve(filePath);
+  return file.startsWith(`${root}${path.sep}`) && fs.existsSync(file) ? file : null;
 }
 
 export async function publicVerification(req, res, next) {
@@ -35,12 +50,10 @@ export async function publicVerification(req, res, next) {
 export async function publicPhoto(req, res, next) {
   try {
     const student = await getStudentCardByCode(req.params.code);
-    if (!student?.application_photo_path || student.photo_path) return res.status(404).send("Student photograph not found.");
-    const root = path.resolve("app/uploads/applications");
-    const file = path.resolve(student.application_photo_path);
-    if (file !== root && !file.startsWith(`${root}${path.sep}`)) return res.status(403).send("Photograph path is not permitted.");
     res.set({ "Cache-Control": "private, no-store, max-age=0", "X-Robots-Tag": "noindex, nofollow, noarchive" });
-    return res.sendFile(file);
+    if (!student) return res.status(404).send("Student photograph not found.");
+    const file = permittedProfilePhoto(student.photo_path) || permittedApplicationPhoto(student.application_photo_path);
+    return res.sendFile(file || path.resolve("app/web/public/img/avatar.png"));
   } catch (error) { return next(error); }
 }
 
